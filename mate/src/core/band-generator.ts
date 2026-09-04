@@ -1,38 +1,43 @@
-import { GENRES } from "@aibleton/protocol";
-import type { BandPart, Genre, Role } from "@aibleton/protocol";
+import { BandRecipeSchema, genreKey } from "@aibleton/protocol";
+import type { BandPart, BandRecipe, Role } from "@aibleton/protocol";
 import { mulberry32 } from "./rng.ts";
 
 /**
- * How one genre staffs a band.
+ * The staffing half of a built-in recipe, before it is filed under its genre.
+ * Roles are typed so the table is checked while authoring; recipes written by
+ * the model use free-text roles and go through `BandRecipeSchema` instead.
  *
- * `names` and `briefs` are parallel per role: the brief at index `i` describes
- * the instrument named at index `i`, so a "clav" never gets told to swirl its
- * drawbars. Where the arrays differ in length the brief index wraps.
+ * `anchors`: how many leading `names` entries a *core* slot may be drawn from,
+ * per role. Pools are ordered archetype-first, so a rock band's one guitar is
+ * the rhythm guitar and the lead only turns up as a second one. Defaults to
+ * the role's core multiplicity; widen it where every head-of-pool name is
+ * equally foundational (any of the three funk kits will do).
  */
-export interface BandRecipe {
-  /** Always staffed, in this order — this is the track order in Ableton. A role may repeat (metal has two guitars). */
+interface BuiltinRecipe {
   core: Role[];
-  /** Drawn by weight, without replacement, until `size` is met. A role may repeat a core role. */
   optional: { role: Role; weight: number }[];
-  /** Display names per role, drawn without replacement so duplicate roles read differently. */
   names: Partial<Record<Role, string[]>>;
-  /** Splice prompt text per role, paired by index with `names`. */
   briefs: Partial<Record<Role, string[]>>;
-  /**
-   * How many leading `names` entries a *core* slot may be drawn from, per role.
-   * Pools are ordered archetype-first, so a rock band's one guitar is the rhythm
-   * guitar and the lead only turns up as a second one. Defaults to the role's
-   * core multiplicity; widen it where every head-of-pool name is equally
-   * foundational (any of the three funk kits will do).
-   */
   anchors?: Partial<Record<Role, number>>;
+}
+
+/**
+ * Genres that ship with mate, in the order the seed draws from when no genre
+ * is given. Append only: reordering reshuffles every existing seed.
+ */
+export const BUILTIN_GENRES = ["funk", "jazz", "rock", "metal", "house", "hiphop", "ambient", "reggae"] as const;
+export type BuiltinGenre = (typeof BUILTIN_GENRES)[number];
+
+/** Looks a recipe up by genre; `RecipeBook` is the real one, tests pass a map. */
+export interface RecipeLookup {
+  get(genre: string): BandRecipe | undefined;
 }
 
 export interface GenerateBandOptions {
   /** Any integer. Same seed + options => identical band. */
   seed: number;
-  /** Omit to let the seed pick one from GENRES. */
-  genre?: Genre;
+  /** Omit to let the seed pick one of BUILTIN_GENRES. Otherwise any genre `recipes` knows. */
+  genre?: string;
   /** Total parts. Clamped to what the genre recipe can staff. */
   size?: number;
 }
@@ -77,10 +82,11 @@ export function partId(role: string, name: string, taken: Set<string>): string {
 }
 
 /**
- * The recipe table: who plays in each genre, what they are called and how they
- * are asked to sound. This is data — `generateBand` has no per-genre branches.
+ * The built-in recipe table: who plays in each genre, what they are called and
+ * how they are asked to sound. This is data — `generateBand` has no per-genre
+ * branches.
  */
-export const RECIPES: Record<Genre, BandRecipe> = {
+const BUILTIN_TABLE: Record<BuiltinGenre, BuiltinRecipe> = {
   funk: {
     core: ["drums", "bass", "guitar", "keys"],
     anchors: { drums: 3, bass: 3, guitar: 3, keys: 3 },
@@ -578,10 +584,25 @@ export const RECIPES: Record<Genre, BandRecipe> = {
   },
 };
 
+/** The built-in recipes as documents, keyed by genre. */
+export const BUILTIN_RECIPES: ReadonlyMap<string, BandRecipe> = new Map(
+  BUILTIN_GENRES.map((genre) => [
+    genre,
+    BandRecipeSchema.parse({
+      id: genreKey(genre),
+      genre,
+      ...BUILTIN_TABLE[genre],
+      anchors: BUILTIN_TABLE[genre].anchors ?? {},
+      source: "builtin",
+      createdAt: 0,
+    }),
+  ]),
+);
+
 /** Picks `count` roles from `optional` by weight, without replacement, in pick order. */
-function pickOptional(optional: BandRecipe["optional"], count: number, rng: () => number): Role[] {
+function pickOptional(optional: BandRecipe["optional"], count: number, rng: () => number): string[] {
   const pool = [...optional];
-  const picked: Role[] = [];
+  const picked: string[] = [];
   for (let i = 0; i < count && pool.length > 0; i++) {
     const total = pool.reduce((n, entry) => n + entry.weight, 0);
     let index = pool.length - 1;
@@ -617,20 +638,19 @@ function pickOptional(optional: BandRecipe["optional"], count: number, rng: () =
  * `createdAt`, the way `defaultSections` leaves those to the route.
  * `emphasis` is left unset — that field is reserved and nothing reads it.
  *
- * @throws if the seed is not a whole number, `size` is below 1, or the genre is unknown.
+ * @throws if the seed is not a whole number, `size` is below 1, or `recipes` has no recipe for the genre.
  */
-export function generateBand(opts: GenerateBandOptions): { parts: BandPart[]; metadata: Record<string, string> } {
+export function generateBand(opts: GenerateBandOptions, recipes: RecipeLookup = BUILTIN_RECIPES): { parts: BandPart[]; metadata: Record<string, string> } {
   if (!Number.isInteger(opts.seed)) throw new Error(`seed must be a whole number, got ${opts.seed}`);
   if (opts.size !== undefined) requireInt(opts.size, "size", 1);
-  if (opts.genre !== undefined && !GENRES.includes(opts.genre)) {
-    throw new Error(`genre ${JSON.stringify(opts.genre)} is not one of ${GENRES.join(", ")}`);
-  }
 
   const rng = mulberry32(opts.seed);
 
-  const seededGenre = GENRES[Math.floor(rng() * GENRES.length) % GENRES.length]!;
-  const genre = opts.genre ?? seededGenre;
-  const recipe = RECIPES[genre];
+  // Always drawn, so an explicit genre that matches the seeded one changes nothing.
+  const seededGenre = BUILTIN_GENRES[Math.floor(rng() * BUILTIN_GENRES.length) % BUILTIN_GENRES.length]!;
+  const recipe = opts.genre !== undefined ? recipes.get(opts.genre) : recipes.get(seededGenre);
+  if (!recipe) throw new Error(`no recipe for genre ${JSON.stringify(opts.genre ?? seededGenre)}`);
+  const genre = recipe.genre;
 
   const min = recipe.core.length;
   const max = min + recipe.optional.length;
@@ -639,12 +659,12 @@ export function generateBand(opts: GenerateBandOptions): { parts: BandPart[]; me
   const seededSize = min + Math.round(((rng() + rng()) / 2) * recipe.optional.length);
   const size = Math.min(max, Math.max(min, opts.size ?? seededSize));
 
-  const roles: Role[] = [...recipe.core, ...pickOptional(recipe.optional, size - min, rng)];
+  const roles: string[] = [...recipe.core, ...pickOptional(recipe.optional, size - min, rng)];
 
-  const coreCounts = new Map<Role, number>();
+  const coreCounts = new Map<string, number>();
   for (const role of recipe.core) coreCounts.set(role, (coreCounts.get(role) ?? 0) + 1);
 
-  const usedNames = new Map<Role, Set<number>>();
+  const usedNames = new Map<string, Set<number>>();
   const takenIds = new Set<string>();
   const parts: BandPart[] = [];
 
@@ -657,7 +677,7 @@ export function generateBand(opts: GenerateBandOptions): { parts: BandPart[]; me
     // Core slots see only the archetypes at the head of the pool; optionals see
     // all of it. The window is never narrower than the role's core multiplicity,
     // so every core slot has a name left to take.
-    const anchor = Math.max(recipe.anchors?.[role] ?? 0, coreCounts.get(role) ?? 0);
+    const anchor = Math.max(recipe.anchors[role] ?? 0, coreCounts.get(role) ?? 0);
     const window = position < recipe.core.length ? Math.min(namePool.length, anchor) : namePool.length;
 
     const free: number[] = [];

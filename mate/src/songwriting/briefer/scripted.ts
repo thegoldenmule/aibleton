@@ -1,7 +1,7 @@
-import { KEY_ROOTS, SongBriefSchema, bandGenre } from "@aibleton/protocol";
+import { KEY_ROOTS, SongBriefSchema, bandGenre, genreKey } from "@aibleton/protocol";
 import type { BpmRange, KeyMode, LoopBars, SongBrief } from "@aibleton/protocol";
 import { mulberry32 } from "../../core/rng.ts";
-import { bpmHint, genresIn, tokenize } from "../pick.ts";
+import { bpmHint, genreKeysIn, tokenize } from "../pick.ts";
 import type { BriefInput, Briefer } from "./types.ts";
 
 export type BriefScript = (input: BriefInput, callIndex: number) => SongBrief | Promise<SongBrief>;
@@ -70,8 +70,8 @@ export class ScriptedBriefer implements Briefer {
 /** The brief a scripted briefer writes when it has no script. Exported for tests. */
 export function defaultBrief(input: BriefInput): SongBrief {
   const tokens = tokenize(input.text);
-  const genre = bandGenre(input.band) ?? genresIn(tokens)[0] ?? null;
-  const defaults = (genre && GENRE_DEFAULTS[genre]) || FALLBACK;
+  const genre = bandGenre(input.band) ?? [...genreKeysIn(tokens)].find((key) => key in GENRE_DEFAULTS) ?? null;
+  const defaults = (genre && GENRE_DEFAULTS[genreKey(genre)]) || FALLBACK;
   const hinted = bpmHint(tokens);
   const bpm: BpmRange = hinted !== null ? { min: Math.max(40, hinted - 8), max: Math.min(220, hinted + 8), target: hinted } : defaults.bpm;
   const rng = mulberry32(hash(`${input.template.id}|${input.band.id}|${input.text}`));

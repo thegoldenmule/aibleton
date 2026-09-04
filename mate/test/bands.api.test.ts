@@ -2,12 +2,13 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BandListResponseSchema, BandResponseSchema, GENRES, type Band } from "@aibleton/protocol";
+import { BandListResponseSchema, BandResponseSchema, type Band } from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
 import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
 import { TemplateStore } from "../src/core/templates.ts";
 import { BandStore } from "../src/core/bands.ts";
+import { BUILTIN_GENRES } from "../src/core/band-generator.ts";
 import { SongStore } from "../src/core/songs.ts";
 import { ScriptedBriefer } from "../src/songwriting/briefer/index.ts";
 import { ManualClock } from "../src/core/clock.ts";
@@ -167,7 +168,7 @@ describe("bands api", () => {
     const res = await post(app, "/bands/generate", {});
     expect(res.status).toBe(200);
     const { band: made } = BandResponseSchema.parse(await res.json());
-    expect(GENRES).toContain(made.metadata.genre as (typeof GENRES)[number]);
+    expect(BUILTIN_GENRES as readonly string[]).toContain(made.metadata.genre!);
     expect(made.name).toContain("555");
   });
 

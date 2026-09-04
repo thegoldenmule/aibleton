@@ -1,5 +1,5 @@
-import { ROLES, bandGenre, bandRoles, formTotalBars, parseForm } from "@aibleton/protocol";
-import type { Band, Genre, Template } from "@aibleton/protocol";
+import { ROLES, bandGenre, bandRoles, formTotalBars, genreKey, parseForm } from "@aibleton/protocol";
+import type { Band, Template } from "@aibleton/protocol";
 import { mulberry32 } from "../core/rng.ts";
 
 /**
@@ -17,16 +17,45 @@ export class EmptyLibraryError extends Error {
   }
 }
 
-/** Words in the request that point at a genre. Matched against whole tokens. */
-export const GENRE_KEYWORDS: Record<Genre, readonly string[]> = {
-  funk: ["funk", "funky", "groove", "groovy", "syncopated"],
-  jazz: ["jazz", "jazzy", "swing", "swung", "bebop", "bop"],
-  rock: ["rock", "rocky", "riff", "riffs", "indie", "punk"],
-  metal: ["metal", "heavy", "djent", "thrash", "doom", "brutal"],
-  house: ["house", "dance", "club", "techno", "disco", "electronic", "edm"],
-  hiphop: ["hiphop", "hip", "hop", "rap", "boom", "bap", "trap", "beats"],
-  ambient: ["ambient", "chill", "atmospheric", "drone", "spacey", "calm", "mellow"],
-  reggae: ["reggae", "dub", "ska", "skank", "roots"],
+/**
+ * Request words that mean a genre without naming it. Genres themselves are
+ * free text: a band tagged "gospel" matches the word "gospel" with no entry
+ * here. Values are genre keys (see `genreKey`).
+ */
+export const GENRE_SYNONYMS: Record<string, readonly string[]> = {
+  funky: ["funk"],
+  groove: ["funk"],
+  groovy: ["funk"],
+  jazzy: ["jazz"],
+  swing: ["jazz"],
+  swung: ["jazz"],
+  bebop: ["jazz"],
+  riff: ["rock"],
+  riffs: ["rock"],
+  indie: ["rock"],
+  punk: ["rock"],
+  heavy: ["metal"],
+  djent: ["metal"],
+  thrash: ["metal"],
+  doom: ["metal"],
+  dance: ["house"],
+  club: ["house"],
+  techno: ["house"],
+  disco: ["house", "funk"],
+  electronic: ["house"],
+  edm: ["house"],
+  rap: ["hiphop"],
+  trap: ["hiphop"],
+  boom: ["hiphop"],
+  bap: ["hiphop"],
+  chill: ["ambient"],
+  atmospheric: ["ambient"],
+  drone: ["ambient"],
+  mellow: ["ambient"],
+  dub: ["reggae"],
+  ska: ["reggae"],
+  skank: ["reggae"],
+  roots: ["reggae"],
 };
 
 /** Tempo words and what they imply, in bpm. Explicit numbers win over words. */
@@ -54,10 +83,37 @@ export function tokenize(text: string): string[] {
     .filter(Boolean);
 }
 
-/** Genres the request names, in GENRES order. */
-export function genresIn(tokens: readonly string[]): Genre[] {
-  const set = new Set(tokens);
-  return (Object.keys(GENRE_KEYWORDS) as Genre[]).filter((genre) => GENRE_KEYWORDS[genre].some((w) => set.has(w)));
+/**
+ * Genre keys the request points at: every token and every adjacent token pair
+ * ("hip hop" -> "hiphop") as a key, plus the synonyms. Whether a key is a real
+ * genre is the caller's business; it is matched against band tags and recipes.
+ */
+export function genreKeysIn(tokens: readonly string[]): Set<string> {
+  const keys = new Set<string>();
+  tokens.forEach((token, i) => {
+    keys.add(genreKey(token));
+    const next = tokens[i + 1];
+    if (next) keys.add(genreKey(token + next));
+    for (const genre of GENRE_SYNONYMS[token] ?? []) keys.add(genre);
+  });
+  keys.delete("");
+  return keys;
+}
+
+/** The keys a band's genre tag answers to: the whole tag and each of its words. */
+export function bandGenreKeys(band: Pick<Band, "metadata">): Set<string> {
+  const genre = bandGenre(band);
+  if (!genre) return new Set();
+  const keys = new Set([genreKey(genre)]);
+  for (const word of tokenize(genre)) keys.add(genreKey(word));
+  keys.delete("");
+  return keys;
+}
+
+/** True when the request names the band's genre. */
+export function matchesGenre(band: Pick<Band, "metadata">, requestKeys: ReadonlySet<string>): boolean {
+  for (const key of bandGenreKeys(band)) if (requestKeys.has(key)) return true;
+  return false;
 }
 
 /** Roles the request names ("with horns", "no keys" still counts as a mention). */
@@ -113,13 +169,12 @@ function best<T>(items: readonly T[], score: (item: T) => number, seed: number):
 export function pickBand(bands: readonly Band[], text: string, seed: number): Band {
   if (bands.length === 0) throw new EmptyLibraryError("bands");
   const tokens = tokenize(text);
-  const genres = new Set<string>(genresIn(tokens));
+  const keys = genreKeysIn(tokens);
   const roles = rolesIn(tokens);
   return best(
     bands,
     (band) => {
-      const genre = bandGenre(band);
-      let score = genre && genres.has(genre) ? GENRE_SCORE : 0;
+      let score = matchesGenre(band, keys) ? GENRE_SCORE : 0;
       const has = new Set(bandRoles(band));
       for (const role of roles) if (has.has(role)) score += ROLE_SCORE;
       return score;

@@ -1,12 +1,13 @@
 import { z } from "zod";
 
 /**
- * Genres the band generator knows how to staff. Only an input to generation —
- * a saved band's genre lives in `metadata.genre`, which is free text.
+ * Genres are free text everywhere: a band's genre lives in `metadata.genre`,
+ * a recipe is filed under `genreKey(genre)`. "Hip-Hop", "hip hop" and
+ * "hiphop" are the same key.
  */
-export const GENRES = ["funk", "jazz", "rock", "metal", "house", "hiphop", "ambient", "reggae"] as const;
-export const GenreSchema = z.enum(GENRES);
-export type Genre = z.infer<typeof GenreSchema>;
+export function genreKey(genre: string): string {
+  return genre.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
 
 /** Suggested role vocabulary. Roles are free text; this is for pickers and generator recipes. */
 export const ROLES = [
@@ -94,3 +95,57 @@ export function bandRoles(band: Pick<Band, "parts">): string[] {
 export function bandGenre(band: Pick<Band, "metadata">): string | null {
   return band.metadata.genre ?? null;
 }
+
+/** Recipe ids are genre keys: lowercase alphanumerics, so they double as filenames. */
+export const GenreKeySchema = z.string().regex(/^[a-z0-9]{1,64}$/, "genre key must be lowercase alphanumerics");
+
+/**
+ * How one genre staffs a band. Built-in recipes ship with mate; the rest are
+ * written by the model the first time a genre is asked for, and saved.
+ *
+ * `names` and `briefs` are parallel per role: the brief at index `i` describes
+ * the instrument named at index `i`. Where the arrays differ in length the
+ * brief index wraps.
+ */
+export const BandRecipeSchema = z
+  .object({
+    /** `genreKey(genre)`; the document id. */
+    id: GenreKeySchema,
+    /** The genre as written, e.g. "Hip-Hop". */
+    genre: z.string().min(1),
+    /** Always staffed, in this order — this is the track order in Ableton. A role may repeat. */
+    core: z.array(z.string().min(1)).min(1),
+    /** Drawn by weight, without replacement, until the size is met. A role may repeat a core role. */
+    optional: z.array(z.object({ role: z.string().min(1), weight: z.number().positive() })),
+    /** Display names per role, drawn without replacement so duplicate roles read differently. */
+    names: z.record(z.string(), z.array(z.string().min(1)).min(1)),
+    /** Splice prompt text per role, paired by index with `names`. */
+    briefs: z.record(z.string(), z.array(z.string().min(1)).min(1)),
+    /** How many leading `names` entries a core slot may be drawn from, per role. */
+    anchors: z.record(z.string(), z.number().int().positive()).default({}),
+    source: z.enum(["builtin", "generated"]),
+    createdAt: z.number(),
+  })
+  .superRefine((recipe, ctx) => {
+    const roles = new Set([...recipe.core, ...recipe.optional.map((o) => o.role)]);
+    for (const role of roles) {
+      if (!recipe.names[role]) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["names", role], message: `role ${JSON.stringify(role)} has no names` });
+      }
+      if (!recipe.briefs[role]) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["briefs", role], message: `role ${JSON.stringify(role)} has no briefs` });
+      }
+    }
+  });
+export type BandRecipe = z.infer<typeof BandRecipeSchema>;
+/** Input shape: `anchors` may be omitted. */
+export type BandRecipeDraft = z.input<typeof BandRecipeSchema>;
+
+/** What `GET /recipes` lists per recipe: enough for a genre picker. */
+export const RecipeSummarySchema = z.object({
+  id: GenreKeySchema,
+  genre: z.string().min(1),
+  source: z.enum(["builtin", "generated"]),
+  roles: z.array(z.string()),
+});
+export type RecipeSummary = z.infer<typeof RecipeSummarySchema>;

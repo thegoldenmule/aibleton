@@ -2,7 +2,7 @@ import { z } from "zod";
 import { AdapterStatusSchema, PhaseSchema, SessionStateSchema, TranscriptEntrySchema } from "./state.ts";
 import { CommandSummarySchema, ExternalCommandSchema } from "./commands.ts";
 import { TemplateSchema } from "./templates.ts";
-import { BandSchema, GenreSchema } from "./bands.ts";
+import { BandSchema, RecipeSummarySchema } from "./bands.ts";
 import { SongSchema } from "./songs.ts";
 
 export const HealthResponseSchema = z.object({ ok: z.literal(true), uptimeMs: z.number() });
@@ -77,11 +77,12 @@ export type PutBandRequest = z.infer<typeof PutBandRequestSchema>;
 /**
  * Body of `POST /bands/generate`. Every field is optional; `seed` is chosen from
  * the clock when omitted, and an omitted `genre` is picked from the seed so an
- * empty request still yields a coherent band.
+ * empty request still yields a coherent band. A genre with no recipe yet has
+ * one written by the model first, which takes a while.
  */
 export const GenerateBandRequestSchema = z.object({
   seed: z.number().int().optional(),
-  genre: GenreSchema.optional(),
+  genre: z.string().trim().min(1).optional(),
   /** Total parts. Clamped to what the genre's recipe can staff. */
   size: z.number().int().min(1).max(16).optional(),
   name: z.string().min(1).optional(),
@@ -90,6 +91,10 @@ export type GenerateBandRequest = z.infer<typeof GenerateBandRequestSchema>;
 
 export const DeleteBandResponseSchema = z.object({ deleted: z.boolean() });
 export type DeleteBandResponse = z.infer<typeof DeleteBandResponseSchema>;
+
+/** Response of `GET /recipes`: every genre the generator can staff, built-in first. */
+export const RecipeListResponseSchema = z.object({ recipes: z.array(RecipeSummarySchema) });
+export type RecipeListResponse = z.infer<typeof RecipeListResponseSchema>;
 
 /**
  * Body of `POST /songs/compose`. `seed` drives the deterministic template and

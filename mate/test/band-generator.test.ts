@@ -1,15 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { BandPartSchema, BandSchema, GENRES, ROLES, bandGenre, bandRoles } from "@aibleton/protocol";
-import type { Genre, Role } from "@aibleton/protocol";
-import { RECIPES, generateBand } from "../src/core/band-generator.ts";
+import { BandPartSchema, BandSchema, ROLES, bandGenre, bandRoles } from "@aibleton/protocol";
+import type { Role } from "@aibleton/protocol";
+import { BUILTIN_GENRES, BUILTIN_RECIPES, generateBand } from "../src/core/band-generator.ts";
 
 const SEEDS = 100;
 const SLUG = /^[a-z0-9][a-z0-9-]{0,31}$/;
 
 /** Every role the recipe can ever staff, with how many times it can appear. */
-function multiplicities(genre: Genre): Map<Role, number> {
-  const recipe = RECIPES[genre];
-  const counts = new Map<Role, number>();
+function multiplicities(genre: string): Map<string, number> {
+  const recipe = BUILTIN_RECIPES.get(genre)!;
+  const counts = new Map<string, number>();
   for (const role of [...recipe.core, ...recipe.optional.map((o) => o.role)]) {
     counts.set(role, (counts.get(role) ?? 0) + 1);
   }
@@ -17,8 +17,8 @@ function multiplicities(genre: Genre): Map<Role, number> {
 }
 
 /** Everything the generator promises, checked on one band. */
-function assertInvariants(genre: Genre, band: ReturnType<typeof generateBand>): void {
-  const recipe = RECIPES[genre];
+function assertInvariants(genre: string, band: ReturnType<typeof generateBand>): void {
+  const recipe = BUILTIN_RECIPES.get(genre)!;
   const { parts, metadata } = band;
 
   expect(metadata.genre).toBe(genre);
@@ -51,7 +51,7 @@ function assertInvariants(genre: Genre, band: ReturnType<typeof generateBand>): 
 
   // every optional part is a role the recipe actually offers
   const allowed = multiplicities(genre);
-  const used = new Map<Role, number>();
+  const used = new Map<string, number>();
   for (const part of parts) {
     const role = part.role as Role;
     used.set(role, (used.get(role) ?? 0) + 1);
@@ -61,7 +61,7 @@ function assertInvariants(genre: Genre, band: ReturnType<typeof generateBand>): 
 
 describe("generateBand determinism", () => {
   test("same seed and options give a deep-equal band", () => {
-    for (const genre of GENRES) {
+    for (const genre of BUILTIN_GENRES) {
       for (let seed = 0; seed < 25; seed++) {
         expect(generateBand({ seed, genre })).toEqual(generateBand({ seed, genre }));
         expect(generateBand({ seed, genre, size: 5 })).toEqual(generateBand({ seed, genre, size: 5 }));
@@ -85,7 +85,7 @@ describe("generateBand determinism", () => {
   });
 
   test("an explicit size matching the seeded size changes nothing", () => {
-    for (const genre of GENRES) {
+    for (const genre of BUILTIN_GENRES) {
       for (let seed = 0; seed < 25; seed++) {
         const band = generateBand({ seed, genre });
         expect(generateBand({ seed, genre, size: band.parts.length })).toEqual(band);
@@ -96,19 +96,19 @@ describe("generateBand determinism", () => {
   test("an explicit genre matching the seeded genre changes nothing", () => {
     for (let seed = 0; seed < 50; seed++) {
       const band = generateBand({ seed });
-      expect(generateBand({ seed, genre: band.metadata.genre as Genre })).toEqual(band);
+      expect(generateBand({ seed, genre: band.metadata.genre as string })).toEqual(band);
     }
   });
 });
 
 describe("generateBand invariants", () => {
-  for (const genre of GENRES) {
+  for (const genre of BUILTIN_GENRES) {
     test(`hold for ${SEEDS} seeds: ${genre}`, () => {
       for (let seed = 0; seed < SEEDS; seed++) assertInvariants(genre, generateBand({ seed, genre }));
     });
 
     test(`hold at every legal size: ${genre}`, () => {
-      const recipe = RECIPES[genre];
+      const recipe = BUILTIN_RECIPES.get(genre)!;
       for (let size = 1; size <= recipe.core.length + recipe.optional.length + 3; size++) {
         for (let seed = 0; seed < 12; seed++) assertInvariants(genre, generateBand({ seed, genre, size }));
       }
@@ -118,9 +118,9 @@ describe("generateBand invariants", () => {
 
 describe("generateBand core naming", () => {
   test("core slots only ever take an archetype from the head of the pool", () => {
-    for (const genre of GENRES) {
-      const recipe = RECIPES[genre];
-      const coreCounts = new Map<Role, number>();
+    for (const genre of BUILTIN_GENRES) {
+      const recipe = BUILTIN_RECIPES.get(genre)!;
+      const coreCounts = new Map<string, number>();
       for (const role of recipe.core) coreCounts.set(role, (coreCounts.get(role) ?? 0) + 1);
 
       for (let seed = 0; seed < SEEDS; seed++) {
@@ -163,8 +163,8 @@ describe("generateBand core naming", () => {
 
 describe("generateBand size", () => {
   test("is honoured inside the recipe's range", () => {
-    for (const genre of GENRES) {
-      const recipe = RECIPES[genre];
+    for (const genre of BUILTIN_GENRES) {
+      const recipe = BUILTIN_RECIPES.get(genre)!;
       for (let size = recipe.core.length; size <= recipe.core.length + recipe.optional.length; size++) {
         for (let seed = 0; seed < 10; seed++) {
           expect(generateBand({ seed, genre, size }).parts).toHaveLength(size);
@@ -174,8 +174,8 @@ describe("generateBand size", () => {
   });
 
   test("clamps below the core and above the full roster", () => {
-    for (const genre of GENRES) {
-      const recipe = RECIPES[genre];
+    for (const genre of BUILTIN_GENRES) {
+      const recipe = BUILTIN_RECIPES.get(genre)!;
       const min = recipe.core.length;
       const max = min + recipe.optional.length;
       expect(generateBand({ seed: 7, genre, size: 1 }).parts).toHaveLength(min);
@@ -184,8 +184,8 @@ describe("generateBand size", () => {
   });
 
   test("an omitted size varies and is not always the full roster", () => {
-    for (const genre of GENRES) {
-      const recipe = RECIPES[genre];
+    for (const genre of BUILTIN_GENRES) {
+      const recipe = BUILTIN_RECIPES.get(genre)!;
       const max = recipe.core.length + recipe.optional.length;
       const sizes = new Set<number>();
       for (let seed = 0; seed < SEEDS; seed++) sizes.add(generateBand({ seed, genre }).parts.length);
@@ -196,20 +196,20 @@ describe("generateBand size", () => {
 });
 
 describe("generateBand genre", () => {
-  test("an omitted genre is picked from GENRES and reported in metadata", () => {
+  test("an omitted genre is picked from BUILTIN_GENRES and reported in metadata", () => {
     const picked = new Set<string>();
     for (let seed = 0; seed < SEEDS * 2; seed++) {
       const band = generateBand({ seed });
       const genre = band.metadata.genre!;
-      expect(GENRES).toContain(genre as Genre);
+      expect(BUILTIN_GENRES as readonly string[]).toContain(genre);
       picked.add(genre);
-      assertInvariants(genre as Genre, band);
+      assertInvariants(genre as string, band);
     }
     expect(picked.size).toBeGreaterThan(1);
   });
 
   test("metadata.genre always matches the requested genre", () => {
-    for (const genre of GENRES) {
+    for (const genre of BUILTIN_GENRES) {
       for (let seed = 0; seed < 20; seed++) {
         expect(generateBand({ seed, genre }).metadata.genre).toBe(genre);
       }
@@ -219,7 +219,7 @@ describe("generateBand genre", () => {
 
 describe("generateBand assembles a valid Band", () => {
   test("a band built from the output passes BandSchema", () => {
-    for (const genre of GENRES) {
+    for (const genre of BUILTIN_GENRES) {
       for (let seed = 0; seed < 20; seed++) {
         const { parts, metadata } = generateBand({ seed, genre });
         const parsed = BandSchema.safeParse({
@@ -245,28 +245,28 @@ describe("generateBand validation", () => {
     ["size zero", { seed: 1, size: 0 }, /size/],
     ["a negative size", { seed: 1, size: -3 }, /size/],
     ["a fractional size", { seed: 1, size: 2.5 }, /size/],
-    ["an unknown genre", { seed: 1, genre: "polka" as Genre }, /genre/],
+    ["an unknown genre", { seed: 1, genre: "polka" as string }, /genre/],
   ])("throws on %s", (_name, opts, message) => {
     expect(() => generateBand(opts as Parameters<typeof generateBand>[0])).toThrow(message);
   });
 
   test("accepts every genre", () => {
-    for (const genre of GENRES) expect(() => generateBand({ seed: 3, genre })).not.toThrow();
+    for (const genre of BUILTIN_GENRES) expect(() => generateBand({ seed: 3, genre })).not.toThrow();
   });
 });
 
 describe("RECIPES", () => {
-  test("covers exactly GENRES", () => {
-    expect(Object.keys(RECIPES).sort()).toEqual([...GENRES].sort());
+  test("covers exactly BUILTIN_GENRES", () => {
+    expect([...BUILTIN_RECIPES.keys()].sort()).toEqual([...BUILTIN_GENRES].sort());
   });
 
-  for (const genre of GENRES) {
+  for (const genre of BUILTIN_GENRES) {
     test(`${genre} is well formed`, () => {
-      const recipe = RECIPES[genre];
+      const recipe = BUILTIN_RECIPES.get(genre)!;
       expect(recipe.core.length).toBeGreaterThan(0);
-      for (const role of recipe.core) expect(ROLES).toContain(role);
+      for (const role of recipe.core) expect(ROLES as readonly string[]).toContain(role);
       for (const entry of recipe.optional) {
-        expect(ROLES).toContain(entry.role);
+        expect(ROLES as readonly string[]).toContain(entry.role);
         expect(entry.weight).toBeGreaterThan(0);
       }
 
@@ -286,7 +286,7 @@ describe("RECIPES", () => {
           expect(slug.length).toBeLessThanOrEqual(32);
         }
         // an anchor window is wide enough for the core and no wider than the pool
-        const anchor = recipe.anchors?.[role];
+        const anchor = recipe.anchors[role];
         if (anchor !== undefined) {
           expect(anchor).toBeLessThanOrEqual(names!.length);
           expect(anchor).toBeGreaterThanOrEqual(recipe.core.filter((r) => r === role).length);
@@ -298,9 +298,9 @@ describe("RECIPES", () => {
   }
 
   test("briefs are genre-distinct: no brief is shared between two genres", () => {
-    const seen = new Map<string, Genre>();
-    for (const genre of GENRES) {
-      for (const briefs of Object.values(RECIPES[genre].briefs)) {
+    const seen = new Map<string, string>();
+    for (const genre of BUILTIN_GENRES) {
+      for (const briefs of Object.values(BUILTIN_RECIPES.get(genre)!.briefs)) {
         for (const brief of briefs ?? []) {
           expect(seen.get(brief)).toBeUndefined();
           seen.set(brief, genre);
@@ -310,9 +310,9 @@ describe("RECIPES", () => {
   });
 
   test("metal keeps two guitars in its core and ambient needs no drums", () => {
-    expect(RECIPES.metal.core.filter((role) => role === "guitar")).toHaveLength(2);
-    expect(RECIPES.ambient.core).not.toContain("drums");
-    expect(RECIPES.jazz.core).toEqual(["drums", "bass", "keys"]);
-    expect(RECIPES.house.core).toEqual(["drums", "bass", "synth"]);
+    expect(BUILTIN_RECIPES.get("metal")!.core.filter((role) => role === "guitar")).toHaveLength(2);
+    expect(BUILTIN_RECIPES.get("ambient")!.core).not.toContain("drums");
+    expect(BUILTIN_RECIPES.get("jazz")!.core).toEqual(["drums", "bass", "keys"]);
+    expect(BUILTIN_RECIPES.get("house")!.core).toEqual(["drums", "bass", "synth"]);
   });
 });

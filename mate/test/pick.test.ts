@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Band, Template } from "@aibleton/protocol";
-import { EmptyLibraryError, bpmHint, genresIn, pickBand, pickTemplate, rolesIn, tokenize } from "../src/songwriting/pick.ts";
+import { EmptyLibraryError, bpmHint, genreKeysIn, matchesGenre, pickBand, pickTemplate, rolesIn, tokenize } from "../src/songwriting/pick.ts";
 
 function band(id: string, genre: string | null, roles: string[]): Band {
   return {
@@ -34,10 +34,24 @@ describe("tokenize and hints", () => {
     expect(tokenize("Hip-Hop, at 92BPM!")).toEqual(["hip", "hop", "at", "92bpm"]);
   });
 
-  test("genres and roles are read from whole words", () => {
+  test("genre keys come from words, word pairs and synonyms; roles from whole words", () => {
     const tokens = tokenize("something funky with horns and a little swing");
-    expect(genresIn(tokens)).toEqual(["funk", "jazz"]);
+    const keys = genreKeysIn(tokens);
+    expect(keys.has("funk")).toBe(true);
+    expect(keys.has("jazz")).toBe(true);
+    expect(keys.has("funky")).toBe(true);
     expect(rolesIn(tokens)).toEqual(["horns"]);
+    expect(genreKeysIn(tokenize("some hip hop please")).has("hiphop")).toBe(true);
+  });
+
+  test("any free-text genre tag matches its own word, and multi-word tags match on each word", () => {
+    const gospel = band("gospel", "gospel", ["keys"]);
+    expect(matchesGenre(gospel, genreKeysIn(tokenize("a high energy gospel song")))).toBe(true);
+    expect(matchesGenre(gospel, genreKeysIn(tokenize("something funky")))).toBe(false);
+    const nola = band("nola", "New Orleans funk", ["drums"]);
+    expect(matchesGenre(nola, genreKeysIn(tokenize("funky stuff")))).toBe(true);
+    expect(matchesGenre(nola, genreKeysIn(tokenize("new orleans")))).toBe(true);
+    expect(matchesGenre(band("hh", "Hip-Hop", ["drums"]), genreKeysIn(tokenize("hip hop beat")))).toBe(true);
   });
 
   test("bpm hint prefers an explicit number in range", () => {
@@ -52,7 +66,9 @@ describe("tokenize and hints", () => {
 describe("pickBand", () => {
   test("a genre word picks the band tagged with that genre", () => {
     expect(pickBand([jazz, rock, funk], "I want to play something funky and upbeat", 1).id).toBe("funk");
-    expect(pickBand([jazz, rock, funk], "heavy riffs please", 1).id).toBe("rock");
+    expect(pickBand([jazz, rock, funk], "some punk riffs please", 1).id).toBe("rock");
+    const gospel = band("gospel", "gospel", ["keys", "vocals"]);
+    expect(pickBand([jazz, rock, funk, gospel], "a high energy gospel song", 1).id).toBe("gospel");
   });
 
   test("a role mention breaks a tie between otherwise equal bands", () => {
