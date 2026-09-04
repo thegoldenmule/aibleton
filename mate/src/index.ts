@@ -1,3 +1,4 @@
+import type Anthropic from "@anthropic-ai/sdk";
 import { loadConfig } from "./config.ts";
 import { createLogger } from "./log.ts";
 import { SystemClock } from "./core/clock.ts";
@@ -8,6 +9,7 @@ import { BandStore } from "./core/bands.ts";
 import { TemplateStore } from "./core/templates.ts";
 import { createAbletonPort } from "./ports/ableton/index.ts";
 import { createSplicePort } from "./ports/splice/index.ts";
+import { createAnthropicClient } from "./core/anthropic.ts";
 import { createBrain } from "./intelligence/brain/index.ts";
 import { createIntelligence } from "./intelligence/index.ts";
 import { TickSource } from "./inputs/timer.ts";
@@ -40,7 +42,19 @@ async function main(): Promise<void> {
   });
   if (spliceResult.fallbackReason) log.warn(`splice: using stub (${spliceResult.fallbackReason})`);
 
+  let anthropic: Anthropic | null = null;
+  let anthropicError: string | undefined;
+  if (config.brain !== "scripted") {
+    try {
+      anthropic = createAnthropicClient();
+    } catch (err) {
+      anthropicError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
   const brainResult = await createBrain(config.brain, {
+    client: anthropic,
+    ...(anthropicError !== undefined ? { clientError: anthropicError } : {}),
     model: config.model,
     log: createLogger("brain"),
     ableton: abletonResult.port,

@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
 import type { BrainMode } from "../../config.ts";
 import type { Logger } from "../../log.ts";
 import type { AbletonPort } from "../../ports/ableton/types.ts";
@@ -8,6 +8,10 @@ import { ScriptedBrain } from "./scripted.ts";
 import type { Brain, Decision } from "./types.ts";
 
 export interface CreateBrainOptions {
+  /** Shared client, or null when no credentials resolved (see core/anthropic.ts). */
+  client: Anthropic | null;
+  /** Why `client` is null, for the fallback log line. */
+  clientError?: string;
   model: string;
   log: Logger;
   ableton: AbletonPort;
@@ -34,16 +38,12 @@ export function demoScript(): Decision[] {
 export async function createBrain(mode: BrainMode, opts: CreateBrainOptions): Promise<BrainResult> {
   if (mode === "scripted") return { brain: new ScriptedBrain(demoScript()), live: false };
 
-  try {
-    const client = new Anthropic();
-    if (!client.apiKey && !client.authToken) {
-      throw new Error("no Anthropic credentials found (ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, or an `ant auth login` profile)");
-    }
+  const { client } = opts;
+  if (client) {
     return { brain: new AnthropicBrain({ client, model: opts.model, log: opts.log, ableton: opts.ableton, splice: opts.splice }), live: true };
-  } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
-    if (mode === "anthropic") throw new Error(`MATE_BRAIN=anthropic but the client could not be created: ${reason}`);
-    opts.log.warn(`brain: falling back to scripted (${reason})`);
-    return { brain: new ScriptedBrain(demoScript()), live: false, fallbackReason: reason };
   }
+  const reason = opts.clientError ?? "no Anthropic client";
+  if (mode === "anthropic") throw new Error(`MATE_BRAIN=anthropic but the client could not be created: ${reason}`);
+  opts.log.warn(`brain: falling back to scripted (${reason})`);
+  return { brain: new ScriptedBrain(demoScript()), live: false, fallbackReason: reason };
 }
