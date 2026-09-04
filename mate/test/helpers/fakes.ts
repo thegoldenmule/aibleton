@@ -76,11 +76,11 @@ export class FakeSplice implements SplicePort {
   }
   async promptToStack(prompt: string, bpm: number): Promise<Stack> {
     this.calls.push({ method: "promptToStack", args: [prompt, bpm] });
-    return { uuid: "00000000-0000-0000-0000-000000000000", name: "fake stack", bpm, layers: [] };
+    return { uuid: "00000000-0000-0000-0000-000000000000", name: "fake stack", bpm, key: null, layers: [] };
   }
   async createStack(seedUuid: string, bpm?: number): Promise<Stack> {
     this.calls.push({ method: "createStack", args: [seedUuid, bpm] });
-    return { uuid: "00000000-0000-0000-0000-000000000001", name: "fake stack", bpm: bpm ?? 120, layers: [] };
+    return { uuid: "00000000-0000-0000-0000-000000000001", name: "fake stack", bpm: bpm ?? 120, key: null, layers: [] };
   }
   async downloadAsset(uuid: string): Promise<DownloadResult> {
     this.calls.push({ method: "downloadAsset", args: [uuid] });

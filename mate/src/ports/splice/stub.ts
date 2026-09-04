@@ -71,7 +71,7 @@ export class FixtureSpliceAdapter implements SplicePort {
       layerType: LAYER_TYPES[i] ?? "others",
       sound,
     }));
-    return { uuid: fakeUuid(`${h}:stack`), name, bpm, layers };
+    return { uuid: fakeUuid(`${h}:stack`), name, bpm, key: null, layers };
   }
 }
 
