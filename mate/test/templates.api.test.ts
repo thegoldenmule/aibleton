@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { InMemoryAbletonAdapter } from "../src/ports/ableton/stub.ts";
 import { FixtureSpliceAdapter } from "../src/ports/splice/stub.ts";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -45,6 +46,7 @@ function build(now = 1_000) {
     briefer: new ScriptedBriefer(),
     intelligence: idleIntelligence,
     splice: new FixtureSpliceAdapter(),
+    ableton: new InMemoryAbletonAdapter(),
     config: loadConfig({}),
     log: silentLogger,
     startedAt: 0,

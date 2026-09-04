@@ -8,6 +8,7 @@ import type { SongStore } from "../core/songs.ts";
 import type { TemplateStore } from "../core/templates.ts";
 import type { Intelligence } from "../intelligence/types.ts";
 import type { Logger } from "../log.ts";
+import type { AbletonPort } from "../ports/ableton/types.ts";
 import type { SplicePort } from "../ports/splice/types.ts";
 import type { Briefer } from "../songwriting/briefer/index.ts";
 import { adaptersRoutes } from "./routes/adapters.ts";
@@ -32,6 +33,8 @@ export interface AppDeps {
   intelligence: Intelligence;
   /** Searches and downloads for the song routes. Downloads spend credits. */
   splice: SplicePort;
+  /** Where songs get built; the song routes touch only the tracks mate created. */
+  ableton: AbletonPort;
   config: Config;
   log: Logger;
   startedAt: number;
@@ -83,6 +86,7 @@ export function createApp(deps: AppDeps): Hono {
       recipes: deps.recipes,
       store: deps.store,
       splice: deps.splice,
+      ableton: deps.ableton,
       downloadsDir: deps.config.downloadsDir,
       log: deps.log,
       now,

@@ -17,8 +17,12 @@ export interface DownloadDeps {
   log: Logger;
   /** Checked before each paid call; an aborted request stops starting new downloads. */
   signal: AbortSignal;
-  /** Called after every successful download with the song so far; save and publish it here. */
-  onProgress: (song: Song) => Promise<void>;
+  /**
+   * Called after every successful download with the song so far; save and
+   * publish it here. Return a song to carry on from instead (the route
+   * arranges each file in Live as it lands, which names the song's tracks).
+   */
+  onProgress: (song: Song) => Promise<Song | void>;
   /** Called before each asset, after each failure, and once at the end with `current: null`. */
   onStatus?: (progress: DownloadProgress) => void;
 }
@@ -66,7 +70,7 @@ export function downloadPlan(song: Song): { uuid: string; slotIds: string[] }[] 
 /** Download every pending pick, one asset at a time, reporting progress as each lands. */
 export async function downloadPicks(song: Song, deps: DownloadDeps): Promise<DownloadOutcome> {
   let current = reuseDownloaded(song);
-  if (current !== song) await deps.onProgress(current);
+  if (current !== song) current = (await deps.onProgress(current)) ?? current;
 
   const downloaded: Downloaded[] = [];
   const failed: DownloadFailure[] = [];
@@ -96,7 +100,7 @@ export async function downloadPicks(song: Song, deps: DownloadDeps): Promise<Dow
       plan: { ...current.plan, slots: current.plan.slots.map((s) => (slotIds.includes(s.id) ? { ...s, resolved } : s)) },
     });
     downloaded.push({ uuid, fileName: result.fileName, localPath: result.localPath, slotIds });
-    await deps.onProgress(current);
+    current = (await deps.onProgress(current)) ?? current;
   }
   status({ current: null, lastError: null });
   return { song: current, downloaded, failed };

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { InMemoryAbletonAdapter } from "../src/ports/ableton/stub.ts";
 import { FixtureSpliceAdapter } from "../src/ports/splice/stub.ts";
 import { StateResponseSchema, HealthResponseSchema, AdapterStatusSchema } from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
@@ -55,6 +56,7 @@ function build() {
     briefer: new ScriptedBriefer(),
     intelligence: fake.intelligence,
     splice: new FixtureSpliceAdapter(),
+    ableton: new InMemoryAbletonAdapter(),
     config: loadConfig({}),
     log: silentLogger,
     startedAt: Date.now() - 1000,

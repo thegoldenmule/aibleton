@@ -3,6 +3,7 @@ import {
   ComposeSongRequestSchema,
   PickSlotRequestSchema,
   type ActiveSongResponse,
+  type ArrangeSongResponse,
   type ComposeStage,
   type DeleteSongResponse,
   type DownloadSongResponse,
@@ -18,8 +19,10 @@ import type { StateStore } from "../../core/state.ts";
 import type { TemplateStore } from "../../core/templates.ts";
 import type { Logger } from "../../log.ts";
 import { ModelRefusedError } from "../../core/anthropic.ts";
+import type { AbletonPort } from "../../ports/ableton/types.ts";
 import type { SplicePort } from "../../ports/splice/types.ts";
 import type { Briefer } from "../../songwriting/briefer/index.ts";
+import { arrangeSong, describeStep } from "../../songwriting/arrange.ts";
 import { composeSong } from "../../songwriting/compose.ts";
 import { downloadPicks, downloadPlan, reuseDownloaded } from "../../songwriting/download.ts";
 import { LastTrackError, TrackNotFoundError, removeTrack } from "../../songwriting/edit.ts";
@@ -36,6 +39,8 @@ export interface SongRouteDeps {
   store: StateStore;
   /** Searches are free; `downloadAsset` spends credits and is only reached from POST /songs/:id/download. */
   splice: SplicePort;
+  /** Where the song gets built. Only tracks mate created (named with the [mate] suffix) are ever touched. */
+  ableton: AbletonPort;
   /** Where downloaded files land. */
   downloadsDir: string;
   log: Logger;
@@ -211,10 +216,27 @@ export function songRoutes(deps: SongRouteDeps): Hono {
   });
 
   /**
+   * Puts whatever the song has on disk into the Live set: creates its tracks
+   * on first run (and sets the tempo, once), imports each downloaded sample
+   * into the scene for its section, and lays copies along the arrangement.
+   * Adds only; a re-run picks up where the last one stopped.
+   */
+  const arrange = async (song: Song, signal: AbortSignal) =>
+    arrangeSong(song, {
+      ableton: deps.ableton,
+      log: deps.log,
+      signal,
+      userPrompt: song.request.text,
+      onProgress: async (s) => publish(await deps.songs.save(s)),
+      onSnapshot: (session) => deps.store.setSession(session),
+    });
+
+  /**
    * The paid step: download every pending pick, one credit per distinct new
    * asset. Reads no body; the app confirms with the user first. Each file that
    * lands is saved and published before the next one starts, so a dropped
-   * connection loses nothing already paid for. Partial failure is a 200.
+   * connection loses nothing already paid for, and is put into Live right
+   * away, so the set fills in as the sounds arrive. Partial failure is a 200.
    */
   r.post("/songs/:id/download", async (c) => {
     const loaded = await load(c);
@@ -225,7 +247,17 @@ export function songRoutes(deps: SongRouteDeps): Hono {
       dir: deps.downloadsDir,
       log: deps.log,
       signal: c.req.raw.signal,
-      onProgress: async (song) => publish(await deps.songs.save(song)),
+      onProgress: async (song) => {
+        publish(await deps.songs.save(song));
+        try {
+          const arranged = await arrange(song, c.req.raw.signal);
+          for (const f of arranged.failed) deps.log.warn(`arranging after download: ${describeStep(f.step)} failed: ${f.error}`);
+          return arranged.song;
+        } catch (err) {
+          deps.log.warn(`arranging after download failed: ${err instanceof Error ? err.message : String(err)}`);
+          return song;
+        }
+      },
       onStatus: (progress) => deps.store.events.emit({ type: "download.progress", progress }),
     });
     if (outcome.downloaded.length > 0) {
@@ -233,6 +265,27 @@ export function songRoutes(deps: SongRouteDeps): Hono {
       deps.store.setLastMessage(`got ${n} sound${n === 1 ? "" : "s"} from Splice${outcome.failed.length ? `, ${outcome.failed.length} failed` : ""}`, deps.now());
     }
     const body: DownloadSongResponse = { song: outcome.song, downloaded: outcome.downloaded, failed: outcome.failed };
+    return c.json(body);
+  });
+
+  /** Build the song in Live from what is on disk. Reads no body. Partial failure is a 200: read `failed`. */
+  r.post("/songs/:id/arrange", async (c) => {
+    const loaded = await load(c);
+    if ("error" in loaded) return loaded.error;
+    const outcome = await arrange(loaded.song, c.req.raw.signal);
+    if (outcome.applied.length > 0 || outcome.failed.length > 0) {
+      const n = outcome.applied.length;
+      deps.store.setLastMessage(
+        `${n} step${n === 1 ? "" : "s"} in Live${outcome.failed.length ? `, ${outcome.failed.length} failed` : ""}${outcome.status.notes.length ? `; ${outcome.status.notes[0]}` : ""}`,
+        deps.now(),
+      );
+    }
+    const body: ArrangeSongResponse = {
+      song: outcome.song,
+      applied: outcome.applied.map(describeStep),
+      failed: outcome.failed.map((f) => ({ step: describeStep(f.step), error: f.error })),
+      notes: outcome.status.notes,
+    };
     return c.json(body);
   });
 

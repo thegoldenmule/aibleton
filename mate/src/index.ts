@@ -118,6 +118,7 @@ async function main(): Promise<void> {
     briefer: brieferResult.briefer,
     intelligence,
     splice: spliceResult.port,
+    ableton: abletonResult.port,
     config,
     log: createLogger("api"),
     startedAt,

@@ -5,11 +5,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   ActiveSongResponseSchema,
+  ArrangeSongResponseSchema,
   DownloadSongResponseSchema,
   ResolveSongResponseSchema,
   SongListResponseSchema,
   SongResponseSchema,
   StateResponseSchema,
+  dawStatus,
   pendingDownloadUuids,
 } from "@aibleton/protocol";
 import type { Song } from "@aibleton/protocol";
@@ -23,6 +25,7 @@ import { TemplateStore } from "../src/core/templates.ts";
 import { loadConfig } from "../src/config.ts";
 import type { Intelligence } from "../src/intelligence/types.ts";
 import { silentLogger } from "../src/log.ts";
+import { InMemoryAbletonAdapter } from "../src/ports/ableton/stub.ts";
 import { FixtureSpliceAdapter } from "../src/ports/splice/stub.ts";
 import { ModelRefusedError } from "../src/core/anthropic.ts";
 import { ScriptedBriefer } from "../src/songwriting/briefer/index.ts";
@@ -51,7 +54,9 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-async function build(opts: { seedLibrary?: boolean; briefer?: ScriptedBriefer; writer?: ScriptedRecipeWriter; now?: number; splice?: FixtureSpliceAdapter | FakeSplice } = {}) {
+async function build(
+  opts: { seedLibrary?: boolean; briefer?: ScriptedBriefer; writer?: ScriptedRecipeWriter; now?: number; splice?: FixtureSpliceAdapter | FakeSplice; ableton?: InMemoryAbletonAdapter } = {},
+) {
   const clock = new ManualClock(opts.now ?? 1_000);
   const events = new EventBus();
   const store = new StateStore(events);
@@ -62,6 +67,7 @@ async function build(opts: { seedLibrary?: boolean; briefer?: ScriptedBriefer; w
   const writer = opts.writer ?? new ScriptedRecipeWriter();
   const recipes = new RecipeBook({ store: new RecipeStore({ dir: join(dir, "recipes") }), writer, now: () => clock.now() });
   const splice = opts.splice ?? new FixtureSpliceAdapter();
+  const ableton = opts.ableton ?? new InMemoryAbletonAdapter({ now: () => clock.now() });
   if (opts.seedLibrary !== false) {
     await templates.save(fixtureTemplate());
     await bands.save(fixtureBand());
@@ -75,12 +81,13 @@ async function build(opts: { seedLibrary?: boolean; briefer?: ScriptedBriefer; w
     briefer,
     intelligence: idleIntelligence,
     splice,
+    ableton,
     config: loadConfig({ MATE_DOWNLOADS_DIR: join(dir, "downloads") }),
     log: silentLogger,
     startedAt: 0,
     now: () => clock.now(),
   });
-  return { app, store, events, songs, bands, briefer, writer, recipes, clock, splice, downloadsDir: join(dir, "downloads") };
+  return { app, store, events, songs, bands, briefer, writer, recipes, clock, splice, ableton, downloadsDir: join(dir, "downloads") };
 }
 
 type App = Awaited<ReturnType<typeof build>>["app"];
@@ -429,7 +436,8 @@ describe("POST /songs/:id/resolve, /pick and /download", () => {
       expect(existsSync(slot.resolved!.localPath!)).toBe(true);
     }
     expect(pendingDownloadUuids(body.song.plan)).toEqual([]);
-    expect(h.events.ofType("song.changed").length).toBe(before + pending.length);
+    // One publish per file, plus one per track the arrange-as-it-lands step created in Live.
+    expect(h.events.ofType("song.changed").length).toBe(before + pending.length + body.song.plan.tracks.length);
     expect(await h.songs.get(active.id)).toEqual(body.song);
     expect(h.store.snapshot().lastMessage).toMatch(/^got \d+ sounds? from Splice$/);
     // Everything is on disk now, so there is nothing left to spend on.
@@ -514,5 +522,50 @@ describe("DELETE /songs/:id/tracks/:partId", () => {
     expect((await h.app.request(`/songs/nope/tracks/bass-p`, { method: "DELETE" })).status).toBe(404);
     await h.app.request(`/songs/${song.id}/tracks/bass-p`, { method: "DELETE" });
     expect((await h.app.request(`/songs/${song.id}/tracks/guitar-strat`, { method: "DELETE" })).status).toBe(409);
+  });
+});
+
+describe("POST /songs/:id/arrange", () => {
+  type H = Awaited<ReturnType<typeof build>>;
+  async function downloaded(h: H): Promise<Song> {
+    const composed = SongResponseSchema.parse(await (await post(h.app, "/songs/compose", { text: "active funk" })).json()).song;
+    await post(h.app, `/songs/${composed.id}/resolve`);
+    return DownloadSongResponseSchema.parse(await (await post(h.app, `/songs/${composed.id}/download`)).json()).song;
+  }
+
+  test("download puts each file into Live as it lands; arrange afterwards has nothing left to do", async () => {
+    const h = await build();
+    const song = await downloaded(h);
+    expect(song.plan.tracks.map((t) => t.liveName)).toEqual(["kit [mate]", "p bass [mate]", "strat [mate]"]);
+    const session = h.store.getSession()!;
+    expect(session.transport.tempo).toBe(song.plan.bpm);
+    expect(session.tracks.slice(4).map((t) => t.name)).toEqual(["kit [mate]", "p bass [mate]", "strat [mate]"]);
+    const status = dawStatus(song, session);
+    expect(status.steps).toEqual([]);
+    expect(status.slots.every((s) => s.state === "in-live")).toBe(true);
+    expect(h.events.ofType("state.changed").length).toBeGreaterThan(0);
+
+    const res = await post(h.app, `/songs/${song.id}/arrange`);
+    expect(res.status).toBe(200);
+    const body = ArrangeSongResponseSchema.parse(await res.json());
+    expect(body.applied).toEqual([]);
+    expect(body.failed).toEqual([]);
+    expect(body.song).toEqual(song);
+  });
+
+  test("arrange builds a song whose files are on disk but not yet in Live, and names the tracks on the song", async () => {
+    const h = await build();
+    const song = await downloaded(h);
+    // A fresh set: the drummer opened another Live project.
+    const fresh = new InMemoryAbletonAdapter();
+    const h2 = await build({ ableton: fresh });
+    await h2.songs.save(song);
+    const res = await post(h2.app, `/songs/${song.id}/arrange`);
+    const body = ArrangeSongResponseSchema.parse(await res.json());
+    expect(body.failed).toEqual([]);
+    expect(body.applied.filter((s) => s.startsWith("create track"))).toHaveLength(3);
+    expect((await h2.songs.get(song.id))?.plan.tracks.every((t) => t.liveName)).toBe(true);
+    expect(h2.store.snapshot().lastMessage).toMatch(/steps in Live/);
+    expect((await h2.app.request(`/songs/nope/arrange`, { method: "POST" })).status).toBe(404);
   });
 });

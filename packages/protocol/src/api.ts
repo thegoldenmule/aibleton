@@ -135,3 +135,16 @@ export const DownloadSongResponseSchema = z.object({
   failed: z.array(z.object({ uuid: z.string(), slotIds: z.array(z.string()), error: z.string() })),
 });
 export type DownloadSongResponse = z.infer<typeof DownloadSongResponseSchema>;
+
+/**
+ * Response of `POST /songs/:id/arrange`: the song (tracks now carry their Live
+ * names), what was done, what failed, and what Live cannot do. The picture of
+ * what is in Live comes from `dawStatus(song, state.session)`, not from here.
+ */
+export const ArrangeSongResponseSchema = z.object({
+  song: SongSchema,
+  applied: z.array(z.string()),
+  failed: z.array(z.object({ step: z.string(), error: z.string() })),
+  notes: z.array(z.string()),
+});
+export type ArrangeSongResponse = z.infer<typeof ArrangeSongResponseSchema>;
