@@ -1,3 +1,4 @@
+import { ownedTrackIndexes } from "@aibleton/protocol";
 import type { MateEvent, Phase, SessionState } from "@aibleton/protocol";
 import type { Command, CommandBody, CommandType } from "../core/commands.ts";
 import type { Action, BrainInput, Decision, HistoryEntry } from "./brain/types.ts";
@@ -212,11 +213,44 @@ function stepObserving(state: Extract<MachineState, { kind: "observing" }>, cmd:
   }
 }
 
+/** The track an action changes, if it names one. Track-less actions (tempo, transport, new tracks) return undefined. */
+export function actionTrack(action: Action): number | undefined {
+  switch (action.type) {
+    case "createClip":
+    case "addNotes":
+    case "fireClip":
+    case "loadDrumKit":
+      return action.track;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Keep only the actions that touch tracks mate created (or no track at all).
+ * The drummer's own tracks are never changed, whatever the brain asked for;
+ * refused actions are named in the message so the drummer knows.
+ */
+export function guardDecision(decision: Decision, snapshot: SessionState | undefined): Decision {
+  const owned = ownedTrackIndexes(snapshot);
+  const refused: Action[] = [];
+  const actions = decision.actions.filter((a) => {
+    const track = actionTrack(a);
+    if (track === undefined || owned.has(track)) return true;
+    refused.push(a);
+    return false;
+  });
+  if (refused.length === 0) return decision;
+  const named = refused.map((a) => `${a.type} on track ${actionTrack(a)}`).join(", ");
+  const note = `I left ${refused.length === 1 ? "one thing" : `${refused.length} things`} alone (${named}): I only change the tracks I made, the ones ending in "[mate]".`;
+  return { ...decision, actions, message: decision.message ? `${decision.message} ${note}` : note };
+}
+
 function stepDeciding(state: Extract<MachineState, { kind: "deciding" }>, cmd: Command, opts: StepOptions): StepResult {
   switch (cmd.type) {
     case "brainDecided": {
       if (cmd.requestId !== state.requestId) return { state, effects: [] };
-      const decision = cmd.decision;
+      const decision = guardDecision(cmd.decision, state.ctx.snapshot);
       const entry: HistoryEntry = { at: cmd.at, command: state.pending, decision };
       const ctx: MachineContext = {
         ...state.ctx,

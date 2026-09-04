@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { envelope, type Command } from "../src/core/commands.ts";
-import { initialState, step, type Effect, type MachineState, type StepOptions } from "../src/intelligence/machine.ts";
+import { guardDecision, initialState, step, type Effect, type MachineState, type StepOptions } from "../src/intelligence/machine.ts";
 import { makeSession } from "./helpers/fakes.ts";
 
 const cmd = (body: Parameters<typeof envelope>[0], source: Command["source"] = "test"): Command => envelope(body, source, 0);
@@ -171,5 +171,47 @@ describe("machine", () => {
     const r = step(initialState(), cmd({ type: "goalSet", text: "16ths at 90" }), opts);
     expect(r.state.kind).toBe("observing");
     expect(r.state.ctx.goal).toBe("16ths at 90");
+  });
+});
+
+describe("ownership guard", () => {
+  const owned = (): ReturnType<typeof makeSession> => {
+    const s = makeSession();
+    s.tracks = [
+      { ...s.tracks[0]!, index: 0, name: "Drums" },
+      { ...s.tracks[0]!, index: 1, name: "Bass [mate]" },
+    ];
+    return s;
+  };
+
+  test("actions on the drummer's tracks are dropped and named; track-less and owned ones pass", () => {
+    const decision = {
+      message: "Done.",
+      actions: [
+        { type: "setTempo" as const, bpm: 100 },
+        { type: "createClip" as const, track: 0, slot: 0, lengthBeats: 4 },
+        { type: "addNotes" as const, track: 1, slot: 0, notes: [] },
+        { type: "fireClip" as const, track: 0, slot: 0 },
+        { type: "createMidiTrack" as const },
+      ],
+    };
+    const guarded = guardDecision(decision, owned());
+    expect(guarded.actions.map((a) => a.type)).toEqual(["setTempo", "addNotes", "createMidiTrack"]);
+    expect(guarded.message).toBe('Done. I left 2 things alone (createClip on track 0, fireClip on track 0): I only change the tracks I made, the ones ending in "[mate]".');
+    expect(guardDecision(decision, undefined).actions.map((a) => a.type)).toEqual(["setTempo", "createMidiTrack"]);
+    const clean = { message: "ok", actions: [{ type: "addNotes" as const, track: 1, slot: 0, notes: [] }] };
+    expect(guardDecision(clean, owned())).toBe(clean);
+  });
+
+  test("brainDecided runs through the guard: a decision left with no actions goes idle with the note", () => {
+    const s1 = step(initialState(), cmd({ type: "userRequest", text: "go" }), opts);
+    const s2 = step(s1.state, cmd({ type: "snapshotReady", snapshot: owned() }, "loop"), opts);
+    if (s2.state.kind !== "deciding") throw new Error("expected deciding");
+    const r = step(s2.state, cmd({ type: "brainDecided", requestId: s2.state.requestId, decision: { message: "Adding a groove.", actions: [{ type: "createClip", track: 0, slot: 0, lengthBeats: 4 }] } }, "loop"), opts);
+    expect(r.state.kind).toBe("idle");
+    expect(types(r.effects)).toEqual(["emitEvent"]);
+    const ev = r.effects[0];
+    expect(ev?.type === "emitEvent" && ev.event.type === "message" ? ev.event.text : "").toMatch(/^Adding a groove\. I left one thing alone \(createClip on track 0\)/);
+    expect(r.state.ctx.history.at(-1)?.decision?.actions).toEqual([]);
   });
 });

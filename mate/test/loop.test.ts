@@ -111,3 +111,16 @@ describe("AgentLoop", () => {
     expect(h.clock.pending()).toBe(0);
   });
 });
+
+describe("AgentLoop track ownership", () => {
+  test("a new MIDI track is named with the [mate] suffix as soon as it exists", async () => {
+    const h = harness([{ message: "Made you a click track.", actions: [{ type: "createMidiTrack", name: "Click" }, { type: "createMidiTrack" }] }]);
+    h.loop.submit({ type: "userRequest", text: "click please" }, "api");
+    await h.loop.settle();
+    expect(h.ableton.callsOf("setTrackName").map((c) => c.args)).toEqual([
+      [1, "Click [mate]"],
+      [1, "MIDI [mate]"],
+    ]);
+    expect(h.events.ofType("action.applied").map((e) => e.detail)).toEqual(['track 1 "Click [mate]"', 'track 1 "MIDI [mate]"']);
+  });
+});

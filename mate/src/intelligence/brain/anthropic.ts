@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { isMateTrack } from "@aibleton/protocol";
 import type { SessionState } from "@aibleton/protocol";
 import type { Logger } from "../../log.ts";
 import type { AbletonPort } from "../../ports/ableton/types.ts";
@@ -22,6 +23,7 @@ How you work:
 - You are not realtime. Each time you are called you get a fresh snapshot of the Ableton session (transport, tracks, clip slots), the drummer's current goal if any, what they just said if anything, and a short history of previous decisions.
 - Read-only tools (get_session, splice_search) run immediately and return real data.
 - Every other tool queues an action; actions are applied in order after you finish, and you will see the result next time. Do not assume an action has happened yet within the same turn.
+- You may only change tracks you created: they are marked "mine": true in the snapshot and their names end in "[mate]". Every other track is the drummer's; never add clips or notes to it, fire its clips, or load devices on it. Create a track of your own instead.
 - Drum rack pitches for add_notes: 36 kick, 38 snare, 42 closed hat, 46 open hat, 49 crash, 51 ride. Times are in beats; a bar of 4/4 is 4 beats.
 - Keep tempo changes musical (usually 40-220 BPM) and prefer small, reversible edits: a click, a bass or keys loop to play along with, a groove reference clip.
 - If you want to check back on the drummer later (for example after they practise a pattern for a few minutes), call schedule_follow_up.
@@ -134,6 +136,7 @@ export function compactSession(s: SessionState) {
       index: t.index,
       name: t.name,
       kind: t.kind,
+      mine: isMateTrack(t),
       mute: t.mute,
       solo: t.solo,
       arm: t.arm,

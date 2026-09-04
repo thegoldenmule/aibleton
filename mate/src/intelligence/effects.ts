@@ -1,3 +1,4 @@
+import { mateTrackName } from "@aibleton/protocol";
 import type { Clock } from "../core/clock.ts";
 import { envelope, type CommandBody } from "../core/commands.ts";
 import type { Mailbox } from "../core/mailbox.ts";
@@ -129,8 +130,11 @@ export class EffectRunner {
     const ctx = userPrompt ? { userPrompt } : undefined;
     switch (action.type) {
       case "createMidiTrack": {
+        // Named with the [mate] suffix straight away: that mark is what lets later actions touch it.
         const index = await ableton.createMidiTrack(undefined, ctx);
-        return `track ${index}`;
+        const name = mateTrackName(action.name?.trim() || "MIDI");
+        await ableton.setTrackName(index, name, ctx);
+        return `track ${index} ${JSON.stringify(name)}`;
       }
       case "createClip":
         await ableton.createClip(action.track, action.slot, action.lengthBeats, ctx);

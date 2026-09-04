@@ -10,7 +10,8 @@ const str = { type: "string" as const };
 export const ABLETON_READ_TOOLS: Tool[] = [
   {
     name: "get_session",
-    description: "Return the current Ableton session: transport (tempo, time signature, playing) and every track with its clip slots.",
+    description:
+      "Return the current Ableton session: transport (tempo, time signature, playing) and every track with its clip slots. Tracks with mine: true are yours to change; the rest belong to the drummer.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
     strict: true,
   },
@@ -19,7 +20,7 @@ export const ABLETON_READ_TOOLS: Tool[] = [
 export const ABLETON_ACTION_TOOLS: Tool[] = [
   {
     name: "create_midi_track",
-    description: "Create a new MIDI track at the end of the track list. Optionally name it.",
+    description: "Create a new MIDI track of your own at the end of the track list. Optionally name it; the name gets a \"[mate]\" suffix.",
     input_schema: { type: "object", properties: { name: { ...str, description: "Optional track name" } } },
   },
   {
