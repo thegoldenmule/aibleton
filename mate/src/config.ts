@@ -15,6 +15,10 @@ const ConfigSchema = z.object({
   model: z.string().default("claude-opus-5"),
   spliceMcpUrl: z.string().url().default("https://mcp.splice.com/mcp"),
   spliceMcpToken: z.string().optional(),
+  /** Where the Splice OAuth client registration and tokens live (written by `bun run splice:login`, mode 0600). */
+  spliceOauthFile: z.string().min(1).default(".mate/splice-oauth.json"),
+  /** Localhost port the login command listens on for the OAuth redirect (`http://localhost:<port>/callback`). */
+  spliceOauthCallbackPort: z.coerce.number().int().positive().default(4546),
   abletonMcpCommand: z.string().default("uvx"),
   abletonMcpArgs: z.array(z.string()).default(["ableton-mcp"]),
   maxBrainRetries: z.coerce.number().int().min(0).default(3),
@@ -38,6 +42,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     model: env.MATE_MODEL,
     spliceMcpUrl: env.SPLICE_MCP_URL,
     spliceMcpToken: env.SPLICE_MCP_TOKEN,
+    spliceOauthFile: env.SPLICE_OAUTH_FILE,
+    spliceOauthCallbackPort: env.SPLICE_OAUTH_CALLBACK_PORT,
     abletonMcpCommand: env.ABLETON_MCP_COMMAND,
     abletonMcpArgs: env.ABLETON_MCP_ARGS ? env.ABLETON_MCP_ARGS.split(" ") : undefined,
     maxBrainRetries: env.MATE_MAX_BRAIN_RETRIES,

@@ -3,9 +3,10 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import fixtures from "../src/ports/splice/fixtures/sounds.json";
-import { createSplicePort } from "../src/ports/splice/index.ts";
+import { NOT_LOGGED_IN, createSplicePort } from "../src/ports/splice/index.ts";
 import { parseSearchResults } from "../src/ports/splice/markdown.ts";
 import { FixtureSpliceAdapter } from "../src/ports/splice/stub.ts";
+import { FileOAuthProvider } from "../src/ports/mcp/oauth.ts";
 import { silentLogger } from "../src/log.ts";
 
 describe("FixtureSpliceAdapter", () => {
@@ -109,5 +110,67 @@ describe("createSplicePort", () => {
     await expect(
       createSplicePort("mcp", { url: "http://127.0.0.1:1/mcp", log: silentLogger, connectTimeoutMs: 2000 }),
     ).rejects.toThrow(/Splice MCP unavailable/);
+  });
+
+  describe("with an OAuth file", () => {
+    let dir: string;
+    beforeEach(async () => {
+      dir = await mkdtemp(join(tmpdir(), "mate-splice-oauth-port-"));
+    });
+    afterEach(async () => {
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    test("auto mode without a login says how to log in and never touches the server", async () => {
+      const r = await createSplicePort("auto", {
+        url: "http://127.0.0.1:1/mcp",
+        oauth: { file: join(dir, "splice-oauth.json"), callbackPort: 4546 },
+        log: silentLogger,
+        connectTimeoutMs: 2000,
+      });
+      expect(r.live).toBe(false);
+      expect(r.port.kind).toBe("stub");
+      expect(r.fallbackReason).toBe(NOT_LOGGED_IN);
+      expect(r.fallbackReason).toContain("bun run --cwd mate splice:login");
+    });
+
+    test("mcp mode without a login throws with the login command", async () => {
+      await expect(
+        createSplicePort("mcp", {
+          url: "http://127.0.0.1:1/mcp",
+          oauth: { file: join(dir, "splice-oauth.json"), callbackPort: 4546 },
+          log: silentLogger,
+        }),
+      ).rejects.toThrow(/splice:login/);
+    });
+
+    test("a bearer token skips the OAuth file and tries the server", async () => {
+      const r = await createSplicePort("auto", {
+        url: "http://127.0.0.1:1/mcp",
+        token: "t",
+        oauth: { file: join(dir, "splice-oauth.json"), callbackPort: 4546 },
+        log: silentLogger,
+        connectTimeoutMs: 2000,
+      });
+      expect(r.live).toBe(false);
+      expect(r.fallbackReason).not.toBe(NOT_LOGGED_IN);
+    });
+
+    test("saved tokens are tried against the server and an unreachable one still falls back", async () => {
+      const file = join(dir, "splice-oauth.json");
+      await new FileOAuthProvider({ file, redirectUrl: "http://localhost:4546/callback" }).saveTokens({
+        access_token: "at",
+        token_type: "bearer",
+      });
+      const r = await createSplicePort("auto", {
+        url: "http://127.0.0.1:1/mcp",
+        oauth: { file, callbackPort: 4546 },
+        log: silentLogger,
+        connectTimeoutMs: 2000,
+      });
+      expect(r.live).toBe(false);
+      expect(r.fallbackReason).toBeTruthy();
+      expect(r.fallbackReason).not.toBe(NOT_LOGGED_IN);
+    });
   });
 });

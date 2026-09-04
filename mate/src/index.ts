@@ -43,6 +43,7 @@ async function main(): Promise<void> {
   const spliceResult = await createSplicePort(config.splice, {
     url: config.spliceMcpUrl,
     token: config.spliceMcpToken,
+    oauth: { file: config.spliceOauthFile, callbackPort: config.spliceOauthCallbackPort },
     log: createLogger("splice"),
   });
   if (spliceResult.fallbackReason) log.warn(`splice: using stub (${spliceResult.fallbackReason})`);

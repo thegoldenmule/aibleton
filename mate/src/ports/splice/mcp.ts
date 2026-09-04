@@ -1,4 +1,5 @@
 import { mkdir } from "node:fs/promises";
+import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import type { Logger } from "../../log.ts";
 import { McpConnection } from "../mcp/client.ts";
 import { localPathFor } from "./files.ts";
@@ -7,7 +8,10 @@ import type { DownloadResult, SearchOptions, Sound, SplicePort, Stack } from "./
 
 export interface McpSpliceOptions {
   url: string;
+  /** Plain bearer override (`SPLICE_MCP_TOKEN`); wins over `authProvider`. */
   token?: string;
+  /** OAuth provider holding the login made by `bun run splice:login`. */
+  authProvider?: OAuthClientProvider;
   log: Logger;
   /** Fetches the presigned download URL; injectable for tests. Defaults to the global fetch. */
   fetch?: typeof fetch;
@@ -17,15 +21,19 @@ const DOWNLOAD_TIMEOUT_MS = 120_000;
 
 /**
  * Splice port over the remote Splice MCP server (streamable HTTP).
- * Auth is an open question: Claude Code holds an OAuth session for mcp.splice.com, mate does not.
- * An optional bearer token is forwarded; a proper OAuth provider hook can replace it later.
+ * Auth is OAuth through `authProvider` (tokens saved by the login command, refreshed by the SDK on
+ * 401) or a plain bearer token when one is configured.
  */
 export class McpSpliceAdapter implements SplicePort {
   readonly kind = "mcp" as const;
   readonly connection: McpConnection;
 
   constructor(private readonly opts: McpSpliceOptions) {
-    this.connection = new McpConnection({ kind: "http", url: opts.url, bearerToken: opts.token }, opts.log, "aibleton-mate-splice");
+    this.connection = new McpConnection(
+      { kind: "http", url: opts.url, bearerToken: opts.token, authProvider: opts.authProvider },
+      opts.log,
+      "aibleton-mate-splice",
+    );
   }
 
   async connect(timeoutMs?: number): Promise<void> {
