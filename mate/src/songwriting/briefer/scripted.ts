@@ -70,7 +70,8 @@ export class ScriptedBriefer implements Briefer {
 /** The brief a scripted briefer writes when it has no script. Exported for tests. */
 export function defaultBrief(input: BriefInput): SongBrief {
   const tokens = tokenize(input.text);
-  const genre = bandGenre(input.band) ?? [...genreKeysIn(tokens)].find((key) => key in GENRE_DEFAULTS) ?? null;
+  // A named genre wins over the band's tag, the way a real brief follows the request.
+  const genre = [...genreKeysIn(tokens)].find((key) => key in GENRE_DEFAULTS) ?? bandGenre(input.band) ?? null;
   const defaults = (genre && GENRE_DEFAULTS[genreKey(genre)]) || FALLBACK;
   const hinted = bpmHint(tokens);
   const bpm: BpmRange = hinted !== null ? { min: Math.max(40, hinted - 8), max: Math.min(220, hinted + 8), target: hinted } : defaults.bpm;

@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import type { Config } from "../config.ts";
 import type { StateStore } from "../core/state.ts";
 import type { BandStore } from "../core/bands.ts";
+import type { RecipeBook } from "../core/recipes.ts";
 import type { SongStore } from "../core/songs.ts";
 import type { TemplateStore } from "../core/templates.ts";
 import type { Intelligence } from "../intelligence/types.ts";
@@ -14,6 +15,7 @@ import { eventRoutes } from "./routes/events.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { stateRoutes } from "./routes/state.ts";
 import { bandRoutes } from "./routes/bands.ts";
+import { recipeRoutes } from "./routes/recipes.ts";
 import { songRoutes } from "./routes/songs.ts";
 import { templateRoutes } from "./routes/templates.ts";
 
@@ -22,6 +24,8 @@ export interface AppDeps {
   templates: TemplateStore;
   bands: BandStore;
   songs: SongStore;
+  /** Every recipe the band generator can staff from; fills gaps through the model. */
+  recipes: RecipeBook;
   /** Writes the brief for POST /songs/compose. */
   briefer: Briefer;
   intelligence: Intelligence;
@@ -64,7 +68,8 @@ export function createApp(deps: AppDeps): Hono {
   );
   const now = deps.now ?? (() => Date.now());
   app.route("/", templateRoutes({ templates: deps.templates, now }));
-  app.route("/", bandRoutes({ bands: deps.bands, now }));
+  app.route("/", bandRoutes({ bands: deps.bands, recipes: deps.recipes, log: deps.log, now }));
+  app.route("/", recipeRoutes({ recipes: deps.recipes }));
   app.route(
     "/",
     songRoutes({
@@ -72,6 +77,7 @@ export function createApp(deps: AppDeps): Hono {
       templates: deps.templates,
       bands: deps.bands,
       briefer: deps.briefer,
+      recipes: deps.recipes,
       store: deps.store,
       log: deps.log,
       now,

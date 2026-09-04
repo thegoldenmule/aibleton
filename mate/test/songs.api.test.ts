@@ -15,6 +15,9 @@ import type { Intelligence } from "../src/intelligence/types.ts";
 import { silentLogger } from "../src/log.ts";
 import { ModelRefusedError } from "../src/core/anthropic.ts";
 import { ScriptedBriefer } from "../src/songwriting/briefer/index.ts";
+import { defaultBrief } from "../src/songwriting/briefer/scripted.ts";
+import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
+import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { fixtureBand, fixtureTemplate } from "./helpers/song.ts";
 
 const idleIntelligence: Intelligence = {
@@ -36,7 +39,7 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-async function build(opts: { seedLibrary?: boolean; briefer?: ScriptedBriefer; now?: number } = {}) {
+async function build(opts: { seedLibrary?: boolean; briefer?: ScriptedBriefer; writer?: ScriptedRecipeWriter; now?: number } = {}) {
   const clock = new ManualClock(opts.now ?? 1_000);
   const events = new EventBus();
   const store = new StateStore(events);
@@ -44,6 +47,8 @@ async function build(opts: { seedLibrary?: boolean; briefer?: ScriptedBriefer; n
   const bands = new BandStore({ dir: join(dir, "bands") });
   const songs = new SongStore({ dir: join(dir, "songs") });
   const briefer = opts.briefer ?? new ScriptedBriefer();
+  const writer = opts.writer ?? new ScriptedRecipeWriter();
+  const recipes = new RecipeBook({ store: new RecipeStore({ dir: join(dir, "recipes") }), writer, now: () => clock.now() });
   if (opts.seedLibrary !== false) {
     await templates.save(fixtureTemplate());
     await bands.save(fixtureBand());
@@ -53,6 +58,7 @@ async function build(opts: { seedLibrary?: boolean; briefer?: ScriptedBriefer; n
     templates,
     bands,
     songs,
+    recipes,
     briefer,
     intelligence: idleIntelligence,
     config: loadConfig({}),
@@ -60,7 +66,7 @@ async function build(opts: { seedLibrary?: boolean; briefer?: ScriptedBriefer; n
     startedAt: 0,
     now: () => clock.now(),
   });
-  return { app, store, events, songs, briefer, clock };
+  return { app, store, events, songs, bands, briefer, writer, recipes, clock };
 }
 
 type App = Awaited<ReturnType<typeof build>>["app"];
@@ -170,6 +176,48 @@ describe("POST /songs/compose", () => {
     );
     expect(res.status).toBe(502);
     expect(h.store.getSong()).toBeNull();
+  });
+});
+
+describe("POST /songs/compose for a genre with no band", () => {
+  /** The scripted briefer cannot know "gospel" is a genre; a real brief would say so, so this one is told to. */
+  const gospelBriefer = () => new ScriptedBriefer((input) => ({ ...defaultBrief(input), genres: ["gospel", "soul"] }));
+
+  test("writes a recipe, rolls and saves a few bands, picks one and briefs again", async () => {
+    const h = await build({ briefer: gospelBriefer() });
+    const briefer = h.briefer;
+    const res = await post(h.app, "/songs/compose", { text: "a high energy gospel song", seed: 100 });
+    expect(res.status).toBe(200);
+    const { song } = SongResponseSchema.parse(await res.json());
+
+    expect(h.writer.calls.map((c) => c.genre)).toEqual(["gospel"]);
+    const saved = await h.bands.list();
+    expect(saved).toHaveLength(4);
+    const rolled = saved.filter((b) => b.metadata.genre === "gospel");
+    expect(rolled).toHaveLength(3);
+    expect(rolled.map((b) => b.id)).toContain(song.bandId);
+    expect(song.band.metadata.genre).toBe("gospel");
+    expect(briefer.calls).toHaveLength(2);
+    expect(briefer.calls[0]!.band.id).toBe("band-1");
+    expect(briefer.calls[1]!.band.id).toBe(song.bandId);
+    expect(song.plan.tracks.every((t) => song.band.parts.some((p) => p.id === t.partId))).toBe(true);
+  });
+
+  test("a request that matched a band by genre never triggers a recipe", async () => {
+    const h = await build();
+    await post(h.app, "/songs/compose", { text: "something funky" });
+    expect(h.writer.calls).toEqual([]);
+    expect(h.briefer.calls).toHaveLength(1);
+    expect(await h.bands.list()).toHaveLength(1);
+  });
+
+  test("the second time around the rolled bands are picked directly", async () => {
+    const h = await build({ briefer: gospelBriefer() });
+    await post(h.app, "/songs/compose", { text: "a gospel tune", seed: 1 });
+    await post(h.app, "/songs/compose", { text: "another gospel tune", seed: 2 });
+    expect(h.writer.calls).toHaveLength(1);
+    expect(h.briefer.calls).toHaveLength(3);
+    expect(await h.bands.list()).toHaveLength(4);
   });
 });
 

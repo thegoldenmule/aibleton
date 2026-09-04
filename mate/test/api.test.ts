@@ -7,6 +7,8 @@ import { TemplateStore } from "../src/core/templates.ts";
 import { BandStore } from "../src/core/bands.ts";
 import { SongStore } from "../src/core/songs.ts";
 import { ScriptedBriefer } from "../src/songwriting/briefer/index.ts";
+import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
+import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { envelope, type Command, type CommandBody, type CommandSource } from "../src/core/commands.ts";
 import { loadConfig } from "../src/config.ts";
 import { silentLogger } from "../src/log.ts";
@@ -42,11 +44,13 @@ function build() {
   const templates = new TemplateStore({ dir: mkdtempSync(join(tmpdir(), "mate-api-")) });
   const bands = new BandStore({ dir: mkdtempSync(join(tmpdir(), "mate-api-bands-")) });
   const songs = new SongStore({ dir: mkdtempSync(join(tmpdir(), "mate-api-songs-")) });
+  const recipes = new RecipeBook({ store: new RecipeStore({ dir: mkdtempSync(join(tmpdir(), "mate-api-recipes-")) }), writer: new ScriptedRecipeWriter(), now: () => Date.now() });
   const app = createApp({
     store,
     templates,
     bands,
     songs,
+    recipes,
     briefer: new ScriptedBriefer(),
     intelligence: fake.intelligence,
     config: loadConfig({}),

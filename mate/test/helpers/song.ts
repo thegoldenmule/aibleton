@@ -1,5 +1,10 @@
 import type { Band, Song, Template } from "@aibleton/protocol";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { RecipeBook, RecipeStore } from "../../src/core/recipes.ts";
 import { ScriptedBriefer } from "../../src/songwriting/briefer/scripted.ts";
+import { ScriptedRecipeWriter } from "../../src/songwriting/recipe-writer/scripted.ts";
 import { composeSong } from "../../src/songwriting/compose.ts";
 
 /** A small funk library, enough for the pickers to have something to choose. */
@@ -41,6 +46,8 @@ export async function fixtureSong(over: Partial<Song> = {}): Promise<Song> {
     templates: [fixtureTemplate()],
     bands: [fixtureBand()],
     briefer: new ScriptedBriefer(),
+    recipes: new RecipeBook({ store: new RecipeStore({ dir: mkdtempSync(join(tmpdir(), "mate-fixture-recipes-")) }), writer: new ScriptedRecipeWriter(), now: () => 1_000 }),
+    saveBand: async (band) => band,
     now: () => 1_000,
     signal: new AbortController().signal,
   });

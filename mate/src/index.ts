@@ -6,6 +6,7 @@ import { EventBus } from "./core/events.ts";
 import { Mailbox } from "./core/mailbox.ts";
 import { StateStore } from "./core/state.ts";
 import { BandStore } from "./core/bands.ts";
+import { RecipeBook, RecipeStore } from "./core/recipes.ts";
 import { SongStore } from "./core/songs.ts";
 import { TemplateStore } from "./core/templates.ts";
 import { createAbletonPort } from "./ports/ableton/index.ts";
@@ -14,6 +15,7 @@ import { createAnthropicClient } from "./core/anthropic.ts";
 import { createBrain } from "./intelligence/brain/index.ts";
 import { createIntelligence } from "./intelligence/index.ts";
 import { createBriefer } from "./songwriting/briefer/index.ts";
+import { createRecipeWriter } from "./songwriting/recipe-writer/index.ts";
 import { TickSource } from "./inputs/timer.ts";
 import { NoopMidiSource } from "./inputs/midi.ts";
 import { createApp, startServer } from "./api/server.ts";
@@ -73,6 +75,16 @@ async function main(): Promise<void> {
   });
   if (brieferResult.fallbackReason) log.warn(`briefer: using scripted (${brieferResult.fallbackReason})`);
 
+  const writerResult = createRecipeWriter(config.brain, {
+    client: anthropic,
+    ...(anthropicError !== undefined ? { clientError: anthropicError } : {}),
+    model: config.model,
+    log: createLogger("recipes"),
+  });
+  if (writerResult.fallbackReason) log.warn(`recipe writer: using scripted (${writerResult.fallbackReason})`);
+  const recipes = new RecipeBook({ store: new RecipeStore({ dir: config.recipesDir }), writer: writerResult.writer, now: () => clock.now() });
+  await recipes.load();
+
   store.setAdapters({
     ableton: abletonResult.port.kind,
     splice: spliceResult.port.kind,
@@ -101,6 +113,7 @@ async function main(): Promise<void> {
     templates,
     bands,
     songs,
+    recipes,
     briefer: brieferResult.briefer,
     intelligence,
     config,

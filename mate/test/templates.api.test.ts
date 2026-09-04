@@ -14,6 +14,8 @@ import { TemplateStore } from "../src/core/templates.ts";
 import { BandStore } from "../src/core/bands.ts";
 import { SongStore } from "../src/core/songs.ts";
 import { ScriptedBriefer } from "../src/songwriting/briefer/index.ts";
+import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
+import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { ManualClock } from "../src/core/clock.ts";
 import { loadConfig } from "../src/config.ts";
 import { silentLogger } from "../src/log.ts";
@@ -38,6 +40,7 @@ function build(now = 1_000) {
     templates: new TemplateStore({ dir }),
     bands: new BandStore({ dir: join(dir, "bands") }),
     songs: new SongStore({ dir: join(dir, "songs") }),
+    recipes: new RecipeBook({ store: new RecipeStore({ dir: join(dir, "recipes") }), writer: new ScriptedRecipeWriter(), now: () => clock.now() }),
     briefer: new ScriptedBriefer(),
     intelligence: idleIntelligence,
     config: loadConfig({}),

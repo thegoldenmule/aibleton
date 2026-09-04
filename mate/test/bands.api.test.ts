@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BandListResponseSchema, BandResponseSchema, type Band } from "@aibleton/protocol";
+import { BandListResponseSchema, BandResponseSchema, RecipeListResponseSchema, type Band } from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
 import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
@@ -11,6 +11,8 @@ import { BandStore } from "../src/core/bands.ts";
 import { BUILTIN_GENRES } from "../src/core/band-generator.ts";
 import { SongStore } from "../src/core/songs.ts";
 import { ScriptedBriefer } from "../src/songwriting/briefer/index.ts";
+import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
+import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { ManualClock } from "../src/core/clock.ts";
 import { loadConfig } from "../src/config.ts";
 import { silentLogger } from "../src/log.ts";
@@ -29,11 +31,14 @@ let dir: string;
 
 function build(now = 1_000) {
   const clock = new ManualClock(now);
+  const writer = new ScriptedRecipeWriter();
+  const recipes = new RecipeBook({ store: new RecipeStore({ dir: join(dir, "recipes") }), writer, now: () => clock.now() });
   const app = createApp({
     store: new StateStore(new EventBus()),
     templates: new TemplateStore({ dir: join(dir, "templates") }),
     bands: new BandStore({ dir: join(dir, "bands") }),
     songs: new SongStore({ dir: join(dir, "songs") }),
+    recipes,
     briefer: new ScriptedBriefer(),
     intelligence: idleIntelligence,
     config: loadConfig({}),
@@ -41,7 +46,7 @@ function build(now = 1_000) {
     startedAt: 0,
     now: () => clock.now(),
   });
-  return { app };
+  return { app, recipes, writer };
 }
 
 function band(over: Partial<Band> = {}): Band {
@@ -172,9 +177,37 @@ describe("bands api", () => {
     expect(made.name).toContain("555");
   });
 
-  test("POST /bands/generate rejects an unknown genre", async () => {
+  test("POST /bands/generate writes a recipe for an unknown genre, once, and staffs from it", async () => {
+    const { app, recipes, writer } = build();
+    const res = await post(app, "/bands/generate", { seed: 9, genre: "Polka" });
+    expect(res.status).toBe(200);
+    const { band: made } = BandResponseSchema.parse(await res.json());
+    expect(made.metadata.genre).toBe("Polka");
+    expect(made.parts.length).toBeGreaterThanOrEqual(3);
+    expect(made.parts[0]!.name).toContain("polka");
+    expect(writer.calls).toEqual([{ genre: "Polka" }]);
+    expect(recipes.get("polka")?.source).toBe("generated");
+
+    const again = BandResponseSchema.parse(await (await post(app, "/bands/generate", { seed: 9, genre: "polka" })).json());
+    expect(again.band.parts).toEqual(made.parts);
+    expect(writer.calls).toHaveLength(1);
+  });
+
+  test("POST /bands/generate reports a writer failure as a 502 and a blank genre as a 400", async () => {
+    const { app, writer } = build();
+    writer.rejectNext(new Error("model down"));
+    const res = await post(app, "/bands/generate", { genre: "polka" });
+    expect(res.status).toBe(502);
+    expect(((await res.json()) as { error: string }).error).toContain("model down");
+    expect((await post(app, "/bands/generate", { genre: "   " })).status).toBe(400);
+  });
+
+  test("GET /recipes lists built-ins then generated recipes", async () => {
     const { app } = build();
-    expect((await post(app, "/bands/generate", { genre: "polka" })).status).toBe(400);
+    await post(app, "/bands/generate", { genre: "gospel" });
+    const list = RecipeListResponseSchema.parse(await (await app.request("/recipes")).json());
+    expect(list.recipes.slice(0, BUILTIN_GENRES.length).map((r) => r.id)).toEqual([...BUILTIN_GENRES]);
+    expect(list.recipes.at(-1)).toMatchObject({ id: "gospel", genre: "gospel", source: "generated" });
   });
 
   test("a generated band can be saved straight back", async () => {

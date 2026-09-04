@@ -7,6 +7,7 @@ import {
   type SongResponse,
 } from "@aibleton/protocol";
 import type { BandStore } from "../../core/bands.ts";
+import type { RecipeBook } from "../../core/recipes.ts";
 import { isValidSongId, type SongStore } from "../../core/songs.ts";
 import type { StateStore } from "../../core/state.ts";
 import type { TemplateStore } from "../../core/templates.ts";
@@ -21,6 +22,7 @@ export interface SongRouteDeps {
   templates: TemplateStore;
   bands: BandStore;
   briefer: Briefer;
+  recipes: RecipeBook;
   /** Holds the active song, which is what the app's session view renders. */
   store: StateStore;
   log: Logger;
@@ -63,6 +65,8 @@ export function songRoutes(deps: SongRouteDeps): Hono {
         templates,
         bands,
         briefer: deps.briefer,
+        recipes: deps.recipes,
+        saveBand: (band) => deps.bands.save(band),
         now: deps.now,
         signal: c.req.raw.signal,
       });

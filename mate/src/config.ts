@@ -21,6 +21,7 @@ const ConfigSchema = z.object({
   templatesDir: z.string().min(1).default(".mate/templates"),
   bandsDir: z.string().min(1).default(".mate/bands"),
   songsDir: z.string().min(1).default(".mate/songs"),
+  recipesDir: z.string().min(1).default(".mate/recipes"),
 });
 export type Config = z.infer<typeof ConfigSchema>;
 
@@ -41,5 +42,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     templatesDir: env.MATE_TEMPLATES_DIR,
     bandsDir: env.MATE_BANDS_DIR,
     songsDir: env.MATE_SONGS_DIR,
+    recipesDir: env.MATE_RECIPES_DIR,
   });
 }
