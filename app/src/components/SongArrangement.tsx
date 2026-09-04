@@ -1,6 +1,7 @@
 import { slotDownloaded, type Placement, type SampleSlot, type Song } from "@aibleton/protocol";
 import { letterClass } from "./FormStrip";
 import { roleClass } from "./BandRoster";
+import { shortName } from "../lib/format";
 
 /** Narrowest an occurrence column may get, so a 1-bar section still shows its letter. */
 const MIN_COL_PX = 72;
@@ -12,10 +13,21 @@ const HEADER_PX = 200;
  * blocks as the roadmap above), one row per track, and in each cell the
  * sample slot for that part x section looped as many times as it takes to
  * fill the occurrence — a 4-bar guitar loop shows twice under an 8-bar `a`,
- * an 8-bar bass loop once. Scrolls horizontally on its own; vertical scroll
- * belongs to the session column so there is one scrollbar for the page.
+ * an 8-bar bass loop once. A clip shows the sound picked for its slot;
+ * clicking it selects the slot (every clip of that slot lights up) so the
+ * candidates can be shown below, and "preview" opens the pick on splice.com.
+ * Scrolls horizontally on its own; vertical scroll belongs to the session
+ * column so there is one scrollbar for the page.
  */
-export function SongArrangement({ song }: { song: Song }) {
+export function SongArrangement({
+  song,
+  selectedSlotId,
+  onSelect,
+}: {
+  song: Song;
+  selectedSlotId: string | null;
+  onSelect: (slotId: string | null) => void;
+}) {
   const { plan } = song;
   const slotById = new Map(plan.slots.map((s) => [s.id, s]));
   const byTrack = new Map<string, Map<number, Placement>>();
@@ -74,7 +86,15 @@ export function SongArrangement({ song }: { song: Song }) {
                     <div key={occ.index} className="flex gap-px" style={colStyle(occ.bars)}>
                       {placement && slot ? (
                         Array.from({ length: placement.repeats }, (_, i) => (
-                          <Clip key={i} slot={slot} placement={placement} repeat={i} label={occ.label} />
+                          <Clip
+                            key={i}
+                            slot={slot}
+                            placement={placement}
+                            repeat={i}
+                            label={occ.label}
+                            selected={slot.id === selectedSlotId}
+                            onSelect={() => onSelect(slot.id === selectedSlotId ? null : slot.id)}
+                          />
                         ))
                       ) : (
                         <div className="h-14 flex-1 rounded-sm border border-dashed border-line/70" title="rests" />
@@ -91,19 +111,62 @@ export function SongArrangement({ song }: { song: Song }) {
   );
 }
 
-function Clip({ slot, placement, repeat, label }: { slot: SampleSlot; placement: Placement; repeat: number; label: string }) {
+function Clip({
+  slot,
+  placement,
+  repeat,
+  label,
+  selected,
+  onSelect,
+}: {
+  slot: SampleSlot;
+  placement: Placement;
+  repeat: number;
+  label: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
   const first = repeat === 0;
+  const pick = slot.candidates.find((c) => c.uuid === slot.pickedUuid) ?? null;
+  const previewUrl = first && pick && pick.url ? pick.url : null;
+  const title = [
+    slot.id,
+    pick ? pick.fileName : "no pick yet",
+    `${placement.loopBars}-bar loop, ${repeat + 1} of ${placement.repeats}`,
+    slot.query,
+  ].join("\n");
   return (
     <div
-      className={`flex h-14 min-w-0 flex-1 flex-col justify-between overflow-hidden rounded-sm border px-1.5 py-1 ${letterClass(label)}`}
-      title={`${slot.id} · ${placement.loopBars}-bar loop, ${repeat + 1} of ${placement.repeats}\n${slot.query}`}
+      className={`relative flex h-14 min-w-0 flex-1 overflow-hidden rounded-sm border ${letterClass(label)}${selected ? " ring-1 ring-accent" : ""}`}
+      title={title}
     >
-      <span className="truncate text-[11px] font-medium leading-tight">{first ? slot.id : "↻"}</span>
-      <span className="font-mono text-[10px] opacity-80">
-        {placement.loopBars} bar{placement.loopBars === 1 ? "" : "s"}
-        {placement.repeats > 1 ? ` · ${repeat + 1}/${placement.repeats}` : ""}
-        {slotDownloaded(slot) ? " · ✓" : slot.pickedUuid ? " · ○" : " · ?"}
-      </span>
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={selected}
+        className="flex min-w-0 flex-1 cursor-pointer flex-col justify-between px-1.5 py-1 text-left"
+      >
+        <span className={`w-full truncate text-[11px] font-medium leading-tight${previewUrl ? " pr-14" : ""}`}>
+          {first ? (pick ? shortName(pick.fileName) : slot.id) : "↻"}
+        </span>
+        <span className="font-mono text-[10px] opacity-80">
+          {placement.loopBars} bar{placement.loopBars === 1 ? "" : "s"}
+          {placement.repeats > 1 ? ` · ${repeat + 1}/${placement.repeats}` : ""}
+          {slotDownloaded(slot) ? " · ✓" : slot.pickedUuid ? " · ○" : " · ?"}
+        </span>
+      </button>
+      {previewUrl ? (
+        <a
+          href={previewUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-1 top-1 rounded-sm border border-current/40 bg-panel/70 px-1 text-[10px] leading-tight opacity-80 hover:opacity-100"
+          title="Open on splice.com to listen"
+        >
+          preview ↗
+        </a>
+      ) : null}
     </div>
   );
 }

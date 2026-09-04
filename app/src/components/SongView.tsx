@@ -2,7 +2,6 @@ import { useState } from "react";
 import { formTotalBars, keyName, parseForm, pendingDownloadUuids, slotDownloaded, type Song } from "@aibleton/protocol";
 import { CandidateList } from "./CandidateList";
 import { FormStrip } from "./FormStrip";
-import { SlotGrid } from "./SlotGrid";
 import { SongArrangement } from "./SongArrangement";
 
 interface Props {
@@ -19,8 +18,8 @@ interface Props {
 /**
  * The active song as the session mate intends to build: the brief in a row of
  * chips, the form as a roadmap, then the arrangement — every track laid out
- * along the form with its looped clips in each occurrence — and the sample
- * slots with their Splice candidates. This is mate's state, not Ableton's.
+ * along the form with its looped clips in each occurrence. Clicking a clip
+ * opens that slot's Splice candidates below. This is mate's state, not Ableton's.
  */
 export function SongView({ song, spliceStub, resolving, downloading, onResolve, onPick, onDownload }: Props) {
   const { brief, plan } = song;
@@ -116,16 +115,14 @@ export function SongView({ song, spliceStub, resolving, downloading, onResolve, 
         </p>
       </div>
 
-      <SongArrangement song={song} />
-
-      <SlotGrid song={song} selectedId={selectedSlotId} onSelect={setSelectedSlotId} />
+      <SongArrangement song={song} selectedSlotId={selectedSlotId} onSelect={setSelectedSlotId} />
 
       {selected ? (
         <CandidateList slot={selected} track={selectedTrack} busy={busy} onPick={(uuid) => swallow(onPick(selected.id, uuid))} />
       ) : null}
 
       <p className="shrink-0 text-[10px] text-muted/70">
-        {plan.slots.length} sample slots · {picked} picked · {onDisk} on disk · “?” no pick yet, “○” picked, “✓” on disk · nothing sent to Ableton yet
+        {plan.slots.length} sample slots · {picked} picked · {onDisk} on disk · “?” no pick yet, “○” picked, “✓” on disk · click a clip to choose its sound · nothing sent to Ableton yet
       </p>
     </div>
   );
