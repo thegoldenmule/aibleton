@@ -17,6 +17,8 @@ export interface MateView {
   state: StateResponse | null;
   connection: Connection;
   lastError: string | null;
+  /** True while a compose request from this page is waiting on the model. */
+  composing: boolean;
   send: (command: ExternalCommand) => Promise<void>;
   /** Runs the song flow for a request; the active song lands in `state.song`. */
   compose: (text: string) => Promise<void>;
@@ -34,6 +36,7 @@ const EVENT_TYPES: MateEvent["type"][] = [
   "adapters",
   "goal.changed",
   "song.changed",
+  "transcript.appended",
 ];
 
 const RECENT_LIMIT = 50;
@@ -61,6 +64,8 @@ function applyEvent(prev: StateResponse | null, event: MateEvent): StateResponse
       return { ...prev, goal: event.goal };
     case "song.changed":
       return { ...prev, song: event.song };
+    case "transcript.appended":
+      return prev.transcript.some((t) => t.id === event.entry.id) ? prev : { ...prev, transcript: [...prev.transcript, event.entry] };
     case "cancelled":
     case "action.applied":
       return prev;
@@ -75,6 +80,7 @@ export function useMateState(): MateView {
   const [state, setState] = useState<StateResponse | null>(null);
   const [connection, setConnection] = useState<Connection>("connecting");
   const [lastError, setLastError] = useState<string | null>(null);
+  const [composing, setComposing] = useState(false);
   const retryRef = useRef(0);
 
   useEffect(() => {
@@ -151,6 +157,7 @@ export function useMateState(): MateView {
   }, []);
 
   const compose = useCallback(async (text: string) => {
+    setComposing(true);
     try {
       const song = await composeSong({ text });
       // The SSE event normally lands first; this covers a dropped stream.
@@ -159,6 +166,8 @@ export function useMateState(): MateView {
     } catch (err) {
       setLastError(err instanceof Error ? err.message : String(err));
       throw err;
+    } finally {
+      setComposing(false);
     }
   }, []);
 
@@ -173,5 +182,5 @@ export function useMateState(): MateView {
     }
   }, []);
 
-  return { state, connection, lastError, send, compose, clearSong };
+  return { state, connection, lastError, composing, send, compose, clearSong };
 }
