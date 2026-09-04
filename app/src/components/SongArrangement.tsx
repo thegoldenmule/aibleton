@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { slotDownloaded, type Placement, type SampleSlot, type Song } from "@aibleton/protocol";
+import { slotDownloaded, type DawPlacementStatus, type DawSlotStatus, type DawStatus, type Placement, type SampleSlot, type Song } from "@aibleton/protocol";
 import { letterClass } from "./FormStrip";
 import { roleClass } from "./BandRoster";
 import { shortName } from "../lib/format";
@@ -22,6 +22,7 @@ const HEADER_PX = 200;
  */
 export function SongArrangement({
   song,
+  daw,
   selectedSlotId,
   onSelect,
   busy,
@@ -29,6 +30,8 @@ export function SongArrangement({
   onRemoveTrack,
 }: {
   song: Song;
+  /** What of the song is in the Live set, from the session snapshot. */
+  daw: DawStatus;
   selectedSlotId: string | null;
   onSelect: (slotId: string | null) => void;
   busy: boolean;
@@ -41,6 +44,13 @@ export function SongArrangement({
   const [confirmPartId, setConfirmPartId] = useState<string | null>(null);
   const canRemove = plan.tracks.length > 1;
   const slotById = new Map(plan.slots.map((s) => [s.id, s]));
+  const dawSlot = new Map(daw.slots.map((s) => [s.slotId, s]));
+  const dawTrack = new Map(daw.tracks.map((t) => [t.partId, t]));
+  const dawPlacements = new Map<string, DawPlacementStatus[]>();
+  for (const p of daw.placements) {
+    const key = `${p.slotId}:${p.occurrence}`;
+    dawPlacements.set(key, [...(dawPlacements.get(key) ?? []), p]);
+  }
   const byTrack = new Map<string, Map<number, Placement>>();
   for (const p of plan.placements) {
     let row = byTrack.get(p.partId);
@@ -75,6 +85,7 @@ export function SongArrangement({
 
         {plan.tracks.map((track) => {
           const row = byTrack.get(track.partId);
+          const live = dawTrack.get(track.partId);
           return (
             <div key={track.partId} className="grid gap-2" style={{ gridTemplateColumns: `${HEADER_PX}px 1fr` }}>
               <div className="flex flex-col justify-between rounded-sm border border-line bg-panel-2 px-2 py-1.5">
@@ -87,6 +98,11 @@ export function SongArrangement({
                 <div className="flex items-center gap-1.5">
                   <span className={`rounded-sm border px-1 text-[10px] font-semibold ${roleClass(track.role)}`}>{track.role}</span>
                   <span className="rounded-sm bg-audio/20 px-1 text-[10px] font-semibold tracking-wide text-audio">AUDIO</span>
+                  {live?.index !== null && live?.index !== undefined ? (
+                    <span className="rounded-sm border border-accent-2/60 px-1 font-mono text-[9px] text-accent-2" title={`In Live as track ${live.index + 1}, ${live.name ?? ""}`}>
+                      ▶ {live.index + 1}
+                    </span>
+                  ) : null}
                   <span className="ml-auto flex items-center gap-1">
                     {confirmPartId === track.partId ? (
                       <>
@@ -135,6 +151,8 @@ export function SongArrangement({
                             label={occ.label}
                             selected={slot.id === selectedSlotId}
                             searching={resolving && slot.candidates.length === 0}
+                            live={dawSlot.get(slot.id) ?? null}
+                            copies={dawPlacements.get(`${slot.id}:${occ.index}`) ?? []}
                             onSelect={() => onSelect(slot.id === selectedSlotId ? null : slot.id)}
                           />
                         ))
@@ -160,6 +178,8 @@ function Clip({
   label,
   selected,
   searching,
+  live,
+  copies,
   onSelect,
 }: {
   slot: SampleSlot;
@@ -169,18 +189,28 @@ function Clip({
   selected: boolean;
   /** Splice has not answered for this slot yet. */
   searching: boolean;
+  /** The slot's session clip in Live, if the snapshot is known. */
+  live: DawSlotStatus | null;
+  /** The arrangement copies Live has, or is due, for this occurrence. Live's own clip length decides how many. */
+  copies: DawPlacementStatus[];
   onSelect: () => void;
 }) {
   const first = repeat === 0;
   const pick = slot.candidates.find((c) => c.uuid === slot.pickedUuid) ?? null;
   const previewUrl = first && pick && pick.url ? pick.url : null;
   const onDisk = slotDownloaded(slot);
+  const inLive = live?.state === "in-live";
+  const placedCopies = copies.filter((c) => c.placed).length;
+  const allPlaced = inLive && copies.length > 0 && placedCopies === copies.length;
   const title = [
     slot.id,
     pick ? pick.fileName : "no pick yet",
     `${placement.loopBars}-bar loop, ${repeat + 1} of ${placement.repeats}`,
     slot.query,
-  ].join("\n");
+    live && live.state !== "waiting" ? `Live: ${live.state}${live.lengthBeats !== null ? `, ${live.lengthBeats} beats` : ""}${copies.length ? `, ${placedCopies}/${copies.length} copies placed` : ""}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
   return (
     <div
       className={`relative flex h-14 min-w-0 flex-1 overflow-hidden rounded-sm border ${letterClass(label)}${onDisk ? " border-b-4 border-b-accent-2" : ""}${selected ? " ring-1 ring-accent" : ""}${searching ? " animate-pulse border-dashed" : ""}`}
@@ -198,10 +228,18 @@ function Clip({
         <span className="font-mono text-[10px] opacity-80">
           {placement.loopBars} bar{placement.loopBars === 1 ? "" : "s"}
           {placement.repeats > 1 ? ` · ${repeat + 1}/${placement.repeats}` : ""}
-          {onDisk ? " · ✓" : slot.pickedUuid ? " · ○" : searching ? " · …" : " · ?"}
+          {allPlaced ? " · ▶" : onDisk ? " · ✓" : slot.pickedUuid ? " · ○" : searching ? " · …" : " · ?"}
         </span>
       </button>
-      {onDisk && first ? (
+      {first && allPlaced ? (
+        <span className="absolute bottom-1 right-1 rounded-sm bg-accent-2 px-1 text-[9px] font-semibold leading-tight text-black" title="In the Live set: session clip and arrangement copies">
+          ▶ in Live
+        </span>
+      ) : first && inLive ? (
+        <span className="absolute bottom-1 right-1 rounded-sm border border-accent-2/60 bg-panel/70 px-1 text-[9px] font-semibold leading-tight text-accent-2" title={`Session clip in Live; ${placedCopies}/${copies.length} arrangement copies placed`}>
+          ▶ {placedCopies}/{copies.length}
+        </span>
+      ) : onDisk && first ? (
         <span className="absolute bottom-1 right-1 rounded-sm bg-accent-2 px-1 text-[9px] font-semibold leading-tight text-black" title="Downloaded from Splice">
           ✓ on disk
         </span>

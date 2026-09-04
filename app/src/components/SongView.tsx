@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { formTotalBars, keyName, parseForm, pendingDownloadUuids, slotDownloaded, type DownloadProgress, type Song } from "@aibleton/protocol";
+import { dawStatus, formTotalBars, keyName, parseForm, pendingDownloadUuids, slotDownloaded, type DownloadProgress, type SessionState, type Song } from "@aibleton/protocol";
 import { shortName } from "../lib/format";
 import { CandidateList } from "./CandidateList";
 import { FormStrip } from "./FormStrip";
@@ -7,14 +7,20 @@ import { SongArrangement } from "./SongArrangement";
 
 interface Props {
   song: Song;
+  /** Ableton's picture of the set, for what of the song is in Live already. */
+  session: SessionState | null;
   /** True when mate's Splice port is the fixture stub: downloads write placeholder files and spend nothing. */
   spliceStub: boolean;
+  /** True when mate's Ableton port is the in-memory stub: "Live" is a pretend set. */
+  abletonStub: boolean;
   resolving: boolean;
   downloading: boolean;
+  arranging: boolean;
   downloadProgress: DownloadProgress | null;
   onResolve: () => Promise<void>;
   onPick: (slotId: string, soundUuid: string) => Promise<void>;
   onDownload: () => Promise<void>;
+  onArrange: () => Promise<void>;
   onRemoveTrack: (partId: string) => Promise<void>;
 }
 
@@ -24,7 +30,7 @@ interface Props {
  * along the form with its looped clips in each occurrence. Clicking a clip
  * opens that slot's Splice candidates below. This is mate's state, not Ableton's.
  */
-export function SongView({ song, spliceStub, resolving, downloading, downloadProgress, onResolve, onPick, onDownload, onRemoveTrack }: Props) {
+export function SongView({ song, session, spliceStub, abletonStub, resolving, downloading, arranging, downloadProgress, onResolve, onPick, onDownload, onArrange, onRemoveTrack }: Props) {
   const { brief, plan } = song;
   const totalBars = formTotalBars(parseForm(song.template.form));
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
@@ -34,7 +40,12 @@ export function SongView({ song, spliceStub, resolving, downloading, downloadPro
   const hasCandidates = plan.slots.some((s) => s.candidates.length > 0);
   const picked = plan.slots.filter((s) => s.pickedUuid !== null).length;
   const onDisk = plan.slots.filter(slotDownloaded).length;
-  const busy = resolving || downloading;
+  const busy = resolving || downloading || arranging;
+  const daw = dawStatus(song, session);
+  const tracksInLive = daw.tracks.filter((t) => t.index !== null).length;
+  const slotsInLive = daw.slots.filter((s) => s.state === "in-live").length;
+  const placed = daw.placements.filter((p) => p.placed).length;
+  const liveDone = daw.steps.length === 0;
   const selected = plan.slots.find((s) => s.id === selectedSlotId) ?? null;
   const selectedTrack = selected ? plan.tracks.find((t) => t.partId === selected.partId) ?? null : null;
 
@@ -103,6 +114,40 @@ export function SongView({ song, spliceStub, resolving, downloading, downloadPro
             )}
           </span>
         </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] text-muted">
+          <span className="uppercase tracking-wider text-muted/70">live</span>
+          <span title="Tracks mate created in the set, named with a [mate] suffix">
+            {tracksInLive}/{plan.tracks.length} tracks
+          </span>
+          <span title="Session clips holding a downloaded sound">
+            {slotsInLive}/{plan.slots.length} clips
+          </span>
+          <span title="Copies laid along the arrangement">
+            {placed}/{daw.placements.length} placed
+          </span>
+          {daw.notes.length ? (
+            <span className="truncate text-audio" title={daw.notes.join("\n")}>
+              {daw.notes[0]}
+              {daw.notes.length > 1 ? ` (+${daw.notes.length - 1})` : ""}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            disabled={busy || onDisk === 0 || (liveDone && session !== null)}
+            onClick={() => void swallow(onArrange())}
+            className="ml-auto rounded-sm border border-accent-2/60 bg-panel-2 px-2.5 py-1 text-xs font-medium text-accent-2 disabled:cursor-not-allowed disabled:opacity-40"
+            title={
+              onDisk === 0
+                ? "Get sounds first: only downloaded sounds go into Live"
+                : liveDone && session !== null
+                  ? "Everything on disk is in Live"
+                  : "Create the song's tracks in Live and put every downloaded sound in place. Adds only; never touches your own tracks."
+            }
+          >
+            {arranging ? "building…" : liveDone && session !== null && slotsInLive > 0 ? "in Live ✓" : "build in Live"}
+          </button>
+          {abletonStub ? <span className="text-muted/70">ableton stub: a pretend set</span> : null}
+        </div>
         {downloading ? (
           <div className="flex items-center gap-2 font-mono text-[10px] text-muted" role="status" aria-live="polite">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
@@ -143,6 +188,7 @@ export function SongView({ song, spliceStub, resolving, downloading, downloadPro
 
       <SongArrangement
         song={song}
+        daw={daw}
         selectedSlotId={selectedSlotId}
         onSelect={setSelectedSlotId}
         busy={busy}
@@ -155,7 +201,7 @@ export function SongView({ song, spliceStub, resolving, downloading, downloadPro
       ) : null}
 
       <p className="shrink-0 text-[10px] text-muted/70">
-        {plan.slots.length} sample slots · {picked} picked · {onDisk} on disk · “?” no pick yet, “○” picked, “✓” on disk · click a clip to choose its sound · nothing sent to Ableton yet
+        {plan.slots.length} sample slots · {picked} picked · {onDisk} on disk · {slotsInLive} in Live · “?” no pick yet, “○” picked, “✓” on disk, “▶” in Live · click a clip to choose its sound
       </p>
     </div>
   );

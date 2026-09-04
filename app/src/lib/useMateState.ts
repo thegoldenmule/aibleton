@@ -12,7 +12,7 @@ import {
   type StateResponse,
 } from "@aibleton/protocol";
 import { getState, mateUrl, postCommand } from "./mate";
-import { clearActiveSong, composeSong, deleteTrack, downloadSong, pickSlot, resolveSong } from "./songs";
+import { arrangeSong, clearActiveSong, composeSong, deleteTrack, downloadSong, pickSlot, resolveSong } from "./songs";
 
 export type Connection = "connecting" | "open" | "error";
 
@@ -28,6 +28,8 @@ export interface MateView {
   resolving: boolean;
   /** True while picked sounds are being downloaded. Spends credits. */
   downloading: boolean;
+  /** True while the song is being built in the Live set. */
+  arranging: boolean;
   /** Where the current download stands, from mate's progress events; null when none is running. */
   downloadProgress: DownloadProgress | null;
   send: (command: ExternalCommand) => Promise<void>;
@@ -43,6 +45,8 @@ export interface MateView {
   downloadSounds: (songId: string) => Promise<void>;
   /** Drops a part and everything it plays from the song. */
   removeTrack: (songId: string, partId: string) => Promise<void>;
+  /** Builds what the song has on disk into Live. Adds only; safe to repeat. */
+  buildInLive: (songId: string) => Promise<void>;
 }
 
 const EVENT_TYPES: MateEvent["type"][] = [
@@ -106,6 +110,7 @@ export function useMateState(): MateView {
   const [composing, setComposing] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [arranging, setArranging] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
   const [composeProgress, setComposeProgress] = useState<ComposeProgress[]>([]);
   const retryRef = useRef(0);
@@ -295,6 +300,24 @@ export function useMateState(): MateView {
     [replaceSong],
   );
 
+  const buildInLive = useCallback(
+    async (songId: string) => {
+      setArranging(true);
+      try {
+        const { song, failed, notes } = await arrangeSong(songId);
+        replaceSong(song);
+        const problems = [...failed.map((f) => `${f.step}: ${f.error}`), ...notes];
+        setLastError(problems.length ? problems.join("; ") : null);
+      } catch (err) {
+        setLastError(err instanceof Error ? err.message : String(err));
+        throw err;
+      } finally {
+        setArranging(false);
+      }
+    },
+    [replaceSong],
+  );
+
   return {
     state,
     connection,
@@ -303,6 +326,7 @@ export function useMateState(): MateView {
     composeProgress,
     resolving,
     downloading,
+    arranging,
     downloadProgress,
     send,
     compose,
@@ -311,5 +335,6 @@ export function useMateState(): MateView {
     pickSound,
     downloadSounds,
     removeTrack,
+    buildInLive,
   };
 }

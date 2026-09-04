@@ -1,10 +1,12 @@
 import {
   ActiveSongResponseSchema,
+  ArrangeSongResponseSchema,
   DeleteSongResponseSchema,
   DownloadSongResponseSchema,
   ResolveSongResponseSchema,
   SongListResponseSchema,
   SongResponseSchema,
+  type ArrangeSongResponse,
   type ComposeSongRequest,
   type DownloadSongResponse,
   type PickSlotRequest,
@@ -63,6 +65,11 @@ export async function pickSlot(id: string, body: PickSlotRequest): Promise<Song>
 /** Spends Splice credits: downloads every pending pick. Partial failure comes back as `failed`. */
 export function downloadSong(id: string): Promise<DownloadSongResponse> {
   return request(`/songs/${encodeURIComponent(id)}/download`, DownloadSongResponseSchema, { method: "POST" });
+}
+
+/** Builds what the song has on disk into the Live set: tracks, session clips, arrangement copies. Adds only; safe to repeat. */
+export function arrangeSong(id: string): Promise<ArrangeSongResponse> {
+  return request(`/songs/${encodeURIComponent(id)}/arrange`, ArrangeSongResponseSchema, { method: "POST" });
 }
 
 /** Drops a part from the song: its track, slots and placements. The last track cannot be removed. */

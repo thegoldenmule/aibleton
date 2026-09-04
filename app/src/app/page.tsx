@@ -32,6 +32,7 @@ export default function Home() {
     composeProgress,
     resolving,
     downloading,
+    arranging,
     downloadProgress,
     send,
     compose,
@@ -40,6 +41,7 @@ export default function Home() {
     pickSound,
     downloadSounds,
     removeTrack,
+    buildInLive,
   } = useMateState();
   // Relative timestamps in the mailbox; ticks once a minute, not per frame.
   const now = useNow(15_000);
@@ -77,19 +79,23 @@ export default function Home() {
             <SongView
               key={song.id}
               song={song}
+              session={session}
               spliceStub={(state.adapters ?? FALLBACK_ADAPTERS).splice === "stub"}
+              abletonStub={(state.adapters ?? FALLBACK_ADAPTERS).ableton === "stub"}
               resolving={resolving}
               downloading={downloading}
+              arranging={arranging}
               downloadProgress={downloadProgress}
               onResolve={() => resolveSounds(song.id)}
               onPick={(slotId, soundUuid) => pickSound(song.id, slotId, soundUuid)}
               onDownload={() => downloadSounds(song.id)}
+              onArrange={() => buildInLive(song.id)}
               onRemoveTrack={(partId) => removeTrack(song.id, partId)}
             />
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center text-xs text-muted">
               <p>No song yet.</p>
-              <p>Tell mate what you want to play and it will pick a template and a band and lay out a song.</p>
+              <p>Tell your bandmate what you want to play and it will pick a template and a band and lay out a song.</p>
             </div>
           )}
         </section>
@@ -131,7 +137,7 @@ function ComposingState({ steps }: { steps: ComposeProgress[] }) {
           <div className="h-full bg-accent transition-[width] duration-500" style={{ width: `${Math.round(fraction * 100)}%` }} />
         </div>
         <ol className="flex flex-col gap-0.5 font-mono text-[11px]">
-          {steps.length === 0 ? <li className="text-muted">sending the request to mate…</li> : null}
+          {steps.length === 0 ? <li className="text-muted">sending the request to your bandmate…</li> : null}
           {steps.map((step, i) => {
             const current = i === steps.length - 1 && step.stage !== "done" && step.stage !== "failed";
             return (
