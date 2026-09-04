@@ -17,6 +17,8 @@ const HEADER_PX = 200;
  * an 8-bar bass loop once. A clip shows the sound picked for its slot;
  * clicking it selects the slot (every clip of that slot lights up) so the
  * candidates can be shown below, and "preview" opens the pick on splice.com.
+ * A part need not play everywhere: an empty cell is a rest, with a button to
+ * bring the part in, and a clip has one to rest it.
  * Scrolls horizontally on its own; vertical scroll belongs to the session
  * column so there is one scrollbar for the page.
  */
@@ -28,6 +30,7 @@ export function SongArrangement({
   busy,
   resolving,
   onRemoveTrack,
+  onSetPlaying,
 }: {
   song: Song;
   /** What of the song is in the Live set, from the session snapshot. */
@@ -39,6 +42,8 @@ export function SongArrangement({
   resolving: boolean;
   /** Drops a part and all its clips, e.g. the drums when the drummer is the one playing. */
   onRemoveTrack: (partId: string) => void;
+  /** Brings a part in for one occurrence, or rests it. */
+  onSetPlaying: (partId: string, occurrence: number, plays: boolean) => void;
 }) {
   const { plan } = song;
   const [confirmPartId, setConfirmPartId] = useState<string | null>(null);
@@ -154,10 +159,19 @@ export function SongArrangement({
                             live={dawSlot.get(slot.id) ?? null}
                             copies={dawPlacements.get(`${slot.id}:${occ.index}`) ?? []}
                             onSelect={() => onSelect(slot.id === selectedSlotId ? null : slot.id)}
+                            onRest={busy ? null : () => onSetPlaying(track.partId, occ.index, false)}
                           />
                         ))
                       ) : (
-                        <div className="h-14 flex-1 rounded-sm border border-dashed border-line/70" title="rests" />
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => onSetPlaying(track.partId, occ.index, true)}
+                          className="group h-14 flex-1 rounded-sm border border-dashed border-line/70 text-[10px] text-muted/50 hover:border-line hover:text-muted disabled:cursor-not-allowed"
+                          title={`${track.name} rests here; click to bring it in for this ${occ.label}`}
+                        >
+                          <span className="opacity-0 group-hover:opacity-100">+ play</span>
+                        </button>
                       )}
                     </div>
                   );
@@ -181,6 +195,7 @@ function Clip({
   live,
   copies,
   onSelect,
+  onRest,
 }: {
   slot: SampleSlot;
   placement: Placement;
@@ -194,6 +209,8 @@ function Clip({
   /** The arrangement copies Live has, or is due, for this occurrence. Live's own clip length decides how many. */
   copies: DawPlacementStatus[];
   onSelect: () => void;
+  /** Rests the part for this occurrence; null while an edit cannot be made. */
+  onRest: (() => void) | null;
 }) {
   const first = repeat === 0;
   const pick = slot.candidates.find((c) => c.uuid === slot.pickedUuid) ?? null;
@@ -222,7 +239,7 @@ function Clip({
         aria-pressed={selected}
         className="flex min-w-0 flex-1 cursor-pointer flex-col justify-between px-1.5 py-1 text-left"
       >
-        <span className={`w-full truncate text-[11px] font-medium leading-tight${previewUrl ? " pr-14" : ""}`}>
+        <span className={`w-full truncate text-[11px] font-medium leading-tight${first ? (previewUrl ? " pr-24" : " pr-9") : ""}`}>
           {first ? (pick ? shortName(pick.fileName) : searching ? "searching Splice…" : slot.id) : "↻"}
         </span>
         <span className="font-mono text-[10px] opacity-80">
@@ -244,17 +261,33 @@ function Clip({
           ✓ on disk
         </span>
       ) : null}
-      {previewUrl ? (
-        <a
-          href={previewUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="absolute right-1 top-1 rounded-sm border border-current/40 bg-panel/70 px-1 text-[10px] leading-tight opacity-80 hover:opacity-100"
-          title="Open on splice.com to listen"
-        >
-          preview ↗
-        </a>
+      {first ? (
+        <span className="absolute right-1 top-1 flex items-center gap-1">
+          {previewUrl ? (
+            <a
+              href={previewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="rounded-sm border border-current/40 bg-panel/70 px-1 text-[10px] leading-tight opacity-80 hover:opacity-100"
+              title="Open on splice.com to listen"
+            >
+              preview ↗
+            </a>
+          ) : null}
+          <button
+            type="button"
+            disabled={!onRest}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRest?.();
+            }}
+            className="rounded-sm border border-current/40 bg-panel/70 px-1 text-[10px] leading-tight opacity-60 hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
+            title={`Rest ${placement.partId} for this ${label}: the part sits out this occurrence`}
+          >
+            rest
+          </button>
+        </span>
       ) : null}
     </div>
   );

@@ -525,6 +525,29 @@ describe("DELETE /songs/:id/tracks/:partId", () => {
   });
 });
 
+describe("PUT /songs/:id/placements", () => {
+  test("rests and brings back a part for one occurrence, saving and publishing", async () => {
+    const h = await build();
+    const song = SongResponseSchema.parse(await (await post(h.app, "/songs/compose", { text: "funk" })).json()).song;
+    const put = (body: unknown) => h.app.request(`/songs/${song.id}/placements`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const drumsIn = (s: Song) => s.plan.placements.filter((p) => p.partId === "drums-kit").map((p) => p.occurrence);
+    const before = drumsIn(song);
+    expect(before).toContain(0);
+
+    const rested = SongResponseSchema.parse(await (await put({ partId: "drums-kit", occurrence: 0, plays: false })).json()).song;
+    expect(drumsIn(rested)).toEqual(before.filter((o) => o !== 0));
+    expect(await h.songs.get(song.id)).toEqual(rested);
+    expect(h.store.getSong()).toEqual(rested);
+
+    const back = SongResponseSchema.parse(await (await put({ partId: "drums-kit", occurrence: 0, plays: true })).json()).song;
+    expect(drumsIn(back)).toEqual(before);
+
+    expect((await put({ partId: "drums-kit", occurrence: 0 })).status).toBe(400);
+    expect((await put({ partId: "nope", occurrence: 0, plays: true })).status).toBe(404);
+    expect((await put({ partId: "drums-kit", occurrence: 99, plays: true })).status).toBe(404);
+  });
+});
+
 describe("POST /songs/:id/arrange", () => {
   type H = Awaited<ReturnType<typeof build>>;
   async function downloaded(h: H): Promise<Song> {

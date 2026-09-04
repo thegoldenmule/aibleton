@@ -41,6 +41,7 @@ export default function Home() {
     pickSound,
     downloadSounds,
     removeTrack,
+    setPlaying,
     buildInLive,
   } = useMateState();
   // Relative timestamps in the mailbox; ticks once a minute, not per frame.
@@ -91,6 +92,7 @@ export default function Home() {
               onDownload={() => downloadSounds(song.id)}
               onArrange={() => buildInLive(song.id)}
               onRemoveTrack={(partId) => removeTrack(song.id, partId)}
+              onSetPlaying={(partId, occurrence, plays) => setPlaying(song.id, partId, occurrence, plays)}
             />
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center text-xs text-muted">

@@ -22,6 +22,8 @@ interface Props {
   onDownload: () => Promise<void>;
   onArrange: () => Promise<void>;
   onRemoveTrack: (partId: string) => Promise<void>;
+  /** Brings a part in for one occurrence of the form, or rests it. */
+  onSetPlaying: (partId: string, occurrence: number, plays: boolean) => Promise<void>;
 }
 
 /**
@@ -30,7 +32,7 @@ interface Props {
  * along the form with its looped clips in each occurrence. Clicking a clip
  * opens that slot's Splice candidates below. This is mate's state, not Ableton's.
  */
-export function SongView({ song, session, spliceStub, abletonStub, resolving, downloading, arranging, downloadProgress, onResolve, onPick, onDownload, onArrange, onRemoveTrack }: Props) {
+export function SongView({ song, session, spliceStub, abletonStub, resolving, downloading, arranging, downloadProgress, onResolve, onPick, onDownload, onArrange, onRemoveTrack, onSetPlaying }: Props) {
   const { brief, plan } = song;
   const totalBars = formTotalBars(parseForm(song.template.form));
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
@@ -194,6 +196,7 @@ export function SongView({ song, session, spliceStub, abletonStub, resolving, do
         busy={busy}
         resolving={resolving}
         onRemoveTrack={(partId) => swallow(onRemoveTrack(partId))}
+        onSetPlaying={(partId, occurrence, plays) => swallow(onSetPlaying(partId, occurrence, plays))}
       />
 
       {selected ? (

@@ -11,6 +11,7 @@ import {
   type DownloadSongResponse,
   type PickSlotRequest,
   type ResolveSongResponse,
+  type SetPlacementRequest,
   type Song,
 } from "@aibleton/protocol";
 import { request } from "./mate";
@@ -70,6 +71,12 @@ export function downloadSong(id: string): Promise<DownloadSongResponse> {
 /** Builds what the song has on disk into the Live set: tracks, session clips, arrangement copies. Adds only; safe to repeat. */
 export function arrangeSong(id: string): Promise<ArrangeSongResponse> {
   return request(`/songs/${encodeURIComponent(id)}/arrange`, ArrangeSongResponseSchema, { method: "POST" });
+}
+
+/** Brings a part in for one occurrence of the form, or rests it. */
+export async function setPlacement(id: string, body: SetPlacementRequest): Promise<Song> {
+  const { song } = await request(`/songs/${encodeURIComponent(id)}/placements`, SongResponseSchema, { method: "PUT", body: JSON.stringify(body) });
+  return song;
 }
 
 /** Drops a part from the song: its track, slots and placements. The last track cannot be removed. */

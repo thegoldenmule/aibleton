@@ -124,6 +124,10 @@ export type ActiveSongResponse = z.infer<typeof ActiveSongResponseSchema>;
 export const PickSlotRequestSchema = z.object({ slotId: z.string().min(1), soundUuid: z.string().min(1) });
 export type PickSlotRequest = z.infer<typeof PickSlotRequestSchema>;
 
+/** Body of `PUT /songs/:id/placements`: whether a part plays in one occurrence of the form. */
+export const SetPlacementRequestSchema = z.object({ partId: z.string().min(1), occurrence: z.number().int().min(0), plays: z.boolean() });
+export type SetPlacementRequest = z.infer<typeof SetPlacementRequestSchema>;
+
 /** Response of `POST /songs/:id/resolve`. `failedSlotIds`: slots whose every search failed; their old candidates are kept. */
 export const ResolveSongResponseSchema = z.object({ song: SongSchema, failedSlotIds: z.array(z.string()) });
 export type ResolveSongResponse = z.infer<typeof ResolveSongResponseSchema>;

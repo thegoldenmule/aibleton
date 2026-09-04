@@ -12,7 +12,7 @@ import {
   type StateResponse,
 } from "@aibleton/protocol";
 import { getState, mateUrl, postCommand } from "./mate";
-import { arrangeSong, clearActiveSong, composeSong, deleteTrack, downloadSong, pickSlot, resolveSong } from "./songs";
+import { arrangeSong, clearActiveSong, composeSong, deleteTrack, downloadSong, pickSlot, resolveSong, setPlacement } from "./songs";
 
 export type Connection = "connecting" | "open" | "error";
 
@@ -45,6 +45,8 @@ export interface MateView {
   downloadSounds: (songId: string) => Promise<void>;
   /** Drops a part and everything it plays from the song. */
   removeTrack: (songId: string, partId: string) => Promise<void>;
+  /** Brings a part in for one occurrence, or rests it. */
+  setPlaying: (songId: string, partId: string, occurrence: number, plays: boolean) => Promise<void>;
   /** Builds what the song has on disk into Live. Adds only; safe to repeat. */
   buildInLive: (songId: string) => Promise<void>;
 }
@@ -300,6 +302,19 @@ export function useMateState(): MateView {
     [replaceSong],
   );
 
+  const setPlaying = useCallback(
+    async (songId: string, partId: string, occurrence: number, plays: boolean) => {
+      try {
+        replaceSong(await setPlacement(songId, { partId, occurrence, plays }));
+        setLastError(null);
+      } catch (err) {
+        setLastError(err instanceof Error ? err.message : String(err));
+        throw err;
+      }
+    },
+    [replaceSong],
+  );
+
   const buildInLive = useCallback(
     async (songId: string) => {
       setArranging(true);
@@ -335,6 +350,7 @@ export function useMateState(): MateView {
     pickSound,
     downloadSounds,
     removeTrack,
+    setPlaying,
     buildInLive,
   };
 }

@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import {
   ComposeSongRequestSchema,
   PickSlotRequestSchema,
+  SetPlacementRequestSchema,
   type ActiveSongResponse,
   type ArrangeSongResponse,
   type ComposeStage,
@@ -25,7 +26,7 @@ import type { Briefer } from "../../songwriting/briefer/index.ts";
 import { arrangeSong, describeStep } from "../../songwriting/arrange.ts";
 import { composeSong } from "../../songwriting/compose.ts";
 import { downloadPicks, downloadPlan, reuseDownloaded } from "../../songwriting/download.ts";
-import { LastTrackError, TrackNotFoundError, removeTrack } from "../../songwriting/edit.ts";
+import { LastTrackError, OccurrenceNotFoundError, TrackNotFoundError, removeTrack, setPlacement } from "../../songwriting/edit.ts";
 import { EmptyLibraryError } from "../../songwriting/pick.ts";
 import { NotACandidateError, SlotNotFoundError, pickCandidate, resolveSong } from "../../songwriting/resolve.ts";
 
@@ -301,6 +302,25 @@ export function songRoutes(deps: SongRouteDeps): Hono {
     } catch (err) {
       if (err instanceof TrackNotFoundError) return c.json({ error: err.message }, 404);
       if (err instanceof LastTrackError) return c.json({ error: err.message }, 409);
+      throw err;
+    }
+  });
+
+  /** Bring a part in for one occurrence, or rest it. */
+  r.put("/songs/:id/placements", async (c) => {
+    const loaded = await load(c);
+    if ("error" in loaded) return loaded.error;
+    const parsed = SetPlacementRequestSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: "body must be { partId, occurrence, plays }" }, 400);
+    const { partId, occurrence, plays } = parsed.data;
+    try {
+      const edited = setPlacement(loaded.song, partId, occurrence, plays);
+      const saved = edited === loaded.song ? edited : await deps.songs.save(edited);
+      publish(saved);
+      const body: SongResponse = { song: saved };
+      return c.json(body);
+    } catch (err) {
+      if (err instanceof TrackNotFoundError || err instanceof OccurrenceNotFoundError) return c.json({ error: err.message }, 404);
       throw err;
     }
   });

@@ -1,5 +1,5 @@
 import { LOOP_BARS, SongPlanSchema, beatsPerBar, keyName, parseForm, sampleSlotId } from "@aibleton/protocol";
-import type { Band, LoopBars, Placement, SampleSlot, SongBrief, SongOccurrence, SongPlan, SongTrack, Template } from "@aibleton/protocol";
+import type { Band, BandPart, LoopBars, Placement, SampleSlot, SongBrief, SongOccurrence, SongPlan, SongTrack, Template } from "@aibleton/protocol";
 import { songLineup } from "./lineup.ts";
 
 /** Loop length used for a part the brief says nothing about. */
@@ -35,6 +35,44 @@ function distinct(words: readonly (string | null | undefined)[]): string[] {
   return out;
 }
 
+/** A fresh, unresolved sample slot for a part in a section: its Splice query composed from the briefs. */
+export function buildSlot(template: Template, brief: SongBrief, part: BandPart, label: string): SampleSlot {
+  const note = brief.parts.find((p) => p.partId === part.id);
+  const section = template.sections[label];
+  const sectionNote = brief.sections.find((s) => s.label === label);
+  const tags = distinct([...(note?.soundHints ?? []), ...(sectionNote?.descriptors ?? []), ...brief.genres, ...brief.descriptors]);
+  return {
+    id: sampleSlotId(part.id, label),
+    partId: part.id,
+    label,
+    query: distinct([part.brief, section?.brief, ...tags, keyName(brief.key)]).join(", "),
+    bpm: brief.bpm,
+    key: brief.key,
+    tags,
+    loopBars: note?.loopBars ?? DEFAULT_LOOP_BARS,
+    resolved: null,
+    candidates: [],
+    pickedUuid: null,
+  };
+}
+
+/** The placement of a slot over one occurrence: the loop fitted to the bars and repeated to fill them. */
+export function buildPlacement(slot: SampleSlot, occurrence: SongOccurrence): Placement {
+  const loopBars = fitLoop(occurrence.bars, slot.loopBars);
+  return {
+    partId: slot.partId,
+    label: occurrence.label,
+    occurrence: occurrence.index,
+    slotId: slot.id,
+    startBar: occurrence.startBar,
+    bars: occurrence.bars,
+    loopBars,
+    repeats: occurrence.bars / loopBars,
+    startBeat: occurrence.startBeat,
+    lengthBeats: occurrence.lengthBeats,
+  };
+}
+
 /**
  * Lay a briefed template and band out as a DAW plan: one track per part, the
  * form as a timeline, and for each occurrence a placement per part that
@@ -46,9 +84,6 @@ function distinct(words: readonly (string | null | undefined)[]): string[] {
 export function layoutSong(template: Template, band: Band, brief: SongBrief): SongPlan {
   const timeSignature = brief.timeSignature;
   const bpb = beatsPerBar(timeSignature);
-  const partNotes = new Map(brief.parts.map((p) => [p.partId, p]));
-  const sectionNotes = new Map(brief.sections.map((s) => [s.label, s]));
-  const key = keyName(brief.key);
 
   const tracks: SongTrack[] = band.parts.map((part, index) => ({
     index,
@@ -74,48 +109,21 @@ export function layoutSong(template: Template, band: Band, brief: SongBrief): So
   });
 
   const slots: SampleSlot[] = [];
-  const slotIds = new Set<string>();
+  const slotById = new Map<string, SampleSlot>();
   const placements: Placement[] = [];
   const lineup = songLineup(template, band, brief);
 
   for (const part of band.parts) {
-    const note = partNotes.get(part.id);
-    const preferred = note?.loopBars ?? DEFAULT_LOOP_BARS;
     for (const occurrence of timeline) {
       if (!lineup[occurrence.index]!.has(part.id)) continue;
       const id = sampleSlotId(part.id, occurrence.label);
-      if (!slotIds.has(id)) {
-        slotIds.add(id);
-        const section = template.sections[occurrence.label];
-        const sectionNote = sectionNotes.get(occurrence.label);
-        const tags = distinct([...(note?.soundHints ?? []), ...(sectionNote?.descriptors ?? []), ...brief.genres, ...brief.descriptors]);
-        slots.push({
-          id,
-          partId: part.id,
-          label: occurrence.label,
-          query: distinct([part.brief, section?.brief, ...tags, key]).join(", "),
-          bpm: brief.bpm,
-          key: brief.key,
-          tags,
-          loopBars: preferred,
-          resolved: null,
-          candidates: [],
-          pickedUuid: null,
-        });
+      let slot = slotById.get(id);
+      if (!slot) {
+        slot = buildSlot(template, brief, part, occurrence.label);
+        slotById.set(id, slot);
+        slots.push(slot);
       }
-      const loopBars = fitLoop(occurrence.bars, preferred);
-      placements.push({
-        partId: part.id,
-        label: occurrence.label,
-        occurrence: occurrence.index,
-        slotId: id,
-        startBar: occurrence.startBar,
-        bars: occurrence.bars,
-        loopBars,
-        repeats: occurrence.bars / loopBars,
-        startBeat: occurrence.startBeat,
-        lengthBeats: occurrence.lengthBeats,
-      });
+      placements.push(buildPlacement(slot, occurrence));
     }
   }
 
