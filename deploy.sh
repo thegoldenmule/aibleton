@@ -53,8 +53,12 @@ SSH_CMD="ssh ${SSH_OPTS[*]}"
 
 log() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 
-# Run a bash script on the server; the script arrives on stdin so secrets never hit argv.
-remote() { $SSH_CMD "$TARGET" "bash -s"; }
+# Run a bash script on the server. The script arrives on stdin so secrets never hit argv;
+# it is wrapped in a function so bash parses all of it before running, and the function runs
+# with stdin from /dev/null so no command inside (apt, installers, bun) can swallow the rest.
+remote() {
+  { echo 'main() {'; cat; echo '}; main </dev/null'; } | $SSH_CMD "$TARGET" "bash -s"
+}
 
 # Common preamble for every remote script.
 preamble() {
@@ -167,6 +171,11 @@ EOF
 fi
 
 # ---------------------------------------------------------------- deploy (every time)
+
+if ! $SSH_CMD "$TARGET" "test -d $(printf %q "$ROOT")/src" </dev/null; then
+  echo "$ROOT/src does not exist on $TARGET; run with --setup first" >&2
+  exit 1
+fi
 
 log "rsync source -> $TARGET:$ROOT/src"
 rsync -az --delete --stats \
