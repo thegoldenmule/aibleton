@@ -66,8 +66,8 @@ describe("layoutSong", () => {
 
   test("tracks follow band order and are audio", () => {
     expect(plan.tracks).toEqual([
-      { index: 0, partId: "guitar-strat", name: "strat", role: "guitar", kind: "audio" },
-      { index: 1, partId: "bass-p", name: "p bass", role: "bass", kind: "audio" },
+      { index: 0, partId: "guitar-strat", name: "strat", role: "guitar", kind: "audio", liveName: null },
+      { index: 1, partId: "bass-p", name: "p bass", role: "bass", kind: "audio", liveName: null },
     ]);
   });
 

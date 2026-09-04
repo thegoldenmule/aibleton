@@ -14,6 +14,9 @@ export const ClipSchema = z.object({
   length: z.number(),
   isPlaying: z.boolean().optional(),
   notes: z.array(MidiNoteSchema).optional(),
+  /** Absolute path of the sample behind an audio clip, as Live reports it. */
+  filePath: z.string().optional(),
+  isAudio: z.boolean().optional(),
 });
 export type Clip = z.infer<typeof ClipSchema>;
 
@@ -29,6 +32,8 @@ export const ArrangementClipSchema = z.object({
   endTime: z.number(),
   length: z.number(),
   type: z.string(),
+  /** Absolute path of the sample behind an audio clip, as Live reports it. */
+  filePath: z.string().optional(),
 });
 export type ArrangementClip = z.infer<typeof ArrangementClipSchema>;
 
@@ -58,10 +63,16 @@ export const TransportSchema = z.object({
 });
 export type Transport = z.infer<typeof TransportSchema>;
 
+/** A named cue point on the arrangement timeline, in beats. */
+export const LocatorSchema = z.object({ name: z.string(), time: z.number() });
+export type Locator = z.infer<typeof LocatorSchema>;
+
 /** The DAW-level picture mate holds and the app renders. Not realtime. */
 export const SessionStateSchema = z.object({
   transport: TransportSchema,
   tracks: z.array(TrackSchema),
+  /** Arrangement cue points; absent when the source does not report them. */
+  locators: z.array(LocatorSchema).optional(),
   capturedAt: z.number(),
 });
 export type SessionState = z.infer<typeof SessionStateSchema>;

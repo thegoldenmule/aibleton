@@ -122,6 +122,12 @@ export const SongTrackSchema = z.object({
   name: z.string().min(1),
   role: z.string().min(1),
   kind: z.literal("audio"),
+  /**
+   * The name of the track mate created for this part in the Live set, once it
+   * has. Names are the only identity Live exposes, so this is how the track is
+   * found again; null until the song is arranged in Live.
+   */
+  liveName: z.string().min(1).nullable().default(null),
 });
 export type SongTrack = z.infer<typeof SongTrackSchema>;
 

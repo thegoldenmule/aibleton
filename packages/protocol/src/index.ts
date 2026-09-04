@@ -6,3 +6,4 @@ export * from "./form.ts";
 export * from "./templates.ts";
 export * from "./bands.ts";
 export * from "./songs.ts";
+export * from "./daw.ts";

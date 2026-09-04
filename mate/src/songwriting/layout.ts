@@ -53,6 +53,7 @@ export function layoutSong(template: Template, band: Band, brief: SongBrief): So
     name: part.name,
     role: part.role,
     kind: "audio",
+    liveName: null,
   }));
 
   const timeline: SongOccurrence[] = [];
