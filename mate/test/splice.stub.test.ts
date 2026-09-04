@@ -1,4 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { isAbsolute, join } from "node:path";
 import { createSplicePort } from "../src/ports/splice/index.ts";
 import { FixtureSpliceAdapter } from "../src/ports/splice/stub.ts";
 import { silentLogger } from "../src/log.ts";
@@ -33,11 +36,41 @@ describe("FixtureSpliceAdapter", () => {
     expect(seeded.bpm).toBe(90);
   });
 
-  test("download returns a stub url", async () => {
-    const splice = new FixtureSpliceAdapter();
-    const r = await splice.downloadAsset("b56bbbbd-fa1a-4f0d-9dd2-f53be56bffc9");
-    expect(r.fileName).toBe("SC_RS_110_drum_loop_slim_boy.wav");
-    expect(r.url.startsWith("https://stub.splice.local/")).toBe(true);
+  describe("downloadAsset", () => {
+    let dir: string;
+    beforeEach(async () => {
+      dir = await mkdtemp(join(tmpdir(), "mate-splice-stub-"));
+    });
+    afterEach(async () => {
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    test("writes a placeholder wav under the dir", async () => {
+      const splice = new FixtureSpliceAdapter();
+      const r = await splice.downloadAsset("b56bbbbd-fa1a-4f0d-9dd2-f53be56bffc9", dir);
+      expect(r.fileName).toBe("SC_RS_110_drum_loop_slim_boy.wav");
+      expect(r.url.startsWith("https://stub.splice.local/")).toBe(true);
+      expect(isAbsolute(r.localPath)).toBe(true);
+      expect(r.localPath).toBe(join(dir, "SC_RS_110_drum_loop_slim_boy.wav"));
+      const bytes = await readFile(r.localPath);
+      expect(bytes.subarray(0, 4).toString("ascii")).toBe("RIFF");
+      expect(bytes.subarray(8, 12).toString("ascii")).toBe("WAVE");
+      expect(splice.calls.at(-1)).toEqual({ method: "downloadAsset", args: ["b56bbbbd-fa1a-4f0d-9dd2-f53be56bffc9", dir] });
+    });
+
+    test("file names never escape the dir", async () => {
+      const traversal = "11111111-2222-3333-4444-555555555555";
+      const noExtension = "22222222-2222-3333-4444-555555555555";
+      const splice = new FixtureSpliceAdapter([
+        { uuid: traversal, fileName: "../../escape.wav", bpm: 100, key: null, durationSec: 4, type: "loop", pack: "", tags: [], url: "" },
+        { uuid: noExtension, fileName: "weird|name", bpm: 100, key: null, durationSec: 4, type: "loop", pack: "", tags: [], url: "" },
+      ]);
+      const a = await splice.downloadAsset(traversal, dir);
+      expect(a.localPath).toBe(join(dir, "escape.wav"));
+      const b = await splice.downloadAsset(noExtension, dir);
+      expect(b.localPath).toBe(join(dir, `${noExtension}.wav`));
+      expect((await readFile(b.localPath)).length).toBeGreaterThan(44);
+    });
   });
 });
 

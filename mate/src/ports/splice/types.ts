@@ -47,7 +47,10 @@ export interface Stack {
 export interface DownloadResult {
   uuid: string;
   fileName: string;
+  /** The presigned URL Splice handed out. Expires; kept for logs. */
   url: string;
+  /** Absolute path of the file written under the requested dir. */
+  localPath: string;
 }
 
 export interface SplicePort {
@@ -55,8 +58,11 @@ export interface SplicePort {
   searchSounds(query: string, opts?: SearchOptions): Promise<Sound[]>;
   promptToStack(prompt: string, bpm: number): Promise<Stack>;
   createStack(seedUuid: string, bpm?: number): Promise<Stack>;
-  /** Spends a Splice credit on first download of an asset; not wired to any brain tool yet. */
-  downloadAsset(uuid: string): Promise<DownloadResult>;
+  /**
+   * Spends a Splice credit on first download of an asset and writes the file
+   * under `dir`. Reachable only through the confirmed download route; never a brain tool.
+   */
+  downloadAsset(uuid: string, dir: string): Promise<DownloadResult>;
   close(): Promise<void>;
 }
 

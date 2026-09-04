@@ -1,3 +1,5 @@
+import { mkdir } from "node:fs/promises";
+import { localPathFor, placeholderWav } from "./files.ts";
 import fixtures from "./fixtures/sounds.json";
 import { hashHex } from "./markdown.ts";
 import type { DownloadResult, SearchOptions, Sound, SplicePort, Stack, StackLayer } from "./types.ts";
@@ -51,11 +53,15 @@ export class FixtureSpliceAdapter implements SplicePort {
     return this.fakeStack(`seed:${seedUuid}:${bpm ?? ""}`, `Stack from ${seed.fileName}`, bpm ?? seed.bpm ?? 120, seed);
   }
 
-  async downloadAsset(uuid: string): Promise<DownloadResult> {
-    this.calls.push({ method: "downloadAsset", args: [uuid] });
+  /** Writes a short silent WAV so stub mode yields a real local file. Never spends anything. */
+  async downloadAsset(uuid: string, dir: string): Promise<DownloadResult> {
+    this.calls.push({ method: "downloadAsset", args: [uuid, dir] });
     const sound = this.sounds.find((s) => s.uuid === uuid);
     const fileName = sound?.fileName ?? `${uuid}.wav`;
-    return { uuid, fileName, url: `https://stub.splice.local/download/${uuid}/${encodeURIComponent(fileName)}` };
+    const localPath = localPathFor(dir, uuid, fileName);
+    await mkdir(dir, { recursive: true });
+    await Bun.write(localPath, placeholderWav());
+    return { uuid, fileName, url: `https://stub.splice.local/download/${uuid}/${encodeURIComponent(fileName)}`, localPath };
   }
 
   async close(): Promise<void> {}

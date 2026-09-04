@@ -1,5 +1,7 @@
+import { mkdir } from "node:fs/promises";
 import type { Logger } from "../../log.ts";
 import { McpConnection } from "../mcp/client.ts";
+import { localPathFor } from "./files.ts";
 import { parseDownload, parseSearchResults, parseStack } from "./markdown.ts";
 import type { DownloadResult, SearchOptions, Sound, SplicePort, Stack } from "./types.ts";
 
@@ -7,7 +9,11 @@ export interface McpSpliceOptions {
   url: string;
   token?: string;
   log: Logger;
+  /** Fetches the presigned download URL; injectable for tests. Defaults to the global fetch. */
+  fetch?: typeof fetch;
 }
+
+const DOWNLOAD_TIMEOUT_MS = 120_000;
 
 /**
  * Splice port over the remote Splice MCP server (streamable HTTP).
@@ -52,11 +58,19 @@ export class McpSpliceAdapter implements SplicePort {
     return parseStack(text, { name: `Stack from ${seedUuid.slice(0, 8)}`, bpm: bpm ?? 0 });
   }
 
-  /** Spends one Splice credit the first time an asset is downloaded. */
-  async downloadAsset(uuid: string): Promise<DownloadResult> {
+  /** Spends one Splice credit the first time an asset is downloaded, then writes the file under `dir`. */
+  async downloadAsset(uuid: string, dir: string): Promise<DownloadResult> {
     this.opts.log.warn(`downloading Splice asset ${uuid} (may spend a credit)`);
     const text = await this.connection.callTool("download_asset", { asset_uuid: uuid });
-    return parseDownload(text, uuid);
+    const { fileName, url } = parseDownload(text, uuid);
+    if (!url) throw new Error(`download_asset returned no URL for ${uuid}: ${text.slice(0, 200)}`);
+    const localPath = localPathFor(dir, uuid, fileName);
+    await mkdir(dir, { recursive: true });
+    const doFetch = this.opts.fetch ?? fetch;
+    const res = await doFetch(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
+    if (!res.ok || !res.body) throw new Error(`fetching asset ${uuid} failed: HTTP ${res.status}`);
+    await Bun.write(localPath, res);
+    return { uuid, fileName, url, localPath };
   }
 
   async close(): Promise<void> {

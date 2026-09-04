@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import type { MidiNote, SessionState } from "@aibleton/protocol";
 import type { AbletonPort, CallContext } from "../../src/ports/ableton/types.ts";
 import type { DownloadResult, SearchOptions, Sound, SplicePort, Stack } from "../../src/ports/splice/types.ts";
@@ -70,9 +71,13 @@ export class FakeAbleton implements AbletonPort {
 export class FakeSplice implements SplicePort {
   readonly kind = "stub" as const;
   readonly calls: RecordedCall[] = [];
+  /** Scripts search results; `null` means every search returns nothing. */
+  search: ((query: string, opts?: SearchOptions) => Sound[] | Promise<Sound[]>) | null = null;
+  /** Downloads of these uuids throw. Writes nothing to disk either way. */
+  readonly failDownloads = new Set<string>();
   async searchSounds(query: string, opts?: SearchOptions): Promise<Sound[]> {
     this.calls.push({ method: "searchSounds", args: [query, opts] });
-    return [];
+    return this.search ? await this.search(query, opts) : [];
   }
   async promptToStack(prompt: string, bpm: number): Promise<Stack> {
     this.calls.push({ method: "promptToStack", args: [prompt, bpm] });
@@ -82,9 +87,10 @@ export class FakeSplice implements SplicePort {
     this.calls.push({ method: "createStack", args: [seedUuid, bpm] });
     return { uuid: "00000000-0000-0000-0000-000000000001", name: "fake stack", bpm: bpm ?? 120, key: null, layers: [] };
   }
-  async downloadAsset(uuid: string): Promise<DownloadResult> {
-    this.calls.push({ method: "downloadAsset", args: [uuid] });
-    return { uuid, fileName: "fake.wav", url: "https://example.invalid/fake.wav" };
+  async downloadAsset(uuid: string, dir: string): Promise<DownloadResult> {
+    this.calls.push({ method: "downloadAsset", args: [uuid, dir] });
+    if (this.failDownloads.has(uuid)) throw new Error(`download of ${uuid} failed`);
+    return { uuid, fileName: "fake.wav", url: "https://example.invalid/fake.wav", localPath: join(dir, `${uuid}.wav`) };
   }
   async close() {}
 }
