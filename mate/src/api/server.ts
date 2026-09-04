@@ -32,7 +32,7 @@ export function createApp(deps: AppDeps): Hono {
     "*",
     cors({
       origin: deps.config.corsOrigin,
-      allowMethods: ["GET", "POST", "OPTIONS"],
+      allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
       allowHeaders: ["Content-Type"],
     }),
   );
