@@ -64,10 +64,15 @@ export function errorOf(state: MachineState): string | undefined {
   return state.kind === "error" ? state.error : undefined;
 }
 
-/** Fingerprint used to skip brain calls on unchanged snapshots. Ignores capturedAt. */
+/**
+ * Fingerprint used to skip brain calls on unchanged snapshots.
+ * Ignores capturedAt and the moving song position: while Ableton plays, the playhead advances
+ * every tick, and that alone must never count as a musical change (it would trigger a paid brain call).
+ */
 export function snapshotFingerprint(s: SessionState | undefined): string {
   if (!s) return "";
-  return JSON.stringify({ transport: s.transport, tracks: s.tracks });
+  const { currentSongTime: _pos, ...transport } = s.transport;
+  return JSON.stringify({ transport, tracks: s.tracks });
 }
 
 const TRIGGER_TYPES: ReadonlySet<CommandType> = new Set(["tick", "userRequest", "goalSet", "abletonChanged", "midiNote"]);
@@ -172,7 +177,9 @@ function stepObserving(state: Extract<MachineState, { kind: "observing" }>, cmd:
     case "snapshotReady": {
       const unchanged = snapshotFingerprint(state.ctx.snapshot) === snapshotFingerprint(cmd.snapshot);
       const ctx = { ...state.ctx, snapshot: cmd.snapshot };
-      if (state.pending.type === "tick" && !ctx.goal && unchanged) {
+      // Ticks are cheap observation, not conversation: they only wake the brain when the drummer
+      // has set a goal to work toward AND the session actually changed since the last look.
+      if (state.pending.type === "tick" && (!ctx.goal || unchanged)) {
         return { state: { kind: "idle", ctx }, effects: [] };
       }
       // A refresh the loop requested after its own actions only updates the picture; it never re-triggers the brain.

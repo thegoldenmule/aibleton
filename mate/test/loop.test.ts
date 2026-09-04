@@ -99,8 +99,9 @@ describe("AgentLoop", () => {
     await h.loop.settle();
     const ticks = h.store.recentCommands().filter((c) => c.type === "tick");
     expect(ticks).toHaveLength(3);
-    // First tick called the brain (no snapshot yet); later ones saw an unchanged snapshot and stayed idle.
-    expect(h.brain.calls).toHaveLength(1);
+    // Ticks only observe: with no goal set they refresh the snapshot and never call the brain.
+    expect(h.brain.calls).toHaveLength(0);
+    expect(h.store.getSession()).not.toBeNull();
     expect(h.loop.phase()).toBe("idle");
   });
 

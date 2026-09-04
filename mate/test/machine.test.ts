@@ -35,14 +35,35 @@ describe("machine", () => {
     }
   });
 
-  test("tick with unchanged snapshot and no goal returns to idle without brain call", () => {
-    const first = toDeciding(cmd({ type: "tick" }, "timer")); // first ever snapshot: brain is called
-    expect(first.state.kind).toBe("deciding");
-    const idle: MachineState = { kind: "idle", ctx: { ...first.state.ctx } };
-    const r1 = step(idle, cmd({ type: "tick" }, "timer"), opts);
-    const r2 = step(r1.state, cmd({ type: "snapshotReady", snapshot: makeSession({}, 999) }, "loop"), opts);
+  test("tick without a goal never calls the brain, even on a changed snapshot", () => {
+    const r1 = step(initialState(), cmd({ type: "tick" }, "timer"), opts);
+    const r2 = step(r1.state, cmd({ type: "snapshotReady", snapshot: makeSession({ tempo: 90 }, 1) }, "loop"), opts);
     expect(r2.state.kind).toBe("idle");
     expect(r2.effects).toEqual([]);
+    expect(r2.state.ctx.snapshot?.transport.tempo).toBe(90); // the picture still updates
+  });
+
+  test("tick with a goal skips the brain when only the playhead moved", () => {
+    const withGoal = step(initialState(), cmd({ type: "goalSet", text: "practice 16ths" }), opts);
+    const seeded = step(withGoal.state, cmd({ type: "snapshotReady", snapshot: makeSession({ isPlaying: true, currentSongTime: 4 }, 1) }, "loop"), opts);
+    // First look with a goal calls the brain; finish that cycle back to idle.
+    expect(seeded.state.kind).toBe("deciding");
+    const idle: MachineState = { kind: "idle", ctx: { ...seeded.state.ctx } };
+    const r1 = step(idle, cmd({ type: "tick" }, "timer"), opts);
+    const moved = makeSession({ isPlaying: true, currentSongTime: 12 }, 2);
+    const r2 = step(r1.state, cmd({ type: "snapshotReady", snapshot: moved }, "loop"), opts);
+    expect(r2.state.kind).toBe("idle");
+    expect(r2.effects).toEqual([]);
+  });
+
+  test("tick with a goal calls the brain when the session really changed", () => {
+    const withGoal = step(initialState(), cmd({ type: "goalSet", text: "practice 16ths" }), opts);
+    const seeded = step(withGoal.state, cmd({ type: "snapshotReady", snapshot: makeSession({ tempo: 120 }, 1) }, "loop"), opts);
+    const idle: MachineState = { kind: "idle", ctx: { ...seeded.state.ctx } };
+    const r1 = step(idle, cmd({ type: "tick" }, "timer"), opts);
+    const r2 = step(r1.state, cmd({ type: "snapshotReady", snapshot: makeSession({ tempo: 100 }, 2) }, "loop"), opts);
+    expect(r2.state.kind).toBe("deciding");
+    expect(types(r2.effects)).toEqual(["callBrain"]);
   });
 
   test("stale brainDecided is a no-op", () => {
