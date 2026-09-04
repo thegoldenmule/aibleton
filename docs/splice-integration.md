@@ -24,7 +24,8 @@ startup `MATE_SPLICE=auto|mcp` reads it (`ports/mcp/oauth.ts`); the MCP SDK send
 token on every request and, on a 401, swaps the refresh token for a new pair and writes it back
 to the file, so a login normally lasts as long as the refresh token does. When the file is
 missing or the refresh is rejected, `auto` falls back to fixtures with the reason
-``not logged in to Splice: run `bun run --cwd mate splice:login` `` (`GET /adapters` shows it);
+``not logged in to Splice: run `bun run --cwd mate splice:login` `` in mate's startup log
+(`GET /adapters` reports `splice: "stub"`);
 `mcp` refuses to start. Delete the file to log out. `SPLICE_MCP_TOKEN`, when set, is sent as a
 plain bearer token instead and the file is ignored.
 
