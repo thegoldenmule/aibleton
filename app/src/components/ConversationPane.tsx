@@ -25,7 +25,7 @@ const KIND_CLASS: Record<TranscriptEntry["kind"], string> = {
 };
 
 /**
- * The conversation with mate: history on top, what mate is doing in the
+ * The conversation with the bandmate: history on top, what it is doing in the
  * middle, the input at the bottom. Composes a song while none is active and
  * talks to the bandmate once one is.
  */
@@ -111,7 +111,7 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
             }`}
           >
             <span className="flex items-baseline justify-between gap-3 text-[10px] text-muted">
-              <span className="font-mono">{entry.role === "user" ? (entry.kind === "compose" ? "you · compose" : "you") : "mate"}</span>
+              <span className="font-mono">{entry.role === "user" ? (entry.kind === "compose" ? "you · compose" : "you") : "bandmate"}</span>
               <span className="font-mono text-muted/70">{relative(entry.at, now)}</span>
             </span>
             <span className="whitespace-pre-wrap text-sm leading-snug">{entry.text}</span>
@@ -124,7 +124,7 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
               <Dot delay="150ms" />
               <Dot delay="300ms" />
             </span>
-            {composing ? "mate is composing a song…" : phase === "deciding" ? "mate is thinking…" : "mate is applying changes…"}
+            {composing ? "bandmate is composing a song…" : phase === "deciding" ? "bandmate is thinking…" : "bandmate is applying changes…"}
           </div>
         ) : null}
         <div ref={endRef} />

@@ -116,7 +116,7 @@ export function SongView({ song, session, spliceStub, abletonStub, resolving, do
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] text-muted">
           <span className="uppercase tracking-wider text-muted/70">live</span>
-          <span title="Tracks mate created in the set, named with a [mate] suffix">
+          <span title="Tracks the bandmate created in the set, named with a [mate] suffix">
             {tracksInLive}/{plan.tracks.length} tracks
           </span>
           <span title="Session clips holding a downloaded sound">

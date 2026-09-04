@@ -30,9 +30,9 @@ export function TransportBar({ transport, phase, error, adapters, connection, go
   return (
     <header className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-md border border-line bg-panel px-4 py-2.5">
       <div className="flex items-center gap-2">
-        <span className={`h-2.5 w-2.5 rounded-full ${CONNECTION_CLASS[connection]}`} title={`mate: ${connection}`} />
+        <span className={`h-2.5 w-2.5 rounded-full ${CONNECTION_CLASS[connection]}`} title={`bandmate: ${connection}`} />
         <span className="text-sm font-semibold tracking-tight">aibleton</span>
-        <span className="text-xs text-muted">mate</span>
+        <span className="text-xs text-muted">bandmate</span>
       </div>
 
       <Readout label="tempo" value={transport ? `${formatTempo(transport.tempo)} bpm` : "—"} />
