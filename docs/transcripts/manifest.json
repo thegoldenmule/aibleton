@@ -1,0 +1,270 @@
+{
+  "version": 1,
+  "sessions": {
+    "6472fdeb-be0d-4a97-ad1b-36c766a03db4": {
+      "size": 5606,
+      "mtimeMs": 1788451341732.6084,
+      "repo": "thegoldenmule/aibleton",
+      "exportedAt": "2026-09-04T19:06:59.924Z"
+    },
+    "11642709-dd6d-4713-95e4-17494a8ac7fe": {
+      "size": 59702,
+      "mtimeMs": 1788451334091.12,
+      "repo": "thegoldenmule/aibleton",
+      "exportedAt": "2026-09-04T19:06:59.926Z"
+    },
+    "5093424e-2a39-4806-908c-10bba10bf24f": {
+      "size": 2950,
+      "mtimeMs": 1788481995401.6978,
+      "repo": "thegoldenmule/aibleton",
+      "exportedAt": "2026-09-04T19:06:59.926Z"
+    },
+    "010ae62a-89c0-4314-bfc7-ca5cead83caa": {
+      "size": 595288,
+      "mtimeMs": 1788542665977.3838,
+      "repo": "thegoldenmule/aibleton",
+      "exportedAt": "2026-09-04T19:06:59.939Z"
+    },
+    "bdaacbee-9775-4a77-96fe-6f711934f8e3": {
+      "size": 3528,
+      "mtimeMs": 1788480086847.604,
+      "repo": "thegoldenmule/aibleton",
+      "exportedAt": "2026-09-04T19:07:00.060Z"
+    },
+    "7c6f9b4e-a146-4166-a217-4f7dc3584914": {
+      "size": 1450435,
+      "mtimeMs": 1788544997606.497,
+      "repo": "thegoldenmule/aibleton",
+      "exportedAt": "2026-09-04T19:07:00.074Z"
+    },
+    "b1e9ef20-3582-40f3-8c69-30c46b62760d": {
+      "size": 1319424,
+      "mtimeMs": 1788530755902.335,
+      "repo": "thegoldenmule/aibleton",
+      "exportedAt": "2026-09-04T19:07:00.189Z"
+    },
+    "c0e125c3-d1ed-4182-959a-383570b0dcb6": {
+      "size": 755039,
+      "mtimeMs": 1788546152653,
+      "repo": "thegoldenmule/aibleton",
+      "exportedAt": "2026-09-04T19:07:00.198Z"
+    },
+    "726e37d6-6e59-4feb-95bc-96f7d445200e": {
+      "size": 2924645,
+      "mtimeMs": 1788538354939.8586,
+      "repo": "thegoldenmule/aibleton",
+      "exportedAt": "2026-09-04T19:07:00.253Z"
+    },
+    "fec023c1-265c-491a-a394-e7971d36cf71": {
+      "size": 1424759,
+      "mtimeMs": 1788540902156.1855,
+      "repo": "thegoldenmule/aibleton",
+      "exportedAt": "2026-09-04T19:07:00.256Z"
+    },
+    "02819185-ca4a-46f4-87b3-17cd43a8b529": {
+      "size": 2466,
+      "mtimeMs": 1788545943790,
+      "repo": "thegoldenmule/aibleton",
+      "exportedAt": "2026-09-04T19:07:00.315Z"
+    },
+    "774bdbbe-98da-4dac-9617-a3f67abc1355": {
+      "size": 993744,
+      "mtimeMs": 1788547301525,
+      "repo": "thegoldenmule/aibleton",
+      "exportedAt": "2026-09-04T19:07:00.345Z"
+    },
+    "8dbc41fc-5f84-42e9-b049-10295d08beeb": {
+      "size": 2408999,
+      "mtimeMs": 1788545185499.0552,
+      "repo": "thegoldenmule/aibleton",
+      "exportedAt": "2026-09-04T19:07:00.483Z"
+    }
+  },
+  "repoPath": "/Users/benjaminjordan/projects/thegoldenmule/aibleton",
+  "repo": "thegoldenmule/aibleton",
+  "generatedAt": "2026-09-04T19:07:00.483Z",
+  "index": [
+    {
+      "id": "010ae62a-89c0-4314-bfc7-ca5cead83caa",
+      "href": "sessions/010ae62a-89c0-4314-bfc7-ca5cead83caa/index.html",
+      "title": "Deploy script and infrastructure setup",
+      "firstPrompt": "/clear",
+      "firstTimestamp": "2026-09-04T16:12:34.920Z",
+      "lastTimestamp": "2026-09-04T17:05:48.455Z",
+      "cwd": "/Users/benjaminjordan/projects/thegoldenmule/aibleton",
+      "gitBranch": "HEAD",
+      "promptCount": 7,
+      "assistantCount": 91,
+      "size": 595288,
+      "error": null
+    },
+    {
+      "id": "11642709-dd6d-4713-95e4-17494a8ac7fe",
+      "href": "sessions/11642709-dd6d-4713-95e4-17494a8ac7fe/index.html",
+      "title": "Workspace trust settings",
+      "firstPrompt": "/model opus",
+      "firstTimestamp": "2026-09-03T15:59:51.535Z",
+      "lastTimestamp": "2026-09-03T16:00:40.410Z",
+      "cwd": "/Users/benjaminjordan/projects/thegoldenmule/aibleton",
+      "gitBranch": "HEAD",
+      "promptCount": 2,
+      "assistantCount": 9,
+      "size": 59702,
+      "error": null
+    },
+    {
+      "id": "5093424e-2a39-4806-908c-10bba10bf24f",
+      "href": "sessions/5093424e-2a39-4806-908c-10bba10bf24f/index.html",
+      "title": "/model opus",
+      "firstPrompt": "/model opus",
+      "firstTimestamp": "2026-09-04T00:25:56.195Z",
+      "lastTimestamp": "2026-09-04T00:25:56.195Z",
+      "cwd": "/Users/benjaminjordan/projects/thegoldenmule/aibleton",
+      "gitBranch": "main",
+      "promptCount": 1,
+      "assistantCount": 0,
+      "size": 2950,
+      "error": null
+    },
+    {
+      "id": "6472fdeb-be0d-4a97-ad1b-36c766a03db4",
+      "href": "sessions/6472fdeb-be0d-4a97-ad1b-36c766a03db4/index.html",
+      "title": "/mcp",
+      "firstPrompt": "/mcp",
+      "firstTimestamp": "2026-09-03T15:37:19.528Z",
+      "lastTimestamp": "2026-09-03T15:58:11.856Z",
+      "cwd": "/Users/benjaminjordan/projects/thegoldenmule/aibleton",
+      "gitBranch": "HEAD",
+      "promptCount": 2,
+      "assistantCount": 0,
+      "size": 5606,
+      "error": null
+    },
+    {
+      "id": "726e37d6-6e59-4feb-95bc-96f7d445200e",
+      "href": "sessions/726e37d6-6e59-4feb-95bc-96f7d445200e/index.html",
+      "title": "song-generation-flow",
+      "firstPrompt": "/clear",
+      "firstTimestamp": "2026-09-04T14:05:55.879Z",
+      "lastTimestamp": "2026-09-04T15:29:36.759Z",
+      "cwd": "/Users/benjaminjordan/projects/thegoldenmule/aibleton",
+      "gitBranch": "HEAD",
+      "promptCount": 9,
+      "assistantCount": 305,
+      "size": 2924645,
+      "error": null
+    },
+    {
+      "id": "7c6f9b4e-a146-4166-a217-4f7dc3584914",
+      "href": "sessions/7c6f9b4e-a146-4166-a217-4f7dc3584914/index.html",
+      "title": "/clear",
+      "firstPrompt": "/clear",
+      "firstTimestamp": "2026-09-04T17:24:25.963Z",
+      "lastTimestamp": "2026-09-04T17:57:43.622Z",
+      "cwd": "/Users/benjaminjordan/projects/thegoldenmule/aibleton",
+      "gitBranch": "HEAD",
+      "promptCount": 3,
+      "assistantCount": 142,
+      "size": 1450435,
+      "error": null
+    },
+    {
+      "id": "b1e9ef20-3582-40f3-8c69-30c46b62760d",
+      "href": "sessions/b1e9ef20-3582-40f3-8c69-30c46b62760d/index.html",
+      "title": "aibleton-skeleton-setup",
+      "firstPrompt": "I would like to make a new application that acts as a bandmate while practicing or playing an instrument. Initially, we will focus on bandmates for drummers. The main idea is that there is a service that runs on a user's machine, called 'mate'. This service will provide an api, connect to the mcp servers, and to the anthropic api. There will also be a nextjs app (use create-next-app), called 'app', that can hit that api and provide some state information. It will provide a very stripped down DAW-type view (multiple tracks and what is on them -- no realtime playback). Everything will be written in typescript, and mate will run on bun. Mate should have a specific, testable, stubbable intelligence module. This module will run a simple agent loop (yet to be defined, but a state machine). This loop will not be expected to operate in realtime, but will have a mailbox that it checks periodically for new commands. These commands could be generated by the loop itself or from hardware (perhaps I add a midi controller later), timing, api calls, etc. It will have a good abstraction for ableton so that we can operate the stack without it if we want, and have the intelligence and API still running. It will also have a good abstraction for splice, with dummy data, that helps demonstrate functionality if splice is missing. Make a plan for creating the skeleton of this application, i.e. folder structure, main modules stubbed, abstractions stubbed, etc.",
+      "firstTimestamp": "2026-09-04T00:20:24.204Z",
+      "lastTimestamp": "2026-09-04T14:02:15.081Z",
+      "cwd": "/Users/benjaminjordan/projects/thegoldenmule/aibleton",
+      "gitBranch": "HEAD",
+      "promptCount": 15,
+      "assistantCount": 197,
+      "size": 1319424,
+      "error": null
+    },
+    {
+      "id": "bdaacbee-9775-4a77-96fe-6f711934f8e3",
+      "href": "sessions/bdaacbee-9775-4a77-96fe-6f711934f8e3/index.html",
+      "title": "/model fable",
+      "firstPrompt": "/model fable",
+      "firstTimestamp": "2026-09-03T16:02:27.100Z",
+      "lastTimestamp": "2026-09-03T16:02:27.100Z",
+      "cwd": "/Users/benjaminjordan/projects/thegoldenmule/aibleton",
+      "gitBranch": "HEAD",
+      "promptCount": 1,
+      "assistantCount": 0,
+      "size": 3528,
+      "error": null
+    },
+    {
+      "id": "c0e125c3-d1ed-4182-959a-383570b0dcb6",
+      "href": "sessions/c0e125c3-d1ed-4182-959a-383570b0dcb6/index.html",
+      "title": "/clear",
+      "firstPrompt": "/clear",
+      "firstTimestamp": "2026-09-04T18:03:17.587Z",
+      "lastTimestamp": "2026-09-04T18:18:20.255Z",
+      "cwd": "/Users/benjaminjordan/projects/thegoldenmule/aibleton",
+      "gitBranch": "HEAD",
+      "promptCount": 3,
+      "assistantCount": 82,
+      "size": 755039,
+      "error": null
+    },
+    {
+      "id": "fec023c1-265c-491a-a394-e7971d36cf71",
+      "href": "sessions/fec023c1-265c-491a-a394-e7971d36cf71/index.html",
+      "title": "Song structure template generation",
+      "firstPrompt": "I want to be able to generate templates for songs or jam-band style sessions. For example: a, b, a, b, b, c, c, b, b -- where each of these sections is something like a section in a song: perhaps a rhythmic change, dynamic change, etc. Is this type of construction already a well-researched and understood topic?",
+      "firstTimestamp": "2026-09-04T00:36:50.392Z",
+      "lastTimestamp": "2026-09-04T14:27:58.790Z",
+      "cwd": "/Users/benjaminjordan/projects/thegoldenmule/aibleton",
+      "gitBranch": "main",
+      "promptCount": 16,
+      "assistantCount": 237,
+      "size": 1424759,
+      "error": null
+    },
+    {
+      "id": "02819185-ca4a-46f4-87b3-17cd43a8b529",
+      "href": "sessions/02819185-ca4a-46f4-87b3-17cd43a8b529/index.html",
+      "title": "/clear",
+      "firstPrompt": "/clear",
+      "firstTimestamp": "2026-09-04T18:06:25.480Z",
+      "lastTimestamp": "2026-09-04T18:06:25.503Z",
+      "cwd": "/Users/benjaminjordan/projects/thegoldenmule/aibleton/mate",
+      "gitBranch": "main",
+      "promptCount": 1,
+      "assistantCount": 0,
+      "size": 2466,
+      "error": null
+    },
+    {
+      "id": "774bdbbe-98da-4dac-9617-a3f67abc1355",
+      "href": "sessions/774bdbbe-98da-4dac-9617-a3f67abc1355/index.html",
+      "title": "Bandmate pane scrolling",
+      "firstPrompt": "/model sonnet",
+      "firstTimestamp": "2026-09-04T00:50:40.125Z",
+      "lastTimestamp": "2026-09-04T17:55:17.193Z",
+      "cwd": "/Users/benjaminjordan/projects/thegoldenmule/aibleton/mate",
+      "gitBranch": "main",
+      "promptCount": 10,
+      "assistantCount": 160,
+      "size": 993744,
+      "error": null
+    },
+    {
+      "id": "8dbc41fc-5f84-42e9-b049-10295d08beeb",
+      "href": "sessions/8dbc41fc-5f84-42e9-b049-10295d08beeb/index.html",
+      "title": "splice-resolver-preview-download",
+      "firstPrompt": "/model fable",
+      "firstTimestamp": "2026-09-04T15:19:03.797Z",
+      "lastTimestamp": "2026-09-04T17:44:10.186Z",
+      "cwd": "/Users/benjaminjordan/projects/thegoldenmule/aibleton/mate",
+      "gitBranch": "main",
+      "promptCount": 28,
+      "assistantCount": 306,
+      "size": 2408999,
+      "error": null
+    }
+  ]
+}

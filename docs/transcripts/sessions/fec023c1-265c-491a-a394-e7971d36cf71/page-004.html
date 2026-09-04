@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code transcript - page 4</title>
+    <style>
+:root { --bg-color: #f5f5f5; --card-bg: #ffffff; --user-bg: #e3f2fd; --user-border: #1976d2; --assistant-bg: #f5f5f5; --assistant-border: #9e9e9e; --thinking-bg: #fff8e1; --thinking-border: #ffc107; --thinking-text: #666; --tool-bg: #f3e5f5; --tool-border: #9c27b0; --tool-result-bg: #e8f5e9; --tool-error-bg: #ffebee; --text-color: #212121; --text-muted: #757575; --code-bg: #263238; --code-text: #aed581; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 16px; line-height: 1.6; }
+.container { max-width: 800px; margin: 0 auto; }
+h1 { font-size: 1.5rem; margin-bottom: 24px; padding-bottom: 8px; border-bottom: 2px solid var(--user-border); }
+.header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 2px solid var(--user-border); padding-bottom: 8px; margin-bottom: 24px; }
+.header-row h1 { border-bottom: none; padding-bottom: 0; margin-bottom: 0; flex: 1; min-width: 200px; }
+.message { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.message.user { background: var(--user-bg); border-left: 4px solid var(--user-border); }
+.message.assistant { background: var(--card-bg); border-left: 4px solid var(--assistant-border); }
+.message.tool-reply { background: #fff8e1; border-left: 4px solid #ff9800; }
+.tool-reply .role-label { color: #e65100; }
+.tool-reply .tool-result { background: transparent; padding: 0; margin: 0; }
+.tool-reply .tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.message-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
+.role-label { font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.user .role-label { color: var(--user-border); }
+time { color: var(--text-muted); font-size: 0.8rem; }
+.timestamp-link { color: inherit; text-decoration: none; }
+.timestamp-link:hover { text-decoration: underline; }
+.message:target { animation: highlight 2s ease-out; }
+@keyframes highlight { 0% { background-color: rgba(25, 118, 210, 0.2); } 100% { background-color: transparent; } }
+.message-content { padding: 16px; }
+.message-content p { margin: 0 0 12px 0; }
+.message-content p:last-child { margin-bottom: 0; }
+.thinking { background: var(--thinking-bg); border: 1px solid var(--thinking-border); border-radius: 8px; padding: 12px; margin: 12px 0; font-size: 0.9rem; color: var(--thinking-text); }
+.thinking-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #f57c00; margin-bottom: 8px; }
+.thinking p { margin: 8px 0; }
+.assistant-text { margin: 8px 0; }
+.tool-use { background: var(--tool-bg); border: 1px solid var(--tool-border); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tool-header { font-weight: 600; color: var(--tool-border); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.tool-icon { font-size: 1.1rem; }
+.tool-description { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px; font-style: italic; }
+.tool-result { background: var(--tool-result-bg); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tool-result.tool-error { background: var(--tool-error-bg); }
+.file-tool { border-radius: 8px; padding: 12px; margin: 12px 0; }
+.write-tool { background: linear-gradient(135deg, #e3f2fd 0%, #e8f5e9 100%); border: 1px solid #4caf50; }
+.edit-tool { background: linear-gradient(135deg, #fff3e0 0%, #fce4ec 100%); border: 1px solid #ff9800; }
+.file-tool-header { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.write-header { color: #2e7d32; }
+.edit-header { color: #e65100; }
+.file-tool-icon { font-size: 1rem; }
+.file-tool-path { font-family: monospace; background: rgba(0,0,0,0.08); padding: 2px 8px; border-radius: 4px; }
+.file-tool-fullpath { font-family: monospace; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; word-break: break-all; }
+.file-content { margin: 0; }
+.edit-section { display: flex; margin: 4px 0; border-radius: 4px; overflow: hidden; }
+.edit-label { padding: 8px 12px; font-weight: bold; font-family: monospace; display: flex; align-items: flex-start; }
+.edit-old { background: #fce4ec; }
+.edit-old .edit-label { color: #b71c1c; background: #f8bbd9; }
+.edit-old .edit-content { color: #880e4f; }
+.edit-new { background: #e8f5e9; }
+.edit-new .edit-label { color: #1b5e20; background: #a5d6a7; }
+.edit-new .edit-content { color: #1b5e20; }
+.edit-content { margin: 0; flex: 1; background: transparent; font-size: 0.85rem; }
+.edit-replace-all { font-size: 0.75rem; font-weight: normal; color: var(--text-muted); }
+.write-tool .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #e6f4ea); }
+.edit-tool .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff0e5); }
+.todo-list { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); border: 1px solid #81c784; border-radius: 8px; padding: 12px; margin: 12px 0; }
+.todo-header { font-weight: 600; color: #2e7d32; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.todo-items { list-style: none; margin: 0; padding: 0; }
+.todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.06); font-size: 0.9rem; }
+.todo-item:last-child { border-bottom: none; }
+.todo-icon { flex-shrink: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 50%; }
+.todo-completed .todo-icon { color: #2e7d32; background: rgba(46, 125, 50, 0.15); }
+.todo-completed .todo-content { color: #558b2f; text-decoration: line-through; }
+.todo-in-progress .todo-icon { color: #f57c00; background: rgba(245, 124, 0, 0.15); }
+.todo-in-progress .todo-content { color: #e65100; font-weight: 500; }
+.todo-pending .todo-icon { color: #757575; background: rgba(0,0,0,0.05); }
+.todo-pending .todo-content { color: #616161; }
+pre { background: var(--code-bg); color: var(--code-text); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; margin: 8px 0; white-space: pre-wrap; word-wrap: break-word; }
+pre.json { color: #e0e0e0; }
+code { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre code { background: none; padding: 0; }
+.user-content { margin: 0; }
+.truncatable { position: relative; }
+.truncatable.truncated .truncatable-content { max-height: 200px; overflow: hidden; }
+.truncatable.truncated::after { content: ''; position: absolute; bottom: 32px; left: 0; right: 0; height: 60px; background: linear-gradient(to bottom, transparent, var(--card-bg)); pointer-events: none; }
+.message.user .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--user-bg)); }
+.message.tool-reply .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.tool-use .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--tool-bg)); }
+.tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--tool-result-bg)); }
+.expand-btn { display: none; width: 100%; padding: 8px 16px; margin-top: 4px; background: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); }
+.expand-btn:hover { background: rgba(0,0,0,0.1); }
+.truncatable.truncated .expand-btn, .truncatable.expanded .expand-btn { display: block; }
+.pagination { display: flex; justify-content: center; gap: 8px; margin: 24px 0; flex-wrap: wrap; }
+.pagination a, .pagination span { padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; }
+.pagination a { background: var(--card-bg); color: var(--user-border); border: 1px solid var(--user-border); }
+.pagination a:hover { background: var(--user-bg); }
+.pagination .current { background: var(--user-border); color: white; }
+.pagination .disabled { color: var(--text-muted); border: 1px solid #ddd; }
+.pagination .index-link { background: var(--user-border); color: white; }
+details.continuation { margin-bottom: 16px; }
+details.continuation summary { cursor: pointer; padding: 12px 16px; background: var(--user-bg); border-left: 4px solid var(--user-border); border-radius: 12px; font-weight: 500; color: var(--text-muted); }
+details.continuation summary:hover { background: rgba(25, 118, 210, 0.15); }
+details.continuation[open] summary { border-radius: 12px 12px 0 0; margin-bottom: 0; }
+.index-item { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); background: var(--user-bg); border-left: 4px solid var(--user-border); }
+.index-item a { display: block; text-decoration: none; color: inherit; }
+.index-item a:hover { background: rgba(25, 118, 210, 0.1); }
+.index-item-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
+.index-item-number { font-weight: 600; color: var(--user-border); }
+.index-item-content { padding: 16px; }
+.index-item-stats { padding: 8px 16px 12px 32px; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid rgba(0,0,0,0.06); }
+.index-item-commit { margin-top: 6px; padding: 4px 8px; background: #fff3e0; border-radius: 4px; font-size: 0.85rem; color: #e65100; }
+.index-item-commit code { background: rgba(0,0,0,0.08); padding: 1px 4px; border-radius: 3px; font-size: 0.8rem; margin-right: 6px; }
+.commit-card { margin: 8px 0; padding: 10px 14px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 6px; }
+.commit-card a { text-decoration: none; color: #5d4037; display: block; }
+.commit-card a:hover { color: #e65100; }
+.commit-card-hash { font-family: monospace; color: #e65100; font-weight: 600; margin-right: 8px; }
+.index-commit { margin-bottom: 12px; padding: 10px 16px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.index-commit a { display: block; text-decoration: none; color: inherit; }
+.index-commit a:hover { background: rgba(255, 152, 0, 0.1); margin: -10px -16px; padding: 10px 16px; border-radius: 8px; }
+.index-commit-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 4px; }
+.index-commit-hash { font-family: monospace; color: #e65100; font-weight: 600; }
+.index-commit-msg { color: #5d4037; }
+.index-item-long-text { margin-top: 8px; padding: 12px; background: var(--card-bg); border-radius: 8px; border-left: 3px solid var(--assistant-border); }
+.index-item-long-text .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--card-bg)); }
+.index-item-long-text-content { color: var(--text-color); }
+#search-box { display: none; align-items: center; gap: 8px; }
+#search-box input { padding: 6px 12px; border: 1px solid var(--assistant-border); border-radius: 6px; font-size: 16px; width: 180px; }
+#search-box button, #modal-search-btn, #modal-close-btn { background: var(--user-border); color: white; border: none; border-radius: 6px; padding: 6px 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#search-box button:hover, #modal-search-btn:hover { background: #1565c0; }
+#modal-close-btn { background: var(--text-muted); margin-left: 8px; }
+#modal-close-btn:hover { background: #616161; }
+#search-modal[open] { border: none; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.2); padding: 0; width: 90vw; max-width: 900px; height: 80vh; max-height: 80vh; display: flex; flex-direction: column; }
+#search-modal::backdrop { background: rgba(0,0,0,0.5); }
+.search-modal-header { display: flex; align-items: center; gap: 8px; padding: 16px; border-bottom: 1px solid var(--assistant-border); background: var(--bg-color); border-radius: 12px 12px 0 0; }
+.search-modal-header input { flex: 1; padding: 8px 12px; border: 1px solid var(--assistant-border); border-radius: 6px; font-size: 16px; }
+#search-status { padding: 8px 16px; font-size: 0.85rem; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.06); }
+#search-results { flex: 1; overflow-y: auto; padding: 16px; }
+.search-result { margin-bottom: 16px; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.search-result a { display: block; text-decoration: none; color: inherit; }
+.search-result a:hover { background: rgba(25, 118, 210, 0.05); }
+.search-result-page { padding: 6px 12px; background: rgba(0,0,0,0.03); font-size: 0.8rem; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.06); }
+.search-result-content { padding: 12px; }
+.search-result mark { background: #fff59d; padding: 1px 2px; border-radius: 2px; }
+@media (max-width: 600px) { body { padding: 8px; } .message, .index-item { border-radius: 8px; } .message-content, .index-item-content { padding: 12px; } pre { font-size: 0.8rem; padding: 8px; } #search-box input { width: 120px; } #search-modal[open] { width: 95vw; height: 90vh; } }
+</style>
+</head>
+<body>
+    <div class="container">
+        <h1><a href="index.html" style="color: inherit; text-decoration: none;">Claude Code transcript</a> - page 4/6</h1>
+        
+
+<div class="pagination">
+<a href="index.html" class="index-link">Index</a>
+<a href="page-003.html">&larr; Prev</a>
+<a href="page-001.html">1</a>
+<a href="page-002.html">2</a>
+<a href="page-003.html">3</a>
+<span class="current">4</span>
+<a href="page-005.html">5</a>
+<a href="page-006.html">6</a>
+<a href="page-005.html">Next &rarr;</a>
+</div>
+
+        
+<div class="message user" id="msg-2026-09-04T01-24-11-769Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-09-04T01-24-11-769Z" class="timestamp-link"><time datetime="2026-09-04T01:24:11.769Z" data-timestamp="2026-09-04T01:24:11.769Z">2026-09-04T01:24:11.769Z</time></a></div><div class="message-content">
+<div class="user-content"><p><task-notification>
+<task-id>acf775b7d9287a002</task-id>
+<tool-use-id>toolu_01WBYm9GjB7vwFVB88ztVhjR</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-benjaminjordan-projects-thegoldenmule-aibleton/fec023c1-265c-491a-a394-e7971d36cf71/tasks/acf775b7d9287a002.output</output-file>
+<status>completed</status></p>
+<summary>Agent "Build template manager UI" finished</summary>
+<p><note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>
+<result>Done. Typecheck and lint are green (and I've stopped running <code>next build</code> — the last one completed just before your message arrived; I won't run it again).</p>
+<h2>Files</h2>
+<p><strong>New</strong>
+- <code>/Users/benjaminjordan/projects/thegoldenmule/aibleton/app/src/lib/templates.ts</code> — <code>listTemplates()</code>, <code>generateTemplate(opts)</code>, <code>saveTemplate(template)</code>, <code>deleteTemplate(id)</code>; all go through <code>mate.ts</code>'s zod-validating <code>request</code> with <code>TemplateListResponseSchema</code> / <code>TemplateResponseSchema</code> / <code>DeleteTemplateResponseSchema</code>. DELETE path is <code>encodeURIComponent</code>'d; blank generator fields are <code>undefined</code> and get dropped by <code>JSON.stringify</code>.
+- <code>/Users/benjaminjordan/projects/thegoldenmule/aibleton/app/src/lib/useTemplates.ts</code> — <code>{ templates, loading, busy, lastError, refresh, generate, save, remove }</code>. Plain fetch + local state (no SSE); refetches after save and delete. Every action sets <code>lastError</code> and rethrows, matching <code>useMateState</code>.
+- <code>/Users/benjaminjordan/projects/thegoldenmule/aibleton/app/src/components/FormStrip.tsx</code> — the visualization, exports <code>FormStrip</code> and <code>letterClass</code>.
+- <code>/Users/benjaminjordan/projects/thegoldenmule/aibleton/app/src/app/templates/page.tsx</code> — the manager.</p>
+<p><strong>Modified</strong>
+- <code>app/src/lib/mate.ts</code> — <code>request</code> is now exported (no duplication).
+- <code>app/src/components/TransportBar.tsx</code> — small <code>templates →</code> <code>next/link</code> after the adapter badges.</p>
+<p><code>app/next.config.ts</code> also shows as modified in git — that is <strong>not mine</strong>, it was already uncommitted (a <code>devIndicators</code> tweak) when I started.</p>
+<h2>Route</h2>
+<p><code>/templates</code>. Linked both ways: <code>templates →</code> in the DAW header, <code>← session</code> in the templates header.</p>
+<h2>Generator controls</h2>
+<p>All eight, all optional (blank = server default), validated client-side with an inline message instead of a 400: <strong>seed</strong> (any integer), <strong>alphabet</strong> (2–6), <strong>count</strong> (1–64), <strong>home</strong> (must be one of the letters in play, i.e. <code>ALPHABET.slice(0, alphabet ?? 3)</code>), <strong>maxRun</strong> (≥1), <strong>bars</strong> (≥1), <strong>name</strong>, <strong>bpm</strong> (&gt;0).</p>
+<ul>
+<li><strong>generate</strong> (accent, prominent) uses the seed field if set, otherwise omits it.</li>
+<li><strong>↻ roll again</strong> keeps every other control, substitutes a fresh random seed, and writes that seed back into the seed input — so a roll you like can be locked and re-rolled deliberately.</li>
+</ul>
+<h2>Form visualization</h2>
+<p>One block per occurrence in an <code>overflow-x-auto</code> container. Width is <code>flexGrow: bars</code> with <code>flexBasis: 0</code>, so blocks are exactly proportional when the strip fits, plus <code>minWidth: max(26, bars * 7)px</code> which is also proportional — so proportion holds in the overflow-and-scroll regime too, and a 1-bar block still shows its letter. Colour is a fixed literal-class map per letter onto the existing tokens (a=accent, b=accent-2, c=midi, d=audio, e=foreground, f=muted, fallback panel-2), so repeated letters are the same colour and repetition reads at a glance. Each block shows letter + bar count and carries a <code>title</code> with the brief; a legend of letter + brief per distinct label sits beneath. <code>parseForm</code> is wrapped so a bad form renders as text instead of throwing the page. Reused for the preview (legend hidden, since the brief editors replace it — each editor label carries the letter's swatch) and every saved template.</p>
+<h2>Preview / save</h2>
+<p>Marked <code>unsaved</code>, shows form string, total bars and bpm; name and every section brief are editable. Save runs <code>TemplateSchema.safeParse</code> on the edited draft first and surfaces the first issue's path+message, so <code>.min(1)</code> on name/brief and the form↔sections consistency check are enforced before the POST; section edits spread the existing section, preserving the reserved <code>intensity</code>. Discard clears it. Saved list is newest-first with form strip, bars, bpm, created time, and a two-step inline delete confirm. Request failures always land in a visible error banner.</p>
+<p>One lint hit along the way — <code>react-hooks/set-state-in-effect</code> on the initial load — fixed by moving the loader inside the effect with a <code>disposed</code> guard, the same shape <code>useMateState</code> uses.</result>
+<usage><subagent_tokens>76780</subagent_tokens><tool_uses>22</tool_uses><duration_ms>405939</duration_ms></usage>
+</task-notification></p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T01-24-17-364Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T01-24-17-364Z" class="timestamp-link"><time datetime="2026-09-04T01:24:17.364Z" data-timestamp="2026-09-04T01:24:17.364Z">2026-09-04T01:24:17.364Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T01-24-17-378Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T01-24-17-378Z" class="timestamp-link"><time datetime="2026-09-04T01:24:17.378Z" data-timestamp="2026-09-04T01:24:17.378Z">2026-09-04T01:24:17.378Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Agent's done. Verifying with typecheck and lint only.</p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T01-24-21-096Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T01-24-21-096Z" class="timestamp-link"><time datetime="2026-09-04T01:24:21.096Z" data-timestamp="2026-09-04T01:24:21.096Z">2026-09-04T01:24:21.096Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_015t2hismXBJs37dsYVhHXTf">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Typecheck, lint, test and probe running servers</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cd /Users/benjaminjordan/projects/thegoldenmule/aibleton
+echo &#34;=== TYPECHECK ===&#34;; bun run typecheck 2&gt;&amp;1 | tail -6
+echo &#34;=== LINT ===&#34;; bun run --cwd app lint 2&gt;&amp;1 | tail -8
+echo &#34;=== MATE TESTS ===&#34;; bun run --cwd mate test 2&gt;&amp;1 | tail -4
+echo &#34;=== is mate already running on 4545? ===&#34;; curl -sf -m 2 http://localhost:4545/health &amp;&amp; echo &#34; &lt;- mate is UP&#34; || echo &#34;mate is not running on 4545&#34;
+echo &#34;=== is the app running on 3000? ===&#34;; curl -sf -m 2 -o /dev/null -w &#39;app -&gt; %{http_code}\n&#39; http://localhost:3000 || echo &#34;app is not running on 3000&#34;</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T01-24-25-300Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T01-24-25-300Z" class="timestamp-link"><time datetime="2026-09-04T01:24:25.300Z" data-timestamp="2026-09-04T01:24:25.300Z">2026-09-04T01:24:25.300Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>=== TYPECHECK ===
+$ bun run --cwd packages/protocol typecheck &amp;&amp; bun run --cwd mate typecheck &amp;&amp; bun run --cwd app typecheck
+$ tsc -p tsconfig.json
+$ tsc -p tsconfig.json
+$ tsc --noEmit -p tsconfig.json
+=== LINT ===
+$ eslint
+=== MATE TESTS ===
+ 144 pass
+ 0 fail
+ 50811 expect() calls
+Ran 144 tests across 12 files. [118.00ms]
+=== is mate already running on 4545? ===
+{&quot;ok&quot;:true,&quot;uptimeMs&quot;:193877} &lt;- mate is UP
+=== is the app running on 3000? ===
+app -&gt; 200</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T01-24-31-988Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T01-24-31-988Z" class="timestamp-link"><time datetime="2026-09-04T01:24:31.988Z" data-timestamp="2026-09-04T01:24:31.988Z">2026-09-04T01:24:31.988Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T01-24-32-697Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T01-24-32-697Z" class="timestamp-link"><time datetime="2026-09-04T01:24:32.697Z" data-timestamp="2026-09-04T01:24:32.697Z">2026-09-04T01:24:32.697Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Green, and both servers are already up. Committing, then seeding examples.</p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T01-24-38-711Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T01-24-38-711Z" class="timestamp-link"><time datetime="2026-09-04T01:24:38.711Z" data-timestamp="2026-09-04T01:24:38.711Z">2026-09-04T01:24:38.711Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_019NMw3Lq62h9qR1Lk779f5n">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Commit UI work and check running mate CORS</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cd /Users/benjaminjordan/projects/thegoldenmule/aibleton
+git add app/src/lib/templates.ts app/src/lib/useTemplates.ts app/src/components/FormStrip.tsx app/src/app/templates/page.tsx app/src/lib/mate.ts app/src/components/TransportBar.tsx
+git commit -q -F - &lt;&lt;&#39;MSGEOF&#39;
+app: template manager page
+
+/templates lists saved templates, generates new ones and saves or deletes
+them. FormStrip renders a form as proportional colour-keyed blocks so
+repetition reads at a glance; &#34;roll again&#34; re-seeds while keeping the other
+controls, which is the iterate-until-it-looks-right loop.
+
+Co-Authored-By: Claude Opus 5 &lt;noreply@anthropic.com&gt;
+Claude-Session: https://claude.ai/code/session_01U7ry2PWUG9CW6b3g7mqcRW
+MSGEOF
+echo &#34;=== does the RUNNING mate allow DELETE? (needs restart if not) ===&#34;
+curl -s -i -X OPTIONS http://localhost:4545/templates/x \
+  -H &#39;Origin: http://localhost:3000&#39; \
+  -H &#39;Access-Control-Request-Method: DELETE&#39; 2&gt;/dev/null | grep -i &#39;access-control-allow-methods&#39; || echo &#34;no allow-methods header returned&#34;</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T01-24-40-066Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T01-24-40-066Z" class="timestamp-link"><time datetime="2026-09-04T01:24:40.066Z" data-timestamp="2026-09-04T01:24:40.066Z">2026-09-04T01:24:40.066Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>=== does the RUNNING mate allow DELETE? (needs restart if not) ===
+Access-Control-Allow-Methods: GET,POST,DELETE,OPTIONS</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T01-24-43-523Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T01-24-43-523Z" class="timestamp-link"><time datetime="2026-09-04T01:24:43.523Z" data-timestamp="2026-09-04T01:24:43.523Z">2026-09-04T01:24:43.523Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T01-24-46-616Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T01-24-46-616Z" class="timestamp-link"><time datetime="2026-09-04T01:24:46.616Z" data-timestamp="2026-09-04T01:24:46.616Z">2026-09-04T01:24:46.616Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01YbJMMz2d1QqbqqrRgHghMK">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Seed example templates into running mate</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cd /Users/benjaminjordan/projects/thegoldenmule/aibleton
+git log --oneline -1
+echo &#34;=== seeding ===&#34;
+/private/tmp/claude-501/-Users-benjaminjordan-projects-thegoldenmule-aibleton/fec023c1-265c-491a-a394-e7971d36cf71/scratchpad/seed-templates.sh http://localhost:4545
+echo &#34;=== what mate now holds ===&#34;
+curl -sf http://localhost:4545/templates | python3 -c &#39;import json,sys; d=json.load(sys.stdin); print(f&#34;{len(d[\&#34;templates\&#34;])} template(s)&#34;); [print(f&#34;  {t[\&#34;name\&#34;]:&lt;22} {t[\&#34;form\&#34;]}&#34;) for t in d[&#34;templates&#34;]]&#39;</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T01-24-48-628Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T01-24-48-628Z" class="timestamp-link"><time datetime="2026-09-04T01:24:48.628Z" data-timestamp="2026-09-04T01:24:48.628Z">2026-09-04T01:24:48.628Z</time></a></div><div class="message-content"><div class="tool-result tool-error"><div class="truncatable"><div class="truncatable-content"><pre>Exit code 1
+5a08824 app: template manager page
+=== seeding ===
+seeding templates into http://localhost:4545
+  File &quot;&lt;string&gt;&quot;, line 1
+    import json,sys; t=json.load(sys.stdin)[&quot;template&quot;]; print(f&quot;  saved {t[\&quot;name\&quot;]:&lt;22} {t[\&quot;form\&quot;]}&quot;)
+                                                                             ^
+SyntaxError: unexpected character after line continuation character
+=== what mate now holds ===
+  File &quot;&lt;string&gt;&quot;, line 1
+    import json,sys; d=json.load(sys.stdin); print(f&quot;{len(d[\&quot;templates\&quot;])} template(s)&quot;); [print(f&quot;  {t[\&quot;name\&quot;]:&lt;22} {t[\&quot;form\&quot;]}&quot;) for t in d[&quot;templates&quot;]]
+                                                             ^
+SyntaxError: unexpected character after line continuation character</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T01-24-52-456Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T01-24-52-456Z" class="timestamp-link"><time datetime="2026-09-04T01:24:52.456Z" data-timestamp="2026-09-04T01:24:52.456Z">2026-09-04T01:24:52.456Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T01-24-52-468Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T01-24-52-468Z" class="timestamp-link"><time datetime="2026-09-04T01:24:52.468Z" data-timestamp="2026-09-04T01:24:52.468Z">2026-09-04T01:24:52.468Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Escaping bug in my seed script. Fixing with a proper Python file.</p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T01-24-58-779Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T01-24-58-779Z" class="timestamp-link"><time datetime="2026-09-04T01:24:58.779Z" data-timestamp="2026-09-04T01:24:58.779Z">2026-09-04T01:24:58.779Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01Nhr8XDCxMeWgrM8ugNY9XX">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Seed example templates via python</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">SP=/private/tmp/claude-501/-Users-benjaminjordan-projects-thegoldenmule-aibleton/fec023c1-265c-491a-a394-e7971d36cf71/scratchpad
+cat &gt; &#34;$SP/seed.py&#34; &lt;&lt;&#39;PYEOF&#39;
+import json, urllib.request
+
+BASE = &#34;http://localhost:4545&#34;
+
+def call(path, payload=None, method=&#34;GET&#34;):
+    data = json.dumps(payload).encode() if payload is not None else None
+    req = urllib.request.Request(BASE + path, data=data, method=method,
+                                 headers={&#34;content-type&#34;: &#34;application/json&#34;})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        return json.load(r)
+
+SEEDS = [
+    {&#34;seed&#34;: 42,   &#34;alphabet&#34;: 3, &#34;count&#34;: 9,  &#34;name&#34;: &#34;Tuesday jam&#34;,        &#34;bpm&#34;: 128},
+    {&#34;seed&#34;: 7,    &#34;alphabet&#34;: 4, &#34;count&#34;: 12, &#34;home&#34;: &#34;c&#34;, &#34;name&#34;: &#34;Long build&#34;, &#34;bpm&#34;: 96},
+    {&#34;seed&#34;: 2026, &#34;alphabet&#34;: 3, &#34;count&#34;: 9,  &#34;name&#34;: &#34;Ends somewhere new&#34;, &#34;bpm&#34;: 112},
+    {&#34;seed&#34;: 1,    &#34;alphabet&#34;: 2, &#34;count&#34;: 6,  &#34;bars&#34;: 16, &#34;name&#34;: &#34;Two-chord trance&#34;, &#34;bpm&#34;: 140},
+]
+
+for opts in SEEDS:
+    made = call(&#34;/templates/generate&#34;, opts, &#34;POST&#34;)[&#34;template&#34;]
+    call(&#34;/templates&#34;, {&#34;template&#34;: made}, &#34;POST&#34;)
+    print(f&#34;  saved {made[&#39;name&#39;]:&lt;20} {made[&#39;form&#39;]}&#34;)
+
+print()
+listed = call(&#34;/templates&#34;)[&#34;templates&#34;]
+print(f&#34;{len(listed)} template(s) now in mate:&#34;)
+for t in listed:
+    print(f&#34;  {t[&#39;id&#39;]:&lt;18} {t[&#39;name&#39;]:&lt;20} bpm={t.get(&#39;bpm&#39;,&#39;-&#39;):&lt;5} {t[&#39;form&#39;]}&#34;)
+PYEOF
+python3 &#34;$SP/seed.py&#34;</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T01-25-00-473Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T01-25-00-473Z" class="timestamp-link"><time datetime="2026-09-04T01:25:00.473Z" data-timestamp="2026-09-04T01:25:00.473Z">2026-09-04T01:25:00.473Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>  saved Tuesday jam          a8 b8 b8 c8 b8 a8 b8 a8 b8
+  saved Long build           a8 a8 b8 c8 c8 b8 c8 c8 a8 c8 c8 d8
+  saved Ends somewhere new   a8 b8 a8 b8 b8 a8 b8 b8 c8
+  saved Two-chord trance     a16 b16 a16 b16 b16 a16
+
+5 template(s) now in mate:
+  tpl_mtm9unjk_2r    Two-chord trance     bpm=140   a16 b16 a16 b16 b16 a16
+  tpl_mtm9unjj_2q    Ends somewhere new   bpm=112   a8 b8 a8 b8 b8 a8 b8 b8 c8
+  tpl_mtm9unji_2p    Long build           bpm=96    a8 a8 b8 c8 c8 b8 c8 c8 a8 c8 c8 d8
+  tpl_mtm9unjg_2o    Tuesday jam          bpm=128   a8 b8 b8 c8 b8 a8 b8 a8 b8
+  tpl_mtm9uec5_2j    Tuesday jam          bpm=128   a8 b8 b8 c8 b8 a8 b8 a8 b8</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T01-25-04-506Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T01-25-04-506Z" class="timestamp-link"><time datetime="2026-09-04T01:25:04.506Z" data-timestamp="2026-09-04T01:25:04.506Z">2026-09-04T01:25:04.506Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T01-25-08-823Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T01-25-08-823Z" class="timestamp-link"><time datetime="2026-09-04T01:25:08.823Z" data-timestamp="2026-09-04T01:25:08.823Z">2026-09-04T01:25:08.823Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01FVAzvNttVKLpeiUQiFvZxB">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Remove duplicate and confirm both routes serve</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cd /Users/benjaminjordan/projects/thegoldenmule/aibleton
+echo &#34;removing the duplicate left by the failed first run:&#34;
+curl -sf -X DELETE http://localhost:4545/templates/tpl_mtm9uec5_2j; echo
+python3 - &lt;&lt;&#39;PYEOF&#39;
+import json, urllib.request
+with urllib.request.urlopen(&#34;http://localhost:4545/templates&#34;, timeout=10) as r:
+    ts = json.load(r)[&#34;templates&#34;]
+print(f&#34;\n{len(ts)} template(s) ready to look at:&#34;)
+for t in ts:
+    bars = sum(int(tok[1:]) for tok in t[&#34;form&#34;].split())
+    print(f&#34;  {t[&#39;name&#39;]:&lt;20} {bars:&gt;3} bars  {t[&#39;form&#39;]}&#34;)
+PYEOF
+echo
+echo &#34;=== app still serving? ===&#34;
+curl -sf -m 3 -o /dev/null -w &#39;  /           -&gt; %{http_code}\n&#39; http://localhost:3000
+curl -sf -m 5 -o /dev/null -w &#39;  /templates  -&gt; %{http_code}\n&#39; http://localhost:3000/templates</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T01-25-10-216Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T01-25-10-216Z" class="timestamp-link"><time datetime="2026-09-04T01:25:10.216Z" data-timestamp="2026-09-04T01:25:10.216Z">2026-09-04T01:25:10.216Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>removing the duplicate left by the failed first run:
+{&quot;deleted&quot;:true}
+
+4 template(s) ready to look at:
+  Two-chord trance      96 bars  a16 b16 a16 b16 b16 a16
+  Ends somewhere new    72 bars  a8 b8 a8 b8 b8 a8 b8 b8 c8
+  Long build            96 bars  a8 a8 b8 c8 c8 b8 c8 c8 a8 c8 c8 d8
+  Tuesday jam           72 bars  a8 b8 b8 c8 b8 a8 b8 a8 b8
+
+=== app still serving? ===
+  /           -&gt; 200
+  /templates  -&gt; 200</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T01-25-21-342Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T01-25-21-342Z" class="timestamp-link"><time datetime="2026-09-04T01:25:21.342Z" data-timestamp="2026-09-04T01:25:21.342Z">2026-09-04T01:25:21.342Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p><strong>Go look: http://localhost:3000/templates</strong></p>
+<p>Both your servers are still up and <code>/templates</code> returns 200. There's a <code>templates →</code> link in the DAW header, and <code>← session</code> to come back.</p>
+<p>Four seeded templates are waiting:</p>
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>bars</th>
+<th>form</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Two-chord trance</td>
+<td>96</td>
+<td><code>a16 b16 a16 b16 b16 a16</code></td>
+</tr>
+<tr>
+<td>Ends somewhere new</td>
+<td>72</td>
+<td><code>a8 b8 a8 b8 b8 a8 b8 b8 c8</code></td>
+</tr>
+<tr>
+<td>Long build</td>
+<td>96</td>
+<td><code>a8 a8 b8 c8 c8 b8 c8 c8 a8 c8 c8 d8</code></td>
+</tr>
+<tr>
+<td>Tuesday jam</td>
+<td>72</td>
+<td><code>a8 b8 b8 c8 b8 a8 b8 a8 b8</code></td>
+</tr>
+</tbody>
+</table>
+<h2>What to try</h2>
+<ul>
+<li><strong>Roll again</strong> — the iterate loop. Keeps every other control, swaps in a fresh seed, and writes that seed back into the field, so a roll you like can be locked and re-rolled deliberately.</li>
+<li><strong>Edit the briefs before saving.</strong> Those are the text that will become Splice prompts in step 7, so they're the part worth getting right.</li>
+<li><strong>Push the visualization</strong> — generate with <code>alphabet: 6, count: 24, bars: 4</code> and check the strip still reads and scrolls inside its own container rather than widening the page.</li>
+<li><strong><code>home</code></strong> — set it to <code>c</code> and watch which colour dominates.</li>
+</ul>
+<h2>Verified, not assumed</h2>
+<p>Typecheck clean across protocol/mate/app, <code>app lint</code> clean, 144 mate tests pass. I confirmed over HTTP against your running mate that generate → save → list → delete all work, and that the CORS preflight now returns <code>GET,POST,DELETE,OPTIONS</code> — your <code>--watch</code> had already picked up that fix.</p>
+<p><strong>Commits:</strong> <code>c23c964</code> CORS, <code>4d96d09</code> the no-<code>next build</code> rule, <code>5a08824</code> the page.</p>
+<p>Two caveats. The agent's last <code>next build</code> completed just before my stop message landed, so <strong>restart your app dev server</strong> if it's behaving oddly — the 200s above suggest it recovered. And <code>app/next.config.ts</code> is still modified in your tree from the other session; I left it alone.</p></div></div></div>
+<div class="message user" id="msg-2026-09-04T01-25-21-443Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-09-04T01-25-21-443Z" class="timestamp-link"><time datetime="2026-09-04T01:25:21.443Z" data-timestamp="2026-09-04T01:25:21.443Z">2026-09-04T01:25:21.443Z</time></a></div><div class="message-content">
+<div class="user-content"><p>Stop hook feedback:</p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T01-25-27-253Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T01-25-27-253Z" class="timestamp-link"><time datetime="2026-09-04T01:25:27.253Z" data-timestamp="2026-09-04T01:25:27.253Z">2026-09-04T01:25:27.253Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p><strong>TL;DR</strong></p>
+<p>👉 <strong>http://localhost:3000/templates</strong> — both servers up, route returns 200. Linked from the DAW header.</p>
+<p><strong>4 seeded templates</strong> to look at, e.g. <code>Tuesday jam</code> → <code>a8 b8 b8 c8 b8 a8 b8 a8 b8</code> (72 bars).</p>
+<p><strong>Try:</strong> <em>Roll again</em> (the iterate loop — re-seeds, keeps other controls) · edit briefs before saving (they become Splice prompts in step 7) · stress the strip with <code>alphabet:6, count:24, bars:4</code> · set <code>home: c</code> and watch the colours shift.</p>
+<p><strong>Verified over HTTP against your live mate:</strong> generate → save → list → delete all work; CORS preflight now returns <code>GET,POST,DELETE,OPTIONS</code>. Typecheck + lint clean, 144 tests pass.</p>
+<p><strong>Commits:</strong> <code>c23c964</code> CORS · <code>4d96d09</code> no-<code>next build</code> rule · <code>5a08824</code> the page.</p>
+<p>⚠️ The agent's last <code>next build</code> finished just before my stop message — <strong>restart your app dev server</strong> if it acts up. <code>app/next.config.ts</code> is still dirty from the other session; untouched.</p></div></div></div>
+<div class="message user" id="msg-2026-09-04T14-05-00-124Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-09-04T14-05-00-124Z" class="timestamp-link"><time datetime="2026-09-04T14:05:00.124Z" data-timestamp="2026-09-04T14:05:00.124Z">2026-09-04T14:05:00.124Z</time></a></div><div class="message-content">
+<div class="user-content"><p>I would like to do essentially the same thing, except for "bands". That is: templates describe the song (or jam sesh), bands describe who plays in it. So a funk band might have different musicians than a jazz band or metal band, and multiple variations of those (like maybe some bands have two keyboard parts). We need to have a library of these with some way of attaching metadata (like genre) though metadata is not required. We also need a way to generate more. All should be visible in the ui. Plan this out then implement it.</p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-05-46-829Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-05-46-829Z" class="timestamp-link"><time datetime="2026-09-04T14:05:46.829Z" data-timestamp="2026-09-04T14:05:46.829Z">2026-09-04T14:05:46.829Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-05-47-454Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-05-47-454Z" class="timestamp-link"><time datetime="2026-09-04T14:05:47.454Z" data-timestamp="2026-09-04T14:05:47.454Z">2026-09-04T14:05:47.454Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Let me check current repo state, then plan.</p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-05-49-182Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-05-49-182Z" class="timestamp-link"><time datetime="2026-09-04T14:05:49.182Z" data-timestamp="2026-09-04T14:05:49.182Z">2026-09-04T14:05:49.182Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01Gsy6DmgZReTJCba7iRKMGs">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Check repo state before planning</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cd /Users/benjaminjordan/projects/thegoldenmule/aibleton
+git log --oneline -6; echo &#34;=== dirty ===&#34;; git status --short
+echo &#34;=== app routes ===&#34;; find app/src/app -name &#39;page.tsx&#39; | sort
+echo &#34;=== core ===&#34;; ls mate/src/core mate/src/api/routes packages/protocol/src</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T14-05-49-279Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T14-05-49-279Z" class="timestamp-link"><time datetime="2026-09-04T14:05:49.279Z" data-timestamp="2026-09-04T14:05:49.279Z">2026-09-04T14:05:49.279Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>ed0e671 Stop idle ticks from triggering paid brain calls
+8d07a2a devindicator
+5a08824 app: template manager page
+4d96d09 CLAUDE.md: never run next build
+c23c964 mate: allow DELETE through CORS
+a90ae39 protocol: correct the generate-request seed docstring
+=== dirty ===
+=== app routes ===
+app/src/app/page.tsx
+app/src/app/templates/page.tsx
+=== core ===
+mate/src/api/routes:
+adapters.ts
+commands.ts
+events.ts
+health.ts
+state.ts
+templates.ts
+
+mate/src/core:
+clock.ts
+commands.ts
+events.ts
+generator.ts
+mailbox.ts
+state.ts
+templates.ts
+
+packages/protocol/src:
+api.ts
+commands.ts
+events.ts
+form.ts
+index.ts
+state.ts
+templates.ts</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-05-50-941Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-05-50-941Z" class="timestamp-link"><time datetime="2026-09-04T14:05:50.941Z" data-timestamp="2026-09-04T14:05:50.941Z">2026-09-04T14:05:50.941Z</time></a></div><div class="message-content"><pre class="json">{
+  &quot;type&quot;: &quot;server_tool_use&quot;,
+  &quot;id&quot;: &quot;srvtoolu_01SFxu9T7MWHTnvAgtLmzct7&quot;,
+  &quot;name&quot;: &quot;advisor&quot;,
+  &quot;input&quot;: {}
+}</pre></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-06-18-708Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-06-18-708Z" class="timestamp-link"><time datetime="2026-09-04T14:06:18.708Z" data-timestamp="2026-09-04T14:06:18.708Z">2026-09-04T14:06:18.708Z</time></a></div><div class="message-content"><pre class="json">{
+  &quot;type&quot;: &quot;advisor_tool_result&quot;,
+  &quot;tool_use_id&quot;: &quot;srvtoolu_01SFxu9T7MWHTnvAgtLmzct7&quot;,
+  &quot;content&quot;: {
+    &quot;type&quot;: &quot;advisor_redacted_result&quot;,
+    &quot;encrypted_content&quot;: &quot;EukdCioIExgCIiQ4NDA4Njc4Zi00YTAwLTQ3YjAtYWRiYy04NmNmYTFlMmY3MDASDECMVW9Y9Tg73jcsPRoMEIpcUjU3CgcBm46HIjAYE+zruBEWTD2D5Em6scv1ILRgfGaSWTGDCxZUs55m5b+o6v3DhKNzIMy8cMuWNnkq7BzHPhH+EUtF8RhAst2yx2waqaOmH5RFhWxwTt8f8i+PJlR0ZekEzqdMHr/EZw8WMLzt5b/rKJr4SSA6fI+lT1z01A/MZaQNeKw6MX2/H52EyuKFweCjUjHhfHAdOtyTn6fWKiSj2gtPGVUbU+CxkWGFJIiHr6g7Yx8PN9ZuJaHhKfuxi6xlDVzYfwvO3zjRI1BfLyuHAV1uEIDguaCHpRQPd29HHzXtmcKz0QQ9A0vQnD015IbctuHvkpJLjZlajGAOs+thQVv/O2xDmkuVOuFEQWqWUqAapkmPiUfqjCji2HrCc73N+tbF0zkY9Fki88c4WbwcwKHpx2Jvmy8ks+BiZUGq0YKq1Qvse9pdiQnM4uUe4HXnK15EU+idXs0YC/5Ljt96nO5CWUSH+Bn5ktI6nITzlYI5g3SrrrqceyM9XPIk5Z5Eg0ZzCcPsuNhg3FXmtw3M+Eq76b+LLmDwD4xwJftxP+aG6nOVj3apmZ9Vz5IUnwzZmL6JWTmEYwz1ugJzCURGTnQjwM+CAO5T26y71Yt6mV4lLTRVjcO3xCPLu1QKTv55A8wRvonVXC4zie++rONfQE5jOxVXnFZcSdT1HWa+S6beUQjJMCwTZhQHqKre1Itt9HRH3gI8DTvRh2g/S4UxEZTQW0+WMrsMMOTkDxlNTFfudzKCKZLiOIgLIcP579uBFRfPFbCsVkkJq0IZNHNXfnS7uLrR/pFdrp0u0DDkoQVVI52POkZW6/CM0s+vSgcwDxQdzoPviqh+NpUeBmHz4HqkAGt5WhpC+oc2Kg1ZPR3IJ4Q4HZTAxX4vuEPE2YvnvFbselhMr52/tyI9zYlxPtpZRY43TU1SLha5/MNYMiR4mVbPvAIFuNxf/+mVTlySHkCgZKF9zTETRaAWaMxxnDzTZR3U5BTh2y0eBo7fPW/ZEOk9OJGk0ZF3bvKqIeIr79YPLghtQwmb3eYgO2wGou4EnyotHe3/QdnjTbYYb9sjeZdOzawWgGmKqE3mTOoFLtpxRJuA7RM1TUpwHTSImq6XkVuTzLzWYqqUhnonwXbQu64YZhiemx4Z4vk7iQVgVEhVRnTvZJf3A0zBLFJhkwM1JFeFSvBDVAP24Y2ZkDzudMboTe1qTedyu4ZLih0MOtCBTgU+On1g49q21TvFB6B/xnIBupoyekNdqxG3HRSDkMhYFy+zuJxBwmCC3OF/TOL3EAly8XqA7ZOEzpep58S3UIp3nuQl7lCsMRtiok2WITTGalia2y3U1Km7nHb7F08ciNUH6xY2GAvZBiwT0iOfQD1p1dwl2/+h4x3lPXBnYNO7WkoFWCgDYTEm51KpSvFQn1GN+EWDnTmUFo4ZrWRWbIB6HRtoRitwPN7oSLKK29zg/wp/mCyEQw+455oyI2wnS/gMYHeP4DpxFU7JrEu7tui7yyKo2tSxGqKYUuXU5y+F2NtUIOP2G/AYqzE5sM+JjakmI7w4WIGLjPoqO7nOCbOqCLsgXolsWXSNPbiLfKGZD35Fv1RKd66G3VFv8A2byp09zfG/WumQWY4sFsTYLq0Zdo2YuoRWHn0CxP/2bu6EOOcNOTYqWEEkpJ0TTo3pYVfe1CaDXUDx4ff/OtgNCV2Mh2Z08jWqsIL8Q3HRcBW/TZYesdzECyU8g205HbSO0RI1GHK/zpURvVl80J/3M/bNcRnbw367bCx1HFGukVVEQbPLaIqNtGxSBcLiaAhdwm95Ix4x+NA/6epXwgZUesJz52MwaZBRXuGDA0juvfPxTyOHii8kP4VYjmDgKBEp45zSWFdgErHRPKensOPMz0EPh03UVbRGcR0jpP1fOfu5rbGerxCBqQGl2OMbZX54gVtFX4iijts6B9+H5Xnw/2Hwu6Ihe8Z61mAvYFnUvxwePv9JAnA0bcvvU7IjjLNCh4hqdvVZhThy60GKlPUj7O43hcnzoklU28M5Qf4aLT19RjNZgibopd0RPnKYyDnNMdGpZtcutk1Hw803/nT29LeyxuITS2lp89G7r+nU3Kq3LeTOAiWMto/b/f0R2+nBiK7gLvdivRprlKTbvvQf41LflC2WeZ5/u0A28Zb1OxxPfM2SN9ZCVrF3mT91CSwKbVk9pmv2qlNbBGhlZ14Sj8WybqxjfX1eiWn46o/79cHXYNy92ulDui2RgIDDjYlhL6UpPqwkrTXBo10KIMToLj9/880xzTm468ulq96/xeOgGyj6QkVRH1EUCc/UEbPhYRrw3xXpSEekVDFGy7RTkTkxkJk0ekhUdXQFh6U0kAbz2OQFjSxrFDOWHvai3bZRi6Sm7ii5NnSCUk6uGTiVEscJfrdJrnH2qHOFSueImYFybTx8ZLafOx93KpnnSruC07FqZpBV2GsTaxL0QJkbJ0sIjfinPoeN/s6oyaQt4QuO2Vj6IEEEixRninkSxToK2UnS8yCMnnb3YAzu+Q+8EKRTuz52BGKPoaQOHlvep8zzGAqAHwnxiEOFMfdHVWsBMyh2TqhFJufNrkyJxIsVtc/OrjROtT8FAQKhD6T3m5ZssHDbY6pMVIt3LY3JLxa4G61KJzRIfkSXLbznx+VMa3h44fIQymU8EoaD2fkP8kGmKNnBOj1ojsME32RBGzZiVZOdjU8QWgh6FUCFTLorQPH9u3g95A7XfNWXCmUwmK11084rsoO5wt0V5d4M0+NfAmRAdwUbcpKsc6GQI1HMA/HUyOYDe9wtT09neHMCbYCt+T52B0MD06EGdXuqdhDeD2QyfCbqkBXykZVnSqwAhKxdTRKID7D37HoCUgDRny5i/fdiEvnHXHoMzTYmIU6Fzh7Q/ZoP1lWSQh+aAkJ7JsE8QW9WKceCGxtrhqD2yJ4FY/+tCzO2VNoaEAGN/DXBpyic7qkWYCMba0VgDPRlloYEbfj12132QpiAup34t3+PGmW7TLuvm+2M5Ya/3IBeWtHkfbVr8yZCMwCYFh7m1AZjsBGPAUyZBEY7HEOiJZeB7MI8MhonFAjKnbJruW6lsfB+jc+dM76CaaAxQqn3dqG3vyEYsBmosBJWcXf7gARH2OqdSz0I+LZwGCBc68EF47ljQ1ENrOKvAijMDWvWr90adHN8dQ9Fwg83/6fbDiv9H2YZTGzVneQPLVaMavVk08/B3i3TB30tP2LkczUwbB1xCoJmV8MuP47nQO+1u00rImhfP2SXXP2XXxuWqlV6SHggubUSbXylx1id5PxeiVns4h725LETPk8A/zbL8TBdBLQmyPTr7u3aRE1HISaWrSgKe+SMg5NFs05nWRPbANp9hZ2mPsc0raZLSs0gbtBLQAepC7r4Wmzjeiyuod0gaD+atL9JIlydMeGAxE5aDDj6cFWODTe9BxhRH+HgEzrgAiSMUtjkMM5AD7sg23DSe66j93K0iSOQU7cXtXQODdw8T2S19ExiJ8T8ON7f/J8knMi1+en2PMd8CDkihEbSycXEmB6vFGT8HLu6W5rvrwKSr3dcvXOaOQqsQ6nBaKgkUYSqVsW0O0sCk5DzrdzgBROYuaSP4jGLDA2eWe9UMYymM8U5IKAaW5gnT23ZjtPZOBj9EPs21df/ohmtWtJCclGM/clXaZL26VxA3DDGgG9GctqWpycHFtaUAaz0OOAl/m6Xw/ZadBtEGjkmQTyMREhLUoIwIIMPKkdZGr4K8mK/Rd14ScVrKjJysxgcVqisJfV19RhQXz1IcFg4QZ8kiBuDMBZbFViFsDaj5B00yeGgjhsSOXnN+lDvL0FYoCDqNARqFL2Fq8s8+L61X0hu+2xwuQjyuH4iUoym/7w4WUqDhS64gkxOJQ9IFpHVDuVKbp7R30NvJXZQcZmsjIB+uVMEnwkHS7SIYSKZebd52+ClF772/4v91J1Vi471MYYrfYXuHYhZEKj7TGz8nMfD3g/k6koM4MT8E7vpNfbYzhE+MIm/eI6N7qKkzBK49504ZcdbY2J31bo8jB30FFFm4Cbr94RiIEGCvkI+0OEw9fnfZrK1FlykpnQp/EBUlhPcuQWDbp61raHScCX85yZlIsJGh624p3ngMdJ1/jLIWCRCP7Z63qjOWbIrVezmfe0SvDggc27tBS355GgaQMR0+U2gOY3RpzKgfBjmUaWlLdv7srm/72PlwL8UditxfsMU89jOAUY1t7o0BQSYAWJHuv+Z1t4wFxvkzARWDvSXKsOlpCo7+P5nFW3hZToOs+jw3S7ML8viLs5sUQqieVWOrW7wKeakfHwDpq2l376z48ut4IrD/UTWmsIsFlSN/NpAsGjVmIEEtgT5iQv9InHHOfM/5Is6zLbAcq197To/h4ETnwRt/DKjQ1kDtyKF2vSXIgdxcSyvEO/CzFdWWfDxx1Kx256UaosJfGF3fXBq2HQfw1zwQfbwF0NDnz7YTjNhBN7oyCEickLfBiTLoSqAmiAdvTWclPxng/zh/U0gbbv8oe32AzeXKZr7jt/nsCMO+ByUfatiNgYTpG6ajFviMzQXwqtYLcy+JfJXO4U7MyHf9LMOaoUaTXSxYLKOz8SE5iw4F9206o5frhr1+/rZhI5cp8khTOtD2gcg7hI+6WgcJv0FhLA+I5a4VashHYxn+jgnVudLr4pPiyDWXRZHnbgyNN5IF20gXJPV9w6NFhdsfKv0PfThblQC5h+BnqYSs8rOd9q2WopB8lTJAOEfo9S1p+jLpJZg1O7JMa2eK3i/1CDqLu8lHHBgfNwVc/3bBUe1CQQtM9QQJSgbFYc2wi3SXPkgoGumrtrepvCZ3Vez7oyAMqoGGlUTtkiXDWP49KFPaywCd06aEurd9AzAHj5cN617fQx1iuctG1NJbrlJMnnlulDDYd6DpMIpo4q/NO2V6bqL9MW+yNYNcX8AiNGWPnRliAcS3FfceVnXtBJKkdB+06zM3SGIlSDJxS0S3YwyrJ8fVDQH9XzfcUhRypIp/xgJ&quot;
+  }
+}</pre></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-06-32-408Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-06-32-408Z" class="timestamp-link"><time datetime="2026-09-04T14:06:32.408Z" data-timestamp="2026-09-04T14:06:32.408Z">2026-09-04T14:06:32.408Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-06-40-153Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-06-40-153Z" class="timestamp-link"><time datetime="2026-09-04T14:06:40.153Z" data-timestamp="2026-09-04T14:06:40.153Z">2026-09-04T14:06:40.153Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Plan locked. Here it is, then I start.</p>
+<p><strong>Model</strong> — a band is the <em>space</em> axis to a template's <em>time</em> axis:</p>
+<pre><code>BandPart { id, role, name, brief, emphasis? }   // id is stable — a future
+Band     { id, name, parts[], metadata, createdAt }   // Composition keys on it
+</code></pre>
+<p><code>part.id</code> → an Ableton <strong>track</strong>; template <code>section.label</code> → a <strong>scene</strong>. Step 7's composer is the grid: <code>material[part.id][section.label]</code>. That join is why parts get stable ids rather than just names. <code>part.brief</code> is the Splice prompt axis, exactly like <code>section.brief</code>; <code>emphasis?</code> is the reserved plugin hook, mirroring <code>section.intensity</code>.</p>
+<p><strong>Metadata</strong> is <code>Record&lt;string,string&gt;</code>, defaulted to <code>{}</code> and never required. <code>genre</code> is a <em>conventional key</em>, not a schema field — the generator takes a genre as input and writes it back to <code>metadata.genre</code>; the UI filters on <code>metadata.genre ?? "—"</code> so untagged bands are their own bucket.</p>
+<p><strong>Generation</strong> is a readable data table, not branching logic: per genre, core roles always present plus weighted optionals, with name and brief pools per role. Duplicate roles draw distinct names without replacement (two keys → Rhodes + clav, not "keys 1/keys 2"). Omitting the genre picks one from the seed, so an empty generate still returns a coherent band.</p>
+<p><strong>Order:</strong> protocol schemas → extract a generic <code>DocumentStore</code> and re-base <code>TemplateStore</code> on it <em>(proving it with the existing tests, unchanged, before <code>BandStore</code> exists)</em> → band generator → REST routes → <code>/bands</code> page.</p>
+<p>Starting with the schemas.</p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-06-55-585Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-06-55-585Z" class="timestamp-link"><time datetime="2026-09-04T14:06:55.585Z" data-timestamp="2026-09-04T14:06:55.585Z">2026-09-04T14:06:55.585Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01Qa1X9KSTsUpbyjLHZr4Eyn">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Add band schemas to protocol</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cd /Users/benjaminjordan/projects/thegoldenmule/aibleton
+cat &gt; packages/protocol/src/bands.ts &lt;&lt;&#39;TSEOF&#39;
+import { z } from &#34;zod&#34;;
+
+/**
+ * Genres the band generator knows how to staff. Only an input to generation —
+ * a saved band&#39;s genre lives in `metadata.genre`, which is free text.
+ */
+export const GENRES = [&#34;funk&#34;, &#34;jazz&#34;, &#34;rock&#34;, &#34;metal&#34;, &#34;house&#34;, &#34;hiphop&#34;, &#34;ambient&#34;, &#34;reggae&#34;] as const;
+export const GenreSchema = z.enum(GENRES);
+export type Genre = z.infer&lt;typeof GenreSchema&gt;;
+
+/** Suggested role vocabulary. Roles are free text; this is for pickers and generator recipes. */
+export const ROLES = [
+  &#34;drums&#34;,
+  &#34;percussion&#34;,
+  &#34;bass&#34;,
+  &#34;guitar&#34;,
+  &#34;keys&#34;,
+  &#34;synth&#34;,
+  &#34;horns&#34;,
+  &#34;strings&#34;,
+  &#34;vocals&#34;,
+  &#34;fx&#34;,
+] as const;
+export type Role = (typeof ROLES)[number];
+
+/** Part ids are stable keys, so they are restricted to a slug shape. */
+export const PartIdSchema = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9-]{0,31}$/, &#34;part id must be a lowercase slug, e.g. \&#34;keys-rhodes\&#34;&#34;);
+
+/**
+ * One player in a band. `id` is stable for the life of the band because a
+ * composition keys its material on it (`material[part.id][section.label]`),
+ * and each part becomes one Ableton track.
+ */
+export const BandPartSchema = z.object({
+  id: PartIdSchema,
+  /** Free text, but usually one of ROLES. */
+  role: z.string().min(1),
+  /** What this player is called on the stage plot, e.g. &#34;Rhodes&#34; or &#34;rhythm guitar&#34;. */
+  name: z.string().min(1),
+  /** Prompt text handed to Splice when this part is bound to material. */
+  brief: z.string().min(1),
+  /** Reserved for a later mix-prominence input. Nothing reads it yet. */
+  emphasis: z.number().min(0).max(1).optional(),
+});
+export type BandPart = z.infer&lt;typeof BandPartSchema&gt;;
+
+const BandShape = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  /** Ordered: this is the track order in Ableton. */
+  parts: z.array(BandPartSchema).min(1),
+  /** Free-form tags. `genre` is a conventional key; nothing here is required. */
+  metadata: z.record(z.string(), z.string()).default({}),
+  createdAt: z.number(),
+});
+
+/**
+ * Who plays in a song. Bands are the space axis; templates are the time axis.
+ * A composition is a template crossed with a band: parts become tracks,
+ * sections become scenes.
+ */
+export const BandSchema = BandShape.superRefine((band, ctx) =&gt; {
+  const seen = new Set&lt;string&gt;();
+  band.parts.forEach((part, i) =&gt; {
+    if (seen.has(part.id)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [&#34;parts&#34;, i, &#34;id&#34;],
+        message: `duplicate part id ${JSON.stringify(part.id)}`,
+      });
+    }
+    seen.add(part.id);
+  });
+});
+export type Band = z.infer&lt;typeof BandSchema&gt;;
+/** Input shape: `metadata` may be omitted and defaults to `{}`. */
+export type BandDraft = z.input&lt;typeof BandSchema&gt;;
+
+/** Distinct roles in a band, in part order. */
+export function bandRoles(band: Pick&lt;Band, &#34;parts&#34;&gt;): string[] {
+  const seen = new Set&lt;string&gt;();
+  const out: string[] = [];
+  for (const part of band.parts) {
+    if (seen.has(part.role)) continue;
+    seen.add(part.role);
+    out.push(part.role);
+  }
+  return out;
+}
+
+/** The band&#39;s genre tag, or null when it was never tagged. */
+export function bandGenre(band: Pick&lt;Band, &#34;metadata&#34;&gt;): string | null {
+  return band.metadata.genre ?? null;
+}
+TSEOF
+python3 - &lt;&lt;&#39;PYEOF&#39;
+import pathlib
+p = pathlib.Path(&#34;packages/protocol/src/index.ts&#34;)
+s = p.read_text()
+assert &#39;./bands.ts&#39; not in s
+p.write_text(s.rstrip(&#34;\n&#34;) + &#39;\nexport * from &#34;./bands.ts&#34;;\n&#39;)
+PYEOF
+bun run --cwd packages/protocol typecheck &amp;&amp; echo &#34;PROTOCOL OK&#34; &amp;&amp; cat packages/protocol/src/index.ts</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T14-06-58-284Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T14-06-58-284Z" class="timestamp-link"><time datetime="2026-09-04T14:06:58.284Z" data-timestamp="2026-09-04T14:06:58.284Z">2026-09-04T14:06:58.284Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>$ tsc -p tsconfig.json
+PROTOCOL OK
+export * from &quot;./state.ts&quot;;
+export * from &quot;./commands.ts&quot;;
+export * from &quot;./events.ts&quot;;
+export * from &quot;./api.ts&quot;;
+export * from &quot;./form.ts&quot;;
+export * from &quot;./templates.ts&quot;;
+export * from &quot;./bands.ts&quot;;</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-07-06-803Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-07-06-803Z" class="timestamp-link"><time datetime="2026-09-04T14:07:06.803Z" data-timestamp="2026-09-04T14:07:06.803Z">2026-09-04T14:07:06.803Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-07-17-272Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-07-17-272Z" class="timestamp-link"><time datetime="2026-09-04T14:07:17.272Z" data-timestamp="2026-09-04T14:07:17.272Z">2026-09-04T14:07:17.272Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01EBqrSPEnnZYLVhQ6DfaURB">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Add band API schemas and commit protocol</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cd /Users/benjaminjordan/projects/thegoldenmule/aibleton
+cat &gt;&gt; packages/protocol/src/api.ts &lt;&lt;&#39;TSEOF&#39;
+
+export const BandListResponseSchema = z.object({ bands: z.array(BandSchema) });
+export type BandListResponse = z.infer&lt;typeof BandListResponseSchema&gt;;
+
+export const BandResponseSchema = z.object({ band: BandSchema });
+export type BandResponse = z.infer&lt;typeof BandResponseSchema&gt;;
+
+/** Body of `POST /bands`. The client supplies a whole band; the store upserts it. */
+export const PutBandRequestSchema = z.object({ band: BandSchema });
+export type PutBandRequest = z.infer&lt;typeof PutBandRequestSchema&gt;;
+
+/**
+ * Body of `POST /bands/generate`. Every field is optional; `seed` is chosen from
+ * the clock when omitted, and an omitted `genre` is picked from the seed so an
+ * empty request still yields a coherent band.
+ */
+export const GenerateBandRequestSchema = z.object({
+  seed: z.number().int().optional(),
+  genre: GenreSchema.optional(),
+  /** Total parts. Clamped to what the genre&#39;s recipe can staff. */
+  size: z.number().int().min(1).max(16).optional(),
+  name: z.string().min(1).optional(),
+});
+export type GenerateBandRequest = z.infer&lt;typeof GenerateBandRequestSchema&gt;;
+
+export const DeleteBandResponseSchema = z.object({ deleted: z.boolean() });
+export type DeleteBandResponse = z.infer&lt;typeof DeleteBandResponseSchema&gt;;
+TSEOF
+python3 - &lt;&lt;&#39;PYEOF&#39;
+import pathlib
+p = pathlib.Path(&#34;packages/protocol/src/api.ts&#34;)
+s = p.read_text()
+old = &#39;import { TemplateSchema } from &#34;./templates.ts&#34;;&#39;
+new = old + &#39;\nimport { BandSchema, GenreSchema } from &#34;./bands.ts&#34;;&#39;
+assert old in s and &#34;bands.ts&#34; not in s
+p.write_text(s.replace(old, new, 1))
+PYEOF
+bun run typecheck 2&gt;&amp;1 | tail -5
+git add packages/protocol/src/bands.ts packages/protocol/src/api.ts packages/protocol/src/index.ts
+git commit -q -F - &lt;&lt;&#39;MSGEOF&#39;
+protocol: add band schemas
+
+Bands are the space axis to a template&#39;s time axis: parts become Ableton
+tracks, sections become scenes, and a composition is the two crossed. Part
+ids are slugs because a composition will key material on them. Genre is a
+conventional metadata key rather than a field, so tagging stays optional.
+
+Co-Authored-By: Claude Opus 5 &lt;noreply@anthropic.com&gt;
+Claude-Session: https://claude.ai/code/session_01U7ry2PWUG9CW6b3g7mqcRW
+MSGEOF
+git log --oneline -1</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T14-07-21-417Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T14-07-21-417Z" class="timestamp-link"><time datetime="2026-09-04T14:07:21.417Z" data-timestamp="2026-09-04T14:07:21.417Z">2026-09-04T14:07:21.417Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>$ bun run --cwd packages/protocol typecheck &amp;&amp; bun run --cwd mate typecheck &amp;&amp; bun run --cwd app typecheck
+$ tsc -p tsconfig.json
+$ tsc -p tsconfig.json
+$ tsc --noEmit -p tsconfig.json
+5a7dbda protocol: add band schemas</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-07-23-357Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-07-23-357Z" class="timestamp-link"><time datetime="2026-09-04T14:07:23.357Z" data-timestamp="2026-09-04T14:07:23.357Z">2026-09-04T14:07:23.357Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Protocol committed. Spawning the two independent agents.</p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-07-46-906Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-07-46-906Z" class="timestamp-link"><time datetime="2026-09-04T14:07:46.906Z" data-timestamp="2026-09-04T14:07:46.906Z">2026-09-04T14:07:46.906Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_011Y21HitfaXLrsBs8xZKc3s"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Extract document store, add BandStore</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;subagent_type&#34;: &#34;general-purpose&#34;,
+  &#34;prompt&#34;: &#34;You are working in the Bun/TypeScript monorepo at /Users/benjaminjordan/projects/thegoldenmule/aibleton. Read /Users/benjaminjordan/projects/thegoldenmule/aibleton/CLAUDE.md FIRST and follow its conventions exactly.\n\nTASK: Remove the duplication that a new `BandStore` would otherwise create, by extracting the file-backed store into a generic, then building `BandStore` on it.\n\n## Read first\n- `mate/src/core/templates.ts` — the existing `TemplateStore`. This is the code to generalize.\n- `mate/test/templates.store.test.ts` — its tests. **These are your safety net and must keep passing completely unchanged.**\n- `packages/protocol/src/bands.ts` — the new `BandSchema` / `Band` / `BandDraft` (already committed, do not modify).\n- `mate/src/config.ts` — how `templatesDir` is wired.\n\n## Do it in this order — the intermediate green matters\n\n**Phase 1 — extract, prove, stop.**\n1. Create `mate/src/core/document-store.ts` exporting a generic file-backed store, e.g.:\n   ```ts\n   export function isValidDocumentId(id: string): boolean\n   export interface DocumentStoreOptions&lt;T&gt; { dir: string; schema: ZodType&lt;T, ZodTypeDef, unknown&gt;; idOf: (doc: T) =&gt; string }\n   export class DocumentStore&lt;T&gt; {\n     list(): Promise&lt;T[]&gt;            // newest first — see note below\n     get(id: string): Promise&lt;T | null&gt;\n     save(doc: T): Promise&lt;T&gt;\n     delete(id: string): Promise&lt;boolean&gt;\n   }\n   ```\n   Keep every behaviour the current `TemplateStore` has: one `&lt;id&gt;.json` per document, lazy `mkdir` recursive, zod validation on the way in AND out, unreadable/corrupt files skipped in `list` and `null` from `get`, non-`.json` files ignored, ids restricted to `/^[A-Za-z0-9_-]{1,64}$/` to block traversal, no clock reads. Newest-first sorting is by `createdAt`; make that a `sortKey` or comparator option rather than assuming the field, but default it to `createdAt` descending.\n   **Important:** `TemplateSchema` and `BandSchema` are zod *effects* (they have `.superRefine`), so type the schema option as `ZodType&lt;T, ZodTypeDef, unknown&gt;` — do NOT require `ZodObject`.\n2. Rewrite `mate/src/core/templates.ts` as a thin wrapper over `DocumentStore&lt;Template&gt;`. It must keep exporting `TemplateStore`, `TemplateStoreOptions` and `isValidTemplateId` with identical signatures and identical error messages, because `mate/src/api/routes/templates.ts` and the tests import them.\n3. Run `bun run --cwd mate test` and `bun run typecheck`. **`mate/test/templates.store.test.ts` must pass with zero edits to it.** If you find yourself wanting to change that test file, your refactor changed behaviour — fix the code instead. Tell me in your report if you believe a test genuinely must change and why.\n\n**Phase 2 — the new store.**\n4. Add `bandsDir` to `mate/src/config.ts` (env `MATE_BANDS_DIR`, default `.mate/bands`), in the same style as `templatesDir`.\n5. Create `mate/src/core/bands.ts` exporting `BandStore`, `BandStoreOptions` and `isValidBandId`, as a thin wrapper over `DocumentStore&lt;Band&gt;` — mirroring `templates.ts` exactly.\n6. Create `mate/test/bands.store.test.ts`, mirroring the coverage of `templates.store.test.ts`: save/get round-trip, null for unknown id, newest-first listing, non-`.json` ignored, corrupt file skipped in list and null from get, delete true-then-false, invalid document rejected by `save` (use a band with duplicate part ids — `BandSchema` rejects those), path traversal ids (`../evil`, `a/b`, `/etc/passwd`) rejected by get/save/delete, and overwrite replaces. Use a fresh `mkdtemp` temp dir per test and clean up.\n7. Also add a small `mate/test/document-store.test.ts` covering the generic directly with a trivial throwaway zod schema — enough to show it is not template-specific.\n\n## Constraints\n- Strict TS, ESM, explicit `.ts` extensions on relative imports, `import type` for type-only imports.\n- No network in tests. No `Date.now()` inside any store.\n- Touch ONLY: `mate/src/core/document-store.ts`, `mate/src/core/templates.ts`, `mate/src/core/bands.ts`, `mate/src/config.ts`, `mate/test/bands.store.test.ts`, `mate/test/document-store.test.ts`. Do NOT edit `mate/test/templates.store.test.ts`, `mate/src/api/`, `packages/`, `app/`, or `CLAUDE.md`.\n- **Do NOT run any git command** — another session commits in this repo concurrently; I will commit your work.\n- **NEVER run `next build`** — it kills the user&#39;s running dev server. You have no reason to touch the app at all.\n\n## Verify\n`bun run --cwd mate test` (all green, 144+ tests) and `bun run typecheck` (clean). Iterate until both pass.\n\n## Report\nThe generic&#39;s exported API, confirmation that `templates.store.test.ts` passed unedited, the new config field and env var, and the test counts before/after.&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T14-07-48-499Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T14-07-48-499Z" class="timestamp-link"><time datetime="2026-09-04T14:07:48.499Z" data-timestamp="2026-09-04T14:07:48.499Z">2026-09-04T14:07:48.499Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.)
+agentId: a126d29f554c886ed (internal ID - do not mention to user. Use SendMessage with to: &#x27;a126d29f554c886ed&#x27;, summary: &#x27;&lt;5-10 word recap&gt;&#x27; to continue this agent.)
+The agent is working in the background. You will be notified automatically when it completes. You know nothing about its results until that notification arrives — do not report, assume, or predict them; continue other work or respond to the user in the meantime.
+Do not duplicate this agent&#x27;s work — avoid working with the same files or topics it is using.
+output_file: /private/tmp/claude-501/-Users-benjaminjordan-projects-thegoldenmule-aibleton/fec023c1-265c-491a-a394-e7971d36cf71/tasks/a126d29f554c886ed.output
+Do NOT Read or tail this file via the shell tool — it is the full subagent JSONL transcript and reading it will overflow your context. If the user asks for progress, say the agent is still running; you&#x27;ll get a completion notification.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-08-17-669Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-08-17-669Z" class="timestamp-link"><time datetime="2026-09-04T14:08:17.669Z" data-timestamp="2026-09-04T14:08:17.669Z">2026-09-04T14:08:17.669Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01X5vBCHowZksNJLYa4FPSNz"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Build seeded band generator</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;subagent_type&#34;: &#34;general-purpose&#34;,
+  &#34;prompt&#34;: &#34;You are working in the Bun/TypeScript monorepo at /Users/benjaminjordan/projects/thegoldenmule/aibleton. Read /Users/benjaminjordan/projects/thegoldenmule/aibleton/CLAUDE.md FIRST and follow its conventions exactly.\n\nTASK: Create `mate/src/core/band-generator.ts` — a pure, seeded generator that staffs a band for a genre — plus tests in `mate/test/band-generator.test.ts`.\n\n## Read first\n- `packages/protocol/src/bands.ts` (already committed, do NOT modify) — defines `GENRES`, `Genre`, `ROLES`, `Role`, `BandPart`, `Band`, `BandSchema`, `bandRoles`, `bandGenre`. All exported from `@aibleton/protocol`.\n- `mate/src/core/generator.ts` — the existing form generator. **Match its structure closely**: inline `mulberry32`, `requireInt`-style validation, weighted picking, thorough doc comments. Your module is its sibling.\n\n## The model\n\n```ts\nBandPart { id, role, name, brief, emphasis? }   // id is a lowercase slug, unique in the band\nBand     { id, name, parts: BandPart[], metadata: Record&lt;string,string&gt;, createdAt }\n```\n`part.id` must match `/^[a-z0-9][a-z0-9-]{0,31}$/`. `emphasis` is RESERVED — never set it.\n\n## Export exactly two things\n\n```ts\nexport interface GenerateBandOptions {\n  /** Any integer. Same seed + options =&gt; identical band. */\n  seed: number;\n  /** Omit to let the seed pick one from GENRES. */\n  genre?: Genre;\n  /** Total parts. Clamped to what the genre recipe can staff. */\n  size?: number;\n}\n\n/** Returns the parts and the metadata; the caller supplies id, name and createdAt. */\nexport function generateBand(opts: GenerateBandOptions): { parts: BandPart[]; metadata: Record&lt;string, string&gt; };\n\n/** The recipe table, exported so tests and the API can introspect it. */\nexport const RECIPES: Record&lt;Genre, BandRecipe&gt;;\n```\n\n`generateBand` must set `metadata.genre` to the genre actually used (whether passed in or seed-picked). Returning parts+metadata rather than a whole `Band` mirrors how `defaultSections` in `generator.ts` leaves id/name/createdAt to the route.\n\n## The recipe table — data, not branching logic\n\nOne recipe per genre in `GENRES` (funk, jazz, rock, metal, house, hiphop, ambient, reggae). Shape it roughly as:\n\n```ts\ninterface BandRecipe {\n  core: Role[];                              // always staffed, in track order\n  optional: { role: Role; weight: number }[]; // added by weight until size is met\n  names: Partial&lt;Record&lt;Role, string[]&gt;&gt;;     // pool of display names per role\n  briefs: Partial&lt;Record&lt;Role, string[]&gt;&gt;;    // pool of Splice-prompt briefs per role\n}\n```\n\nMake the recipes musically honest and genre-distinct — this table IS the product here, so give it real thought rather than filling it mechanically:\n- metal genuinely has two guitars in its core; jazz core is drums/upright bass/piano; house core is drum machine/bass/synth; ambient may have no drums at all.\n- Name pools should be specific and evocative (\&#34;Rhodes\&#34;, \&#34;clav\&#34;, \&#34;Hammond\&#34;, \&#34;upright bass\&#34;, \&#34;808\&#34;, \&#34;P-bass\&#34;, \&#34;brushed kit\&#34;), not \&#34;keys 1\&#34;.\n- Briefs are the text later sent to Splice, so write them as sound descriptions (\&#34;dry breakbeat, heavy ghost notes on the snare\&#34;), one to two clauses, and vary them per genre — a funk drums brief must not read like a metal drums brief.\n\n## Rules `generateBand` must satisfy\n- **Deterministic**: same options =&gt; identical output, deep-equal. Inline `mulberry32`; never `Math.random()`, never `Date.now()`, no I/O.\n- Core roles always appear, in recipe order, before any optionals.\n- `size` clamps into `[core.length, core.length + optional.length]`; omitted `size` picks a sensible seeded count within that range (not always the max).\n- Optionals are chosen by weight without replacement.\n- **Duplicate roles must get distinct names**: draw from that role&#39;s name pool without replacement; only if the pool is exhausted fall back to a numeric suffix. Two keys parts should read \&#34;Rhodes\&#34; and \&#34;clav\&#34;, never \&#34;keys 1\&#34;/\&#34;keys 2\&#34;.\n- **Part ids are unique slugs** derived from role and name (e.g. `keys-rhodes`), matching `/^[a-z0-9][a-z0-9-]{0,31}$/` — strip/replace anything else, truncate to 32 chars, and de-duplicate with a numeric suffix if two slugs collide. This must hold for every genre, size and seed.\n- Throw a clear `Error` on a non-integer seed, a `size` below 1, or an unknown genre.\n- Never set `emphasis`.\n\n## Tests in `mate/test/band-generator.test.ts` (bun:test)\nFollow the style of `mate/test/generator.test.ts`. Cover:\n- determinism (deep equality of two calls with the same options); different seeds generally differ\n- **loop over EVERY genre × many seeds (~100) and assert on all of them**: at least one part; every part id matches the slug regex; part ids unique; every part passes the protocol&#39;s part schema; core roles all present; no `emphasis` set; `metadata.genre` matches the requested genre\n- duplicate roles never share a name (assert across all genres/seeds)\n- `size` is honoured where legal and clamped where not\n- omitted `genre` still produces a valid band and sets `metadata.genre` to a member of `GENRES`\n- a full `Band` assembled from the output (adding id/name/createdAt) passes `BandSchema`\n- option validation throws\n- `RECIPES` covers exactly `GENRES`, every recipe has non-empty `core`, and every core+optional role has both a name pool and a brief pool\n\n## Constraints\n- Strict TS, ESM, explicit `.ts` extensions on relative imports, `import type` for type-only imports.\n- Touch ONLY `mate/src/core/band-generator.ts` and `mate/test/band-generator.test.ts`. Do NOT modify `packages/`, `mate/src/config.ts`, `mate/src/core/templates.ts`, `mate/src/core/bands.ts`, `mate/src/api/`, or `app/`. Another agent is editing the store files right now — stay out of them.\n- **Do NOT run any git command** — I will commit your work.\n- **NEVER run `next build`** — it kills the user&#39;s running dev server. You have no reason to touch the app.\n\n## Verify\n`bun run --cwd mate test` and `bun run typecheck` must both be clean. Another agent is adding files concurrently, so if you see a failure in `bands.store.test.ts`, `document-store.test.ts` or `templates.store.test.ts`, that is theirs — do not fix it, just make sure YOUR tests pass and say so.\n\n## Report\nThe exported signatures, a table of one example band per genre (name + role for each part) so the recipes can be judged, and confirmation your tests and typecheck pass.&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T14-08-19-098Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T14-08-19-098Z" class="timestamp-link"><time datetime="2026-09-04T14:08:19.098Z" data-timestamp="2026-09-04T14:08:19.098Z">2026-09-04T14:08:19.098Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.)
+agentId: a0e7118c649f8d84b (internal ID - do not mention to user. Use SendMessage with to: &#x27;a0e7118c649f8d84b&#x27;, summary: &#x27;&lt;5-10 word recap&gt;&#x27; to continue this agent.)
+The agent is working in the background. You will be notified automatically when it completes. You know nothing about its results until that notification arrives — do not report, assume, or predict them; continue other work or respond to the user in the meantime.
+Do not duplicate this agent&#x27;s work — avoid working with the same files or topics it is using.
+output_file: /private/tmp/claude-501/-Users-benjaminjordan-projects-thegoldenmule-aibleton/fec023c1-265c-491a-a394-e7971d36cf71/tasks/a0e7118c649f8d84b.output
+Do NOT Read or tail this file via the shell tool — it is the full subagent JSONL transcript and reading it will overflow your context. If the user asks for progress, say the agent is still running; you&#x27;ll get a completion notification.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-08-29-927Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-08-29-927Z" class="timestamp-link"><time datetime="2026-09-04T14:08:29.927Z" data-timestamp="2026-09-04T14:08:29.927Z">2026-09-04T14:08:29.927Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-08-30-622Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-08-30-622Z" class="timestamp-link"><time datetime="2026-09-04T14:08:30.622Z" data-timestamp="2026-09-04T14:08:30.622Z">2026-09-04T14:08:30.622Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Both running. Writing the REST routes against the contracts I specified.</p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-08-41-934Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-08-41-934Z" class="timestamp-link"><time datetime="2026-09-04T14:08:41.934Z" data-timestamp="2026-09-04T14:08:41.934Z">2026-09-04T14:08:41.934Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01BTLJ5LBMaK8pFTmPG7PE9A">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Write band REST routes</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cd /Users/benjaminjordan/projects/thegoldenmule/aibleton
+cat &gt; mate/src/api/routes/bands.ts &lt;&lt;&#39;TSEOF&#39;
+import { Hono } from &#34;hono&#34;;
+import {
+  BandSchema,
+  GenerateBandRequestSchema,
+  PutBandRequestSchema,
+  type Band,
+  type BandListResponse,
+  type BandResponse,
+  type DeleteBandResponse,
+} from &#34;@aibleton/protocol&#34;;
+import { isValidBandId, type BandStore } from &#34;../../core/bands.ts&#34;;
+import { generateBand } from &#34;../../core/band-generator.ts&#34;;
+import { newId } from &#34;../../core/commands.ts&#34;;
+
+export interface BandRouteDeps {
+  bands: BandStore;
+  /** Injected so tests can drive createdAt and the default seed from a ManualClock. */
+  now: () =&gt; number;
+}
+
+export function bandRoutes(deps: BandRouteDeps): Hono {
+  const r = new Hono();
+
+  r.get(&#34;/bands&#34;, async (c) =&gt; {
+    const body: BandListResponse = { bands: await deps.bands.list() };
+    return c.json(body);
+  });
+
+  r.get(&#34;/bands/:id&#34;, async (c) =&gt; {
+    const id = c.req.param(&#34;id&#34;);
+    if (!isValidBandId(id)) return c.json({ error: `invalid band id ${JSON.stringify(id)}` }, 400);
+    const band = await deps.bands.get(id);
+    if (!band) return c.json({ error: `no band ${id}` }, 404);
+    const body: BandResponse = { band };
+    return c.json(body);
+  });
+
+  r.post(&#34;/bands&#34;, async (c) =&gt; {
+    let raw: unknown;
+    try {
+      raw = await c.req.json();
+    } catch {
+      return c.json({ error: &#34;invalid JSON body&#34; }, 400);
+    }
+    const parsed = PutBandRequestSchema.safeParse(raw);
+    if (!parsed.success) return c.json({ error: &#34;invalid band&#34;, issues: parsed.error.issues }, 400);
+    const { band } = parsed.data;
+    if (!isValidBandId(band.id)) return c.json({ error: `invalid band id ${JSON.stringify(band.id)}` }, 400);
+    const body: BandResponse = { band: await deps.bands.save(band) };
+    return c.json(body);
+  });
+
+  r.delete(&#34;/bands/:id&#34;, async (c) =&gt; {
+    const id = c.req.param(&#34;id&#34;);
+    if (!isValidBandId(id)) return c.json({ error: `invalid band id ${JSON.stringify(id)}` }, 400);
+    const body: DeleteBandResponse = { deleted: await deps.bands.delete(id) };
+    return c.json(body);
+  });
+
+  /** Staffs a band and hands it back unsaved; POST /bands persists it. */
+  r.post(&#34;/bands/generate&#34;, async (c) =&gt; {
+    let raw: unknown = {};
+    if (c.req.header(&#34;content-type&#34;)?.includes(&#34;application/json&#34;)) {
+      try {
+        raw = await c.req.json();
+      } catch {
+        return c.json({ error: &#34;invalid JSON body&#34; }, 400);
+      }
+    }
+    const parsed = GenerateBandRequestSchema.safeParse(raw ?? {});
+    if (!parsed.success) return c.json({ error: &#34;invalid options&#34;, issues: parsed.error.issues }, 400);
+    const opts = parsed.data;
+    const at = deps.now();
+    const seed = opts.seed ?? at;
+
+    let staffed: ReturnType&lt;typeof generateBand&gt;;
+    try {
+      staffed = generateBand({
+        seed,
+        ...(opts.genre !== undefined ? { genre: opts.genre } : {}),
+        ...(opts.size !== undefined ? { size: opts.size } : {}),
+      });
+    } catch (err) {
+      return c.json({ error: err instanceof Error ? err.message : String(err) }, 400);
+    }
+
+    const draft: Band = {
+      id: newId(&#34;band&#34;),
+      name: opts.name ?? `${staffed.metadata.genre ?? &#34;mixed&#34;} band ${seed}`,
+      parts: staffed.parts,
+      metadata: staffed.metadata,
+      createdAt: at,
+    };
+    const checked = BandSchema.safeParse(draft);
+    if (!checked.success) {
+      return c.json({ error: &#34;generator produced an invalid band&#34;, issues: checked.error.issues }, 500);
+    }
+    const body: BandResponse = { band: checked.data };
+    return c.json(body);
+  });
+
+  return r;
+}
+TSEOF
+echo &#34;routes written&#34;</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T14-08-43-482Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T14-08-43-482Z" class="timestamp-link"><time datetime="2026-09-04T14:08:43.482Z" data-timestamp="2026-09-04T14:08:43.482Z">2026-09-04T14:08:43.482Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>routes written</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-08-52-118Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-08-52-118Z" class="timestamp-link"><time datetime="2026-09-04T14:08:52.118Z" data-timestamp="2026-09-04T14:08:52.118Z">2026-09-04T14:08:52.118Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01Bsrn9qS4TZdNogoK1iBm7v">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Wire band routes into server and composition root</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cd /Users/benjaminjordan/projects/thegoldenmule/aibleton
+python3 - &lt;&lt;&#39;PYEOF&#39;
+import pathlib
+
+p = pathlib.Path(&#34;mate/src/api/server.ts&#34;)
+s = p.read_text()
+s = s.replace(
+  &#39;import type { TemplateStore } from &#34;../core/templates.ts&#34;;&#39;,
+  &#39;import type { BandStore } from &#34;../core/bands.ts&#34;;\nimport type { TemplateStore } from &#34;../core/templates.ts&#34;;&#39;, 1)
+s = s.replace(
+  &#39;import { templateRoutes } from &#34;./routes/templates.ts&#34;;&#39;,
+  &#39;import { bandRoutes } from &#34;./routes/bands.ts&#34;;\nimport { templateRoutes } from &#34;./routes/templates.ts&#34;;&#39;, 1)
+s = s.replace(
+  &#39;  templates: TemplateStore;&#39;,
+  &#39;  templates: TemplateStore;\n  bands: BandStore;&#39;, 1)
+s = s.replace(
+  &#39;  app.route(&#34;/&#34;, templateRoutes({ templates: deps.templates, now: deps.now ?? (() =&gt; Date.now()) }));&#39;,
+  &#39;  const now = deps.now ?? (() =&gt; Date.now());\n  app.route(&#34;/&#34;, templateRoutes({ templates: deps.templates, now }));\n  app.route(&#34;/&#34;, bandRoutes({ bands: deps.bands, now }));&#39;, 1)
+p.write_text(s)
+print(&#34;server.ts wired&#34;)
+
+p = pathlib.Path(&#34;mate/src/index.ts&#34;)
+s = p.read_text()
+s = s.replace(
+  &#39;import { TemplateStore } from &#34;./core/templates.ts&#34;;&#39;,
+  &#39;import { BandStore } from &#34;./core/bands.ts&#34;;\nimport { TemplateStore } from &#34;./core/templates.ts&#34;;&#39;, 1)
+s = s.replace(
+  &#39;  const templates = new TemplateStore({ dir: config.templatesDir });&#39;,
+  &#39;  const templates = new TemplateStore({ dir: config.templatesDir });\n  const bands = new BandStore({ dir: config.bandsDir });&#39;, 1)
+s = s.replace(
+  &#39;    templates,\n    intelligence,&#39;,
+  &#39;    templates,\n    bands,\n    intelligence,&#39;, 1)
+p.write_text(s)
+print(&#34;index.ts wired&#34;)
+PYEOF
+grep -n &#34;bands\|Band&#34; mate/src/api/server.ts mate/src/index.ts | head -20</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T14-08-53-561Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T14-08-53-561Z" class="timestamp-link"><time datetime="2026-09-04T14:08:53.561Z" data-timestamp="2026-09-04T14:08:53.561Z">2026-09-04T14:08:53.561Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>server.ts wired
+index.ts wired
+mate/src/index.ts:7:import { BandStore } from &quot;./core/bands.ts&quot;;
+mate/src/index.ts:27:  const bands = new BandStore({ dir: config.bandsDir });
+mate/src/index.ts:77:    bands,
+mate/src/api/server.ts:5:import type { BandStore } from &quot;../core/bands.ts&quot;;
+mate/src/api/server.ts:14:import { bandRoutes } from &quot;./routes/bands.ts&quot;;
+mate/src/api/server.ts:20:  bands: BandStore;
+mate/src/api/server.ts:61:  app.route(&quot;/&quot;, bandRoutes({ bands: deps.bands, now }));</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-08-57-616Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-08-57-616Z" class="timestamp-link"><time datetime="2026-09-04T14:08:57.616Z" data-timestamp="2026-09-04T14:08:57.616Z">2026-09-04T14:08:57.616Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-09-23-935Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-09-23-935Z" class="timestamp-link"><time datetime="2026-09-04T14:09:23.935Z" data-timestamp="2026-09-04T14:09:23.935Z">2026-09-04T14:09:23.935Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01442MvTMv3h2QirjD5ynxw9">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Write band API tests and patch existing api test</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cd /Users/benjaminjordan/projects/thegoldenmule/aibleton
+cat &gt; mate/test/bands.api.test.ts &lt;&lt;&#39;TSEOF&#39;
+import { afterEach, beforeEach, describe, expect, test } from &#34;bun:test&#34;;
+import { mkdtemp, rm } from &#34;node:fs/promises&#34;;
+import { tmpdir } from &#34;node:os&#34;;
+import { join } from &#34;node:path&#34;;
+import { BandListResponseSchema, BandResponseSchema, GENRES, type Band } from &#34;@aibleton/protocol&#34;;
+import { createApp } from &#34;../src/api/server.ts&#34;;
+import { EventBus } from &#34;../src/core/events.ts&#34;;
+import { StateStore } from &#34;../src/core/state.ts&#34;;
+import { TemplateStore } from &#34;../src/core/templates.ts&#34;;
+import { BandStore } from &#34;../src/core/bands.ts&#34;;
+import { ManualClock } from &#34;../src/core/clock.ts&#34;;
+import { loadConfig } from &#34;../src/config.ts&#34;;
+import { silentLogger } from &#34;../src/log.ts&#34;;
+import type { Intelligence } from &#34;../src/intelligence/types.ts&#34;;
+
+const idleIntelligence: Intelligence = {
+  start() {},
+  async stop() {},
+  submit: () =&gt; &#34;noop&#34;,
+  post() {},
+  phase: () =&gt; &#34;idle&#34;,
+  async settle() {},
+};
+
+let dir: string;
+
+function build(now = 1_000) {
+  const clock = new ManualClock(now);
+  const app = createApp({
+    store: new StateStore(new EventBus()),
+    templates: new TemplateStore({ dir: join(dir, &#34;templates&#34;) }),
+    bands: new BandStore({ dir: join(dir, &#34;bands&#34;) }),
+    intelligence: idleIntelligence,
+    config: loadConfig({}),
+    log: silentLogger,
+    startedAt: 0,
+    now: () =&gt; clock.now(),
+  });
+  return { app };
+}
+
+function band(over: Partial&lt;Band&gt; = {}): Band {
+  return {
+    id: &#34;quartet-1&#34;,
+    name: &#34;House quartet&#34;,
+    parts: [
+      { id: &#34;drums&#34;, role: &#34;drums&#34;, name: &#34;808&#34;, brief: &#34;tight four-on-the-floor&#34; },
+      { id: &#34;bass-sub&#34;, role: &#34;bass&#34;, name: &#34;sub bass&#34;, brief: &#34;round sine sub, long notes&#34; },
+    ],
+    metadata: { genre: &#34;house&#34; },
+    createdAt: 10,
+    ...over,
+  };
+}
+
+async function post(app: ReturnType&lt;typeof build&gt;[&#34;app&#34;], path: string, body: unknown) {
+  return app.request(path, {
+    method: &#34;POST&#34;,
+    headers: { &#34;content-type&#34;: &#34;application/json&#34; },
+    body: JSON.stringify(body),
+  });
+}
+
+beforeEach(async () =&gt; {
+  dir = await mkdtemp(join(tmpdir(), &#34;mate-bands-api-&#34;));
+});
+afterEach(async () =&gt; {
+  await rm(dir, { recursive: true, force: true });
+});
+
+describe(&#34;bands api&#34;, () =&gt; {
+  test(&#34;GET /bands is empty to start&#34;, async () =&gt; {
+    const { app } = build();
+    const body = BandListResponseSchema.parse(await (await app.request(&#34;/bands&#34;)).json());
+    expect(body.bands).toEqual([]);
+  });
+
+  test(&#34;POST /bands then GET /bands/:id round-trips&#34;, async () =&gt; {
+    const { app } = build();
+    const saved = await post(app, &#34;/bands&#34;, { band: band() });
+    expect(saved.status).toBe(200);
+    expect(BandResponseSchema.parse(await saved.json()).band).toEqual(band());
+
+    const got = await app.request(&#34;/bands/quartet-1&#34;);
+    expect(got.status).toBe(200);
+    expect(BandResponseSchema.parse(await got.json()).band).toEqual(band());
+  });
+
+  test(&#34;metadata defaults to an empty object when omitted&#34;, async () =&gt; {
+    const { app } = build();
+    const { metadata: _dropped, ...withoutMetadata } = band({ id: &#34;untagged&#34; });
+    const res = await post(app, &#34;/bands&#34;, { band: withoutMetadata });
+    expect(res.status).toBe(200);
+    expect(BandResponseSchema.parse(await res.json()).band.metadata).toEqual({});
+  });
+
+  test(&#34;GET /bands lists newest first&#34;, async () =&gt; {
+    const { app } = build();
+    await post(app, &#34;/bands&#34;, { band: band({ id: &#34;old&#34;, createdAt: 1 }) });
+    await post(app, &#34;/bands&#34;, { band: band({ id: &#34;new&#34;, createdAt: 99 }) });
+    const body = BandListResponseSchema.parse(await (await app.request(&#34;/bands&#34;)).json());
+    expect(body.bands.map((b) =&gt; b.id)).toEqual([&#34;new&#34;, &#34;old&#34;]);
+  });
+
+  test(&#34;GET /bands/:id is 404 when missing&#34;, async () =&gt; {
+    const { app } = build();
+    expect((await app.request(&#34;/bands/nope&#34;)).status).toBe(404);
+  });
+
+  test(&#34;DELETE /bands/:id reports whether it removed anything&#34;, async () =&gt; {
+    const { app } = build();
+    await post(app, &#34;/bands&#34;, { band: band() });
+    expect(await (await app.request(&#34;/bands/quartet-1&#34;, { method: &#34;DELETE&#34; })).json()).toEqual({ deleted: true });
+    expect(await (await app.request(&#34;/bands/quartet-1&#34;, { method: &#34;DELETE&#34; })).json()).toEqual({ deleted: false });
+  });
+
+  test(&#34;POST /bands rejects duplicate part ids&#34;, async () =&gt; {
+    const { app } = build();
+    const res = await post(app, &#34;/bands&#34;, {
+      band: band({
+        parts: [
+          { id: &#34;drums&#34;, role: &#34;drums&#34;, name: &#34;kit&#34;, brief: &#34;a&#34; },
+          { id: &#34;drums&#34;, role: &#34;percussion&#34;, name: &#34;congas&#34;, brief: &#34;b&#34; },
+        ],
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test(&#34;POST /bands rejects a band with no parts&#34;, async () =&gt; {
+    const { app } = build();
+    expect((await post(app, &#34;/bands&#34;, { band: band({ parts: [] }) })).status).toBe(400);
+  });
+
+  test(&#34;POST /bands rejects a traversal id&#34;, async () =&gt; {
+    const { app } = build();
+    expect((await post(app, &#34;/bands&#34;, { band: band({ id: &#34;../evil&#34; }) })).status).toBe(400);
+  });
+
+  test(&#34;POST /bands/generate returns an unsaved, valid band&#34;, async () =&gt; {
+    const { app } = build();
+    const res = await post(app, &#34;/bands/generate&#34;, { seed: 7, genre: &#34;funk&#34; });
+    expect(res.status).toBe(200);
+    const { band: made } = BandResponseSchema.parse(await res.json());
+    expect(made.parts.length).toBeGreaterThan(0);
+    expect(made.metadata.genre).toBe(&#34;funk&#34;);
+    expect(made.createdAt).toBe(1_000);
+    expect(new Set(made.parts.map((p) =&gt; p.id)).size).toBe(made.parts.length);
+
+    const list = BandListResponseSchema.parse(await (await app.request(&#34;/bands&#34;)).json());
+    expect(list.bands).toEqual([]);
+  });
+
+  test(&#34;POST /bands/generate is deterministic for a seed&#34;, async () =&gt; {
+    const { app } = build();
+    const one = BandResponseSchema.parse(await (await post(app, &#34;/bands/generate&#34;, { seed: 42, genre: &#34;jazz&#34; })).json());
+    const two = BandResponseSchema.parse(await (await post(app, &#34;/bands/generate&#34;, { seed: 42, genre: &#34;jazz&#34; })).json());
+    expect(one.band.parts).toEqual(two.band.parts);
+  });
+
+  test(&#34;POST /bands/generate accepts an empty body and picks a genre from the seed&#34;, async () =&gt; {
+    const { app } = build(555);
+    const res = await post(app, &#34;/bands/generate&#34;, {});
+    expect(res.status).toBe(200);
+    const { band: made } = BandResponseSchema.parse(await res.json());
+    expect(GENRES).toContain(made.metadata.genre as (typeof GENRES)[number]);
+    expect(made.name).toContain(&#34;555&#34;);
+  });
+
+  test(&#34;POST /bands/generate rejects an unknown genre&#34;, async () =&gt; {
+    const { app } = build();
+    expect((await post(app, &#34;/bands/generate&#34;, { genre: &#34;polka&#34; })).status).toBe(400);
+  });
+
+  test(&#34;a generated band can be saved straight back&#34;, async () =&gt; {
+    const { app } = build();
+    const { band: made } = BandResponseSchema.parse(
+      await (await post(app, &#34;/bands/generate&#34;, { seed: 3, genre: &#34;metal&#34; })).json(),
+    );
+    expect((await post(app, &#34;/bands&#34;, { band: made })).status).toBe(200);
+    const list = BandListResponseSchema.parse(await (await app.request(&#34;/bands&#34;)).json());
+    expect(list.bands.map((b) =&gt; b.id)).toEqual([made.id]);
+  });
+});
+TSEOF
+python3 - &lt;&lt;&#39;PYEOF&#39;
+import pathlib
+p = pathlib.Path(&#34;mate/test/api.test.ts&#34;)
+s = p.read_text()
+s = s.replace(
+  &#39;import { TemplateStore } from &#34;../src/core/templates.ts&#34;;&#39;,
+  &#39;import { TemplateStore } from &#34;../src/core/templates.ts&#34;;\nimport { BandStore } from &#34;../src/core/bands.ts&#34;;&#39;, 1)
+s = s.replace(
+  &#39;  const app = createApp({\n    store,\n    templates,&#39;,
+  &#39;  const bands = new BandStore({ dir: mkdtempSync(join(tmpdir(), &#34;mate-api-bands-&#34;)) });\n  const app = createApp({\n    store,\n    templates,\n    bands,&#39;, 1)
+p.write_text(s)
+print(&#34;api.test.ts patched&#34;)
+PYEOF
+grep -n &#34;BandStore\|bands&#34; mate/test/api.test.ts | head</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T14-09-25-513Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T14-09-25-513Z" class="timestamp-link"><time datetime="2026-09-04T14:09:25.513Z" data-timestamp="2026-09-04T14:09:25.513Z">2026-09-04T14:09:25.513Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>api.test.ts patched
+7:import { BandStore } from &quot;../src/core/bands.ts&quot;;
+41:  const bands = new BandStore({ dir: mkdtempSync(join(tmpdir(), &quot;mate-api-bands-&quot;)) });
+45:    bands,</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-09-30-551Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-09-30-551Z" class="timestamp-link"><time datetime="2026-09-04T14:09:30.551Z" data-timestamp="2026-09-04T14:09:30.551Z">2026-09-04T14:09:30.551Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-09-33-447Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-09-33-447Z" class="timestamp-link"><time datetime="2026-09-04T14:09:33.447Z" data-timestamp="2026-09-04T14:09:33.447Z">2026-09-04T14:09:33.447Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01ThiFABnrNAPdmFrLgTYguT">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Document bands dir env var</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cd /Users/benjaminjordan/projects/thegoldenmule/aibleton
+python3 - &lt;&lt;&#39;PYEOF&#39;
+import pathlib
+p = pathlib.Path(&#34;.env.example&#34;)
+s = p.read_text()
+old = &#34;MATE_TEMPLATES_DIR=.mate/templates\n&#34;
+new = old + &#34;# Where bands are persisted (created on first write).\nMATE_BANDS_DIR=.mate/bands\n&#34;
+assert old in s and &#34;MATE_BANDS_DIR&#34; not in s
+p.write_text(s.replace(old, new, 1))
+print(&#34;env example updated&#34;)
+PYEOF
+grep -n &#34;MATE_.*_DIR&#34; .env.example</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T14-09-35-169Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T14-09-35-169Z" class="timestamp-link"><time datetime="2026-09-04T14:09:35.169Z" data-timestamp="2026-09-04T14:09:35.169Z">2026-09-04T14:09:35.169Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>env example updated
+12:MATE_TEMPLATES_DIR=.mate/templates
+14:MATE_BANDS_DIR=.mate/bands</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-09-38-794Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-09-38-794Z" class="timestamp-link"><time datetime="2026-09-04T14:09:38.794Z" data-timestamp="2026-09-04T14:09:38.794Z">2026-09-04T14:09:38.794Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01BhPEbVu6S7qyFdQjNssj78">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Wait for both agents deliverables</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cd /Users/benjaminjordan/projects/thegoldenmule/aibleton
+until [ -f mate/src/core/bands.ts ] &amp;&amp; [ -f mate/src/core/band-generator.ts ] &amp;&amp; [ -f mate/src/core/document-store.ts ] &amp;&amp; grep -q bandsDir mate/src/config.ts; do sleep 5; done
+sleep 25
+echo &#34;all agent deliverables present&#34;
+ls mate/src/core/ mate/test/ | sort</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T14-09-38-821Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T14-09-38-821Z" class="timestamp-link"><time datetime="2026-09-04T14:09:38.821Z" data-timestamp="2026-09-04T14:09:38.821Z">2026-09-04T14:09:38.821Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Command running in background with ID: b5f385elh. Output is being written to: /private/tmp/claude-501/-Users-benjaminjordan-projects-thegoldenmule-aibleton/fec023c1-265c-491a-a394-e7971d36cf71/tasks/b5f385elh.output. You will be notified when it completes. To check interim output, use Read on that file path.
+Session cwd remains /Users/benjaminjordan/projects/thegoldenmule/aibleton; directory changes made by the backgrounded command do not apply to subsequent commands.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-09-45-186Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-09-45-186Z" class="timestamp-link"><time datetime="2026-09-04T14:09:45.186Z" data-timestamp="2026-09-04T14:09:45.186Z">2026-09-04T14:09:45.186Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Routes, wiring, and API tests are written and waiting on the two agents. Plan recap while they run:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>what</th>
+<th>who</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>✅</td>
+<td><code>protocol</code>: <code>Band</code>, <code>BandPart</code>, <code>GENRES</code>, <code>ROLES</code> — committed <code>5a7dbda</code></td>
+<td>me</td>
+</tr>
+<tr>
+<td>⏳</td>
+<td>extract generic <code>DocumentStore</code>, re-base <code>TemplateStore</code> on it, add <code>BandStore</code></td>
+<td>agent</td>
+</tr>
+<tr>
+<td>⏳</td>
+<td>seeded band generator + per-genre recipe table</td>
+<td>agent</td>
+</tr>
+<tr>
+<td>✅</td>
+<td><code>GET/POST/DELETE /bands</code>, <code>POST /bands/generate</code> + tests</td>
+<td>me</td>
+</tr>
+<tr>
+<td>⏭</td>
+<td><code>/bands</code> page with roster visualization and genre filter</td>
+<td>next agent</td>
+</tr>
+</tbody>
+</table>
+<p>The store extraction is the one piece of real refactoring: <code>BandStore</code> would otherwise be a copy of <code>TemplateStore</code>, so the generic lands first and has to pass the existing template store tests <strong>unedited</strong> before <code>BandStore</code> exists — that's the evidence it didn't change behaviour.</p></div></div></div>
+<div class="message user" id="msg-2026-09-04T14-09-45-299Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-09-04T14-09-45-299Z" class="timestamp-link"><time datetime="2026-09-04T14:09:45.299Z" data-timestamp="2026-09-04T14:09:45.299Z">2026-09-04T14:09:45.299Z</time></a></div><div class="message-content">
+<div class="user-content"><p>Stop hook feedback:</p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-09-51-369Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-09-51-369Z" class="timestamp-link"><time datetime="2026-09-04T14:09:51.369Z" data-timestamp="2026-09-04T14:09:51.369Z">2026-09-04T14:09:51.369Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p><strong>TL;DR</strong></p>
+<p><strong>Design:</strong> a band is the <em>space</em> axis to a template's <em>time</em> axis. <code>part.id</code> → Ableton track, <code>section.label</code> → scene; step 7's composer is the grid <code>material[part.id][section.label]</code>. Genre is a conventional key in free-form <code>metadata</code>, never a required field.</p>
+<p><strong>Progress:</strong>
+- ✅ <code>5a7dbda</code> protocol schemas — <code>Band</code>, <code>BandPart</code>, <code>GENRES</code>, <code>ROLES</code>
+- ✅ REST routes + API tests written (<code>GET/POST/DELETE /bands</code>, <code>POST /bands/generate</code>)
+- ⏳ agent: extract generic <code>DocumentStore</code>, re-base <code>TemplateStore</code>, add <code>BandStore</code>
+- ⏳ agent: seeded generator + per-genre recipe table (metal gets two guitars, ambient may get no drums)
+- ⏭ <code>/bands</code> page with roster viz + genre filter</p>
+<p><strong>Key constraint I set:</strong> the store refactor must pass the existing template tests <em>unedited</em> before <code>BandStore</code> exists — that's the proof it's behaviour-preserving.</p>
+<p>Both agents told: no git, no <code>next build</code>.</p></div></div></div>
+<div class="message user" id="msg-2026-09-04T14-13-20-144Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-09-04T14-13-20-144Z" class="timestamp-link"><time datetime="2026-09-04T14:13:20.144Z" data-timestamp="2026-09-04T14:13:20.144Z">2026-09-04T14:13:20.144Z</time></a></div><div class="message-content">
+<div class="user-content"><p><task-notification>
+<task-id>a126d29f554c886ed</task-id>
+<tool-use-id>toolu_011Y21HitfaXLrsBs8xZKc3s</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-benjaminjordan-projects-thegoldenmule-aibleton/fec023c1-265c-491a-a394-e7971d36cf71/tasks/a126d29f554c886ed.output</output-file>
+<status>completed</status></p>
+<summary>Agent "Extract document store, add BandStore" finished</summary>
+<p><note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>
+<result>Done. Both phases are complete; all remaining red in the repo comes from another session's in-flight work, not from these changes.</p>
+<h2>The generic — <code>/Users/benjaminjordan/projects/thegoldenmule/aibleton/mate/src/core/document-store.ts</code></h2>
+<pre><code class="language-ts">export function isValidDocumentId(id: string): boolean          // /^[A-Za-z0-9_-]{1,64}$/
+export interface DocumentStoreOptions&amp;lt;T&amp;gt; {
+  dir: string;
+  schema: ZodType&amp;lt;T, ZodTypeDef, unknown&amp;gt;;   // accepts ZodEffects (.superRefine)
+  idOf: (doc: T) =&amp;gt; string;
+  kind?: string;                 // noun in id error messages, default &quot;document&quot;
+  sortKey?: (doc: T) =&amp;gt; number;  // list() returns largest first, default reads createdAt
+}
+export class DocumentStore&amp;lt;T&amp;gt; {
+  list(): Promise&amp;lt;T[]&amp;gt;; get(id): Promise&amp;lt;T|null&amp;gt;; save(doc: T): Promise&amp;lt;T&amp;gt;; delete(id): Promise&amp;lt;boolean&amp;gt;;
+}
+</code></pre>
+<p>Two options beyond the sketch, both deliberate: <code>kind</code> is what keeps the thrown text byte-identical to <code>invalid template id "…": expected 1-64 characters of A-Z, a-z, 0-9, "_" or "-"</code>, and <code>sortKey</code> is the comparator you asked for instead of assuming <code>createdAt</code> (the default still reads <code>createdAt</code>, treating a non-number as 0). Order in <code>save</code> is load-bearing: the id is asserted <em>before</em> <code>schema.parse</code>, so <code>id: ""</code> throws <code>/invalid … id/</code> rather than a ZodError. All prior behaviour preserved — lazy recursive <code>mkdir</code>, validate in and out, corrupt/non-conforming files skipped in <code>list</code> and <code>null</code> from <code>get</code>, non-<code>.json</code> ignored, no clock reads.</p>
+<p><code>templates.ts</code> and <code>bands.ts</code> are both <code>class X extends DocumentStore&amp;lt;T&amp;gt;</code> with a constructor that fills in schema/idOf/kind/sortKey, so the four method signatures are inherited verbatim. <code>isValidTemplateId</code> / <code>isValidBandId</code> remain named function exports delegating to <code>isValidDocumentId</code>.</p>
+<h2>Verification</h2>
+<ul>
+<li><strong><code>mate/test/templates.store.test.ts</code> passed completely unedited</strong> — 23 pass, 0 fail, run in isolation. No Write/Edit ever targeted it; its mtime is still <code>Sep 3 20:09</code>, predating this session. No test needed to change.</li>
+<li><strong>Static proof <code>BandStore</code> matches the route contract</strong>: before Phase 2, <code>mate/src/api/routes/bands.ts</code> errored on both line 11 (<code>core/bands.ts</code>) and line 12 (<code>band-generator.ts</code>); after Phase 2 only line 12 remains. So <code>deps.bands.list()/get()/save()/delete()</code> and <code>isValidBandId</code> all typecheck against the route exactly as the other session wrote it, including <code>save()</code> on <code>PutBandRequestSchema</code> output.</li>
+<li>Full suite: <strong>174 pass, 3 "fail"</strong> — the 3 are module-resolution errors at file load, zero assertion failures (a grep for <code>(fail)</code> lines returns nothing).</li>
+</ul>
+<h2>Test counts</h2>
+<p>Baseline was <strong>146</strong> (not 144). Added <strong>48</strong>: 23 in <code>bands.store.test.ts</code>, 25 in <code>document-store.test.ts</code>; <code>templates.store.test.ts</code> unchanged at 23. 146 + 48 = 194; the 20 short are <code>api.test.ts</code> + <code>templates.api.test.ts</code>, which ran at baseline and now cannot load. Whatever <code>bands.api.test.ts</code> contributes is uncounted until it can load.</p>
+<h2>Config</h2>
+<p><code>bandsDir: z.string().min(1).default(".mate/bands")</code>, fed from <code>env.MATE_BANDS_DIR</code>, in the same style as <code>templatesDir</code>.</p>
+<h2>Blockers outside my touch list (another session's work)</h2>
+<ol>
+<li><code>mate/src/core/band-generator.ts</code> does not exist but is imported by <code>mate/src/api/routes/bands.ts:12</code>. This is the sole cause of the 3 load failures (<code>bands.api.test.ts</code>, <code>templates.api.test.ts</code>, <code>api.test.ts</code>) and one remaining typecheck error. I polled for it for a few minutes; it had not landed.</li>
+<li><code>mate/test/templates.api.test.ts:33</code> calls <code>createApp</code> without the now-required <code>bands</code> dep (<code>AppDeps</code> gained it in <code>server.ts</code>).</li>
+</ol>
+<p>Once those two land, the suite and typecheck should be clean.</p>
+<p>Two notes: <code>.env.example</code> has no <code>MATE_BANDS_DIR</code> line and is not on my touch list, so it still needs one. And <code>bun run typecheck</code> chains protocol → mate → app, so app's <code>tsc</code> never ran this session — informational only, nothing in <code>app/</code> was touched. No git commands were run, and <code>next build</code> was never invoked.</result>
+<usage><subagent_tokens>72782</subagent_tokens><tool_uses>27</tool_uses><duration_ms>330034</duration_ms></usage>
+</task-notification></p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-13-24-384Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-13-24-384Z" class="timestamp-link"><time datetime="2026-09-04T14:13:24.384Z" data-timestamp="2026-09-04T14:13:24.384Z">2026-09-04T14:13:24.384Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-13-25-269Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-13-25-269Z" class="timestamp-link"><time datetime="2026-09-04T14:13:25.269Z" data-timestamp="2026-09-04T14:13:25.269Z">2026-09-04T14:13:25.269Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Agent A landed clean. It caught a real miss of mine — I patched <code>api.test.ts</code> but not <code>templates.api.test.ts</code>. Fixing.</p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-13-26-355Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-13-26-355Z" class="timestamp-link"><time datetime="2026-09-04T14:13:26.355Z" data-timestamp="2026-09-04T14:13:26.355Z">2026-09-04T14:13:26.355Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01JvDbKqnynF85Eec4tMNVBb">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Inspect templates api test build helper</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cd /Users/benjaminjordan/projects/thegoldenmule/aibleton
+sed -n &#39;25,45p&#39; mate/test/templates.api.test.ts</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T14-13-26-408Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T14-13-26-408Z" class="timestamp-link"><time datetime="2026-09-04T14:13:26.408Z" data-timestamp="2026-09-04T14:13:26.408Z">2026-09-04T14:13:26.408Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>  async settle() {},
+};
+
+let dir: string;
+
+function build(now = 1_000) {
+  const clock = new ManualClock(now);
+  const events = new EventBus();
+  const app = createApp({
+    store: new StateStore(events),
+    templates: new TemplateStore({ dir }),
+    intelligence: idleIntelligence,
+    config: loadConfig({}),
+    log: silentLogger,
+    startedAt: 0,
+    now: () =&gt; clock.now(),
+  });
+  return { app, clock };
+}
+
+function template(over: Partial&lt;Template&gt; = {}): Template {</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-13-31-319Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-13-31-319Z" class="timestamp-link"><time datetime="2026-09-04T14:13:31.319Z" data-timestamp="2026-09-04T14:13:31.319Z">2026-09-04T14:13:31.319Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01SHPPxzmnKJ3mmSob6j54kf">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Add bands dependency to templates api test</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cd /Users/benjaminjordan/projects/thegoldenmule/aibleton
+python3 - &lt;&lt;&#39;PYEOF&#39;
+import pathlib
+p = pathlib.Path(&#34;mate/test/templates.api.test.ts&#34;)
+s = p.read_text()
+s = s.replace(
+  &#39;import { TemplateStore } from &#34;../src/core/templates.ts&#34;;&#39;,
+  &#39;import { TemplateStore } from &#34;../src/core/templates.ts&#34;;\nimport { BandStore } from &#34;../src/core/bands.ts&#34;;&#39;, 1)
+s = s.replace(
+  &#39;    templates: new TemplateStore({ dir }),\n    intelligence: idleIntelligence,&#39;,
+  &#39;    templates: new TemplateStore({ dir }),\n    bands: new BandStore({ dir: join(dir, &#34;bands&#34;) }),\n    intelligence: idleIntelligence,&#39;, 1)
+assert &#34;BandStore&#34; in s
+p.write_text(s)
+print(&#34;patched&#34;)
+PYEOF
+grep -n &#34;BandStore\|bands:&#34; mate/test/templates.api.test.ts</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T14-13-32-852Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T14-13-32-852Z" class="timestamp-link"><time datetime="2026-09-04T14:13:32.852Z" data-timestamp="2026-09-04T14:13:32.852Z">2026-09-04T14:13:32.852Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>patched
+14:import { BandStore } from &quot;../src/core/bands.ts&quot;;
+37:    bands: new BandStore({ dir: join(dir, &quot;bands&quot;) }),</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-13-36-281Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-13-36-281Z" class="timestamp-link"><time datetime="2026-09-04T14:13:36.281Z" data-timestamp="2026-09-04T14:13:36.281Z">2026-09-04T14:13:36.281Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-13-37-857Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-13-37-857Z" class="timestamp-link"><time datetime="2026-09-04T14:13:37.857Z" data-timestamp="2026-09-04T14:13:37.857Z">2026-09-04T14:13:37.857Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01R3gs6ZDqrB27xvY4BwCC1h">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Review extracted document store and rebased template store</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cd /Users/benjaminjordan/projects/thegoldenmule/aibleton
+ls -la mate/src/core/band-generator.ts 2&gt;&amp;1 | head -2
+echo &#34;=== document-store.ts ===&#34;; cat mate/src/core/document-store.ts
+echo &#34;=== templates.ts now ===&#34;; cat mate/src/core/templates.ts</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T14-13-37-900Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T14-13-37-900Z" class="timestamp-link"><time datetime="2026-09-04T14:13:37.900Z" data-timestamp="2026-09-04T14:13:37.900Z">2026-09-04T14:13:37.900Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>ls: mate/src/core/band-generator.ts: No such file or directory
+=== document-store.ts ===
+import { mkdir, readdir, unlink } from &quot;node:fs/promises&quot;;
+import { join } from &quot;node:path&quot;;
+import type { ZodType, ZodTypeDef } from &quot;zod&quot;;
+
+/** Ids become filenames, so they are restricted to characters that cannot escape the directory. */
+const DOCUMENT_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** True when `id` is safe to use as a document filename. */
+export function isValidDocumentId(id: string): boolean {
+  return DOCUMENT_ID.test(id);
+}
+
+function isNotFound(err: unknown): boolean {
+  return typeof err === &quot;object&quot; &amp;&amp; err !== null &amp;&amp; (err as { code?: unknown }).code === &quot;ENOENT&quot;;
+}
+
+/** Default ordering key: `createdAt` when it is a number, otherwise 0. */
+function createdAtOf(doc: unknown): number {
+  const at = (doc as { createdAt?: unknown }).createdAt;
+  return typeof at === &quot;number&quot; ? at : 0;
+}
+
+export interface DocumentStoreOptions&lt;T&gt; {
+  /** Directory holding one `&lt;id&gt;.json` per document. Created lazily. */
+  dir: string;
+  /**
+   * Validates on the way in and on the way out. Typed as a plain `ZodType` so
+   * schemas refined with `.superRefine` (i.e. `ZodEffects`) are accepted.
+   */
+  schema: ZodType&lt;T, ZodTypeDef, unknown&gt;;
+  /** Pulls the id — and therefore the filename — out of a document. */
+  idOf: (doc: T) =&gt; string;
+  /** Noun used in id error messages, e.g. `&quot;template&quot;`. Defaults to `&quot;document&quot;`. */
+  kind?: string;
+  /** Numeric sort key; `list` returns the largest first. Defaults to `createdAt`. */
+  sortKey?: (doc: T) =&gt; number;
+}
+
+/**
+ * File-backed document storage: one JSON file per document.
+ *
+ * Everything is validated with the supplied schema on the way in and on the way
+ * out, so a hand-edited or corrupt file on disk is skipped rather than thrown.
+ * Timestamps always come from the caller; the store never reads the clock.
+ */
+export class DocumentStore&lt;T&gt; {
+  private readonly dir: string;
+  private readonly schema: ZodType&lt;T, ZodTypeDef, unknown&gt;;
+  private readonly idOf: (doc: T) =&gt; string;
+  private readonly kind: string;
+  private readonly sortKey: (doc: T) =&gt; number;
+
+  constructor(opts: DocumentStoreOptions&lt;T&gt;) {
+    this.dir = opts.dir;
+    this.schema = opts.schema;
+    this.idOf = opts.idOf;
+    this.kind = opts.kind ?? &quot;document&quot;;
+    this.sortKey = opts.sortKey ?? ((doc) =&gt; createdAtOf(doc));
+  }
+
+  /** All valid documents, largest sort key first. Unreadable files are ignored. */
+  async list(): Promise&lt;T[]&gt; {
+    await this.ensureDir();
+    const entries = await readdir(this.dir);
+    const docs: T[] = [];
+    for (const entry of entries) {
+      if (!entry.endsWith(&quot;.json&quot;)) continue;
+      const doc = await this.read(join(this.dir, entry));
+      if (doc) docs.push(doc);
+    }
+    return docs.sort((a, b) =&gt; this.sortKey(b) - this.sortKey(a));
+  }
+
+  /** The document, or `null` when it is missing or does not parse. @throws on a bad id. */
+  async get(id: string): Promise&lt;T | null&gt; {
+    this.assertValidId(id);
+    await this.ensureDir();
+    return this.read(this.pathFor(id));
+  }
+
+  /** Create or overwrite a document. @throws on a bad id or an invalid document. */
+  async save(doc: T): Promise&lt;T&gt; {
+    this.assertValidId(this.idOf(doc));
+    const parsed = this.schema.parse(doc);
+    await this.ensureDir();
+    await Bun.write(this.pathFor(this.idOf(parsed)), `${JSON.stringify(parsed, null, 2)}\n`);
+    return parsed;
+  }
+
+  /** Remove a document; `false` when it did not exist. @throws on a bad id. */
+  async delete(id: string): Promise&lt;boolean&gt; {
+    this.assertValidId(id);
+    await this.ensureDir();
+    try {
+      await unlink(this.pathFor(id));
+      return true;
+    } catch (err) {
+      if (isNotFound(err)) return false;
+      throw err;
+    }
+  }
+
+  private assertValidId(id: string): void {
+    if (!isValidDocumentId(id)) {
+      throw new Error(
+        `invalid ${this.kind} id ${JSON.stringify(id)}: expected 1-64 characters of A-Z, a-z, 0-9, &quot;_&quot; or &quot;-&quot;`,
+      );
+    }
+  }
+
+  private pathFor(id: string): string {
+    return join(this.dir, `${id}.json`);
+  }
+
+  private async ensureDir(): Promise&lt;void&gt; {
+    await mkdir(this.dir, { recursive: true });
+  }
+
+  private async read(path: string): Promise&lt;T | null&gt; {
+    let raw: unknown;
+    try {
+      raw = await Bun.file(path).json();
+    } catch {
+      return null;
+    }
+    const result = this.schema.safeParse(raw);
+    return result.success ? result.data : null;
+  }
+}
+=== templates.ts now ===
+import { TemplateSchema } from &quot;@aibleton/protocol&quot;;
+import type { Template } from &quot;@aibleton/protocol&quot;;
+import { DocumentStore, isValidDocumentId } from &quot;./document-store.ts&quot;;
+
+/** True when `id` is safe to use as a template filename. */
+export function isValidTemplateId(id: string): boolean {
+  return isValidDocumentId(id);
+}
+
+export interface TemplateStoreOptions {
+  /** Directory holding one `&lt;id&gt;.json` per template. Created lazily. */
+  dir: string;
+}
+
+/**
+ * File-backed template storage: one JSON file per template.
+ *
+ * Everything is validated with `TemplateSchema` on the way in and on the way
+ * out, so a hand-edited or corrupt file on disk is skipped rather than thrown.
+ * `createdAt` always comes from the caller; the store never reads the clock.
+ */
+export class TemplateStore extends DocumentStore&lt;Template&gt; {
+  constructor(opts: TemplateStoreOptions) {
+    super({
+      dir: opts.dir,
+      schema: TemplateSchema,
+      idOf: (template) =&gt; template.id,
+      kind: &quot;template&quot;,
+      sortKey: (template) =&gt; template.createdAt,
+    });
+  }
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-13-51-639Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-13-51-639Z" class="timestamp-link"><time datetime="2026-09-04T14:13:51.639Z" data-timestamp="2026-09-04T14:13:51.639Z">2026-09-04T14:13:51.639Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-13-52-339Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-13-52-339Z" class="timestamp-link"><time datetime="2026-09-04T14:13:52.339Z" data-timestamp="2026-09-04T14:13:52.339Z">2026-09-04T14:13:52.339Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Refactor is clean — <code>TemplateStore</code> dropped from 105 lines to 28. The UI only depends on protocol + HTTP, so I can start it now rather than waiting on the generator.</p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-14-30-684Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-14-30-684Z" class="timestamp-link"><time datetime="2026-09-04T14:14:30.684Z" data-timestamp="2026-09-04T14:14:30.684Z">2026-09-04T14:14:30.684Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01FrowSjgFzmrNK2CifLwH6t"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Build bands manager UI</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;subagent_type&#34;: &#34;general-purpose&#34;,
+  &#34;prompt&#34;: &#34;You are working in the Bun/TypeScript monorepo at /Users/benjaminjordan/projects/thegoldenmule/aibleton. Read /Users/benjaminjordan/projects/thegoldenmule/aibleton/CLAUDE.md FIRST and follow its conventions exactly.\n\n## ⚠️ Two hard rules, stated up front\n\n1. **NEVER run `next build`.** It writes the same `.next/` the user&#39;s running dev server serves from and kills it. This is in CLAUDE.md. There is no build step to verify.\n2. **Do NOT run any git command.** Another session commits in this repo concurrently; I will commit your work.\n\nGOAL: Build a **bands manager page** in the Next.js app, closely mirroring the template manager that already exists at `/templates`.\n\n## Context: what a band is\n\nTemplates describe a song&#39;s shape over **time** (sections). Bands describe who plays in it — the ensemble, i.e. the **space** axis. A funk band is staffed differently from a jazz or metal band, and there are variations within a genre (two keyboard parts, an extra percussionist).\n\nRead `packages/protocol/src/bands.ts` (committed, do NOT modify):\n\n```ts\nGENRES: readonly [\&#34;funk\&#34;,\&#34;jazz\&#34;,\&#34;rock\&#34;,\&#34;metal\&#34;,\&#34;house\&#34;,\&#34;hiphop\&#34;,\&#34;ambient\&#34;,\&#34;reggae\&#34;]\nROLES:  readonly [\&#34;drums\&#34;,\&#34;percussion\&#34;,\&#34;bass\&#34;,\&#34;guitar\&#34;,\&#34;keys\&#34;,\&#34;synth\&#34;,\&#34;horns\&#34;,\&#34;strings\&#34;,\&#34;vocals\&#34;,\&#34;fx\&#34;]\nBandPart { id, role, name, brief, emphasis? }\nBand     { id, name, parts: BandPart[], metadata: Record&lt;string,string&gt;, createdAt }\nbandRoles(band): string[]     // distinct roles in part order\nbandGenre(band): string|null  // metadata.genre ?? null\n```\n\n- `part.id` is a lowercase slug, unique within the band, and is a **stable key** — never regenerate or reorder ids casually.\n- `part.brief` is prompt text that will later be sent to Splice. It is the important editable field.\n- `emphasis` is **RESERVED** — never surface it in the UI, but preserve it when editing a part (spread the existing part).\n- `metadata` is free-form `Record&lt;string,string&gt;` and defaults to `{}`. **`genre` is a conventional key, not a schema field** — never treat it as required. Filter/group on `bandGenre(band) ?? \&#34;untagged\&#34;`.\n\n## The backend (already built — do NOT modify anything in `mate/` or `packages/`)\n\nOn `http://localhost:4545` (the app reads `NEXT_PUBLIC_MATE_URL`):\n- `GET /bands` → `{ bands: Band[] }` newest first\n- `GET /bands/:id` → `{ band }` or 404\n- `POST /bands` body `{ band: Band }` → `{ band }` (upsert)\n- `DELETE /bands/:id` → `{ deleted: boolean }`\n- `POST /bands/generate` body `{ seed?, genre?, size?, name? }` → `{ band }` **generated but NOT saved**\n\nResponse schemas `BandListResponseSchema`, `BandResponseSchema`, `DeleteBandResponseSchema` and request schema `GenerateBandRequestSchema` are exported from `@aibleton/protocol`. Validate with them. `size` is 1..16; `genre` must be one of `GENRES` or omitted (omitting it makes the server pick one from the seed).\n\n## Study these first and mirror them closely\n\nThe template manager is your template — match its structure, naming and idiom so the two pages feel like one product:\n- `app/src/lib/templates.ts`, `app/src/lib/useTemplates.ts`\n- `app/src/app/templates/page.tsx`\n- `app/src/components/FormStrip.tsx` (note how it maps letters to fixed literal Tailwind classes — interpolated class names do not survive the Tailwind build; do the same for roles)\n- `app/src/components/TransportBar.tsx` (where the nav links live)\n\n## Build\n\n1. **`app/src/lib/bands.ts`** — `listBands()`, `generateBand(opts)`, `saveBand(band)`, `deleteBand(id)`, using the exported `request` helper from `app/src/lib/mate.ts` exactly as `templates.ts` does. `encodeURIComponent` the id on DELETE.\n\n2. **`app/src/lib/useBands.ts`** — `\&#34;use client\&#34;` hook: `{ bands, loading, busy, lastError, refresh, generate, save, remove }`. Plain fetch + local state (no SSE for bands); refetch after save and delete. Mirror `useTemplates.ts`, including its `disposed`-guard effect shape — there is a `react-hooks/set-state-in-effect` lint rule that will bite you otherwise.\n\n3. **`app/src/components/BandRoster.tsx`** — the visualization, and the point of this page. A band is a stack of parts that will become Ableton tracks, so render it as a **stack of track lanes**, one row per part in order: a role colour swatch, the role, the part&#39;s name, and its brief. Colour is keyed by **role** via a fixed literal-class map onto the existing theme tokens (the same technique `FormStrip` uses for letters), so the same role is always the same colour across every band and the ensemble shape is readable at a glance. Include a compact mode for the saved list and a fuller one for the preview. Handle a long roster and long briefs without breaking layout (truncate with a `title`, or scroll inside its own container — the page must never scroll sideways).\n\n4. **`app/src/app/bands/page.tsx`** — the manager, with three regions mirroring `/templates`:\n   - **Generator controls**: seed (blank = server default), genre (a select over `GENRES` plus a blank \&#34;surprise me\&#34; option), size (1–16, blank = generator&#39;s choice), name. Validate ranges client-side with an inline message rather than eating a 400. A prominent **generate** button plus **↻ roll again** that keeps the other controls, substitutes a fresh random seed and writes it back into the seed field — same interaction as the templates page, since this iterate loop is the main thing people will do.\n   - **Preview of the generated (unsaved) band**, clearly marked unsaved: editable band name, editable **name and brief per part**, and editable **metadata key/value rows** (add and remove rows; `genre` pre-populated by the generator). Also allow **removing a part** and **adding a part** (role from `ROLES`, plus name and brief) — that is how a user makes \&#34;the funk band but with a second keys player\&#34;. When adding, generate a slug id that matches `/^[a-z0-9][a-z0-9-]{0,31}$/` and is unique within the band. Run `BandSchema.safeParse` on the edited draft before POSTing and surface the first issue&#39;s path + message (this catches duplicate part ids and empty names/briefs).\n   - **Saved bands list**: each with roster, genre badge, part count, created time, and a two-step inline delete confirm. Add a **genre filter** across the list, built from the genres actually present plus an \&#34;untagged\&#34; bucket.\n\n5. **Nav**: add a `bands →` link next to the existing `templates →` link in `TransportBar.tsx`, and cross-links between `/templates` and `/bands` so all three pages are reachable from each other.\n\n## Conventions\n\n- Tailwind 4 with the existing tokens in `app/src/app/globals.css`: `bg-panel`, `bg-panel-2`, `border-line`, `text-muted`, `text-accent`, `text-accent-2`, `text-midi`, `text-audio`, `text-foreground`. Dark, small type, lowercase section headings, `font-mono` for data. Do not add a CSS file or a new palette.\n- `\&#34;use client\&#34;` where hooks are used. Strict TS, `import type` for type-only imports. The app imports protocol as `from \&#34;@aibleton/protocol\&#34;` and uses **extensionless** relative imports (`from \&#34;../lib/mate\&#34;`) — match the app, which differs from mate&#39;s style.\n- Real `&lt;label&gt;`s, `&lt;button type=\&#34;button\&#34;&gt;` where not submitting, disabled states while a request is in flight, and every request failure visible in the UI.\n\n## Constraints\n\n- Touch ONLY files under `app/`. Do NOT modify `mate/`, `packages/`, `CLAUDE.md`, or any test.\n- `app/next.config.ts` is already modified in the working tree by someone else — leave it alone.\n\n## Verify\n\nRun **`bun run --cwd app typecheck`** and **`bun run --cwd app lint`**. Both must be clean.\n\nDo NOT run the root `bun run typecheck` — it chains protocol → mate → app, and mate currently has an in-flight error from another agent that is not yours and not your problem. Do NOT run `next build`. Do NOT start a dev server or open a browser; the user verifies the UI themselves.\n\n## Report\n\nFiles created/changed, the route, the generator controls exposed, how `BandRoster` encodes role and ensemble shape, how the genre filter treats untagged bands, and confirmation that app typecheck and lint pass.&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T14-14-32-235Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T14-14-32-235Z" class="timestamp-link"><time datetime="2026-09-04T14:14:32.235Z" data-timestamp="2026-09-04T14:14:32.235Z">2026-09-04T14:14:32.235Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.)
+agentId: ab93b50f88e4f18cf (internal ID - do not mention to user. Use SendMessage with to: &#x27;ab93b50f88e4f18cf&#x27;, summary: &#x27;&lt;5-10 word recap&gt;&#x27; to continue this agent.)
+The agent is working in the background. You will be notified automatically when it completes. You know nothing about its results until that notification arrives — do not report, assume, or predict them; continue other work or respond to the user in the meantime.
+Do not duplicate this agent&#x27;s work — avoid working with the same files or topics it is using.
+output_file: /private/tmp/claude-501/-Users-benjaminjordan-projects-thegoldenmule-aibleton/fec023c1-265c-491a-a394-e7971d36cf71/tasks/ab93b50f88e4f18cf.output
+Do NOT Read or tail this file via the shell tool — it is the full subagent JSONL transcript and reading it will overflow your context. If the user asks for progress, say the agent is still running; you&#x27;ll get a completion notification.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T14-14-35-382Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T14-14-35-382Z" class="timestamp-link"><time datetime="2026-09-04T14:14:35.382Z" data-timestamp="2026-09-04T14:14:35.382Z">2026-09-04T14:14:35.382Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>UI agent is running in parallel with the generator agent. Three pieces in flight; I'll commit each as it lands and verify the whole thing end-to-end against your running mate once the generator arrives.</p></div></div></div>
+        
+
+<div class="pagination">
+<a href="index.html" class="index-link">Index</a>
+<a href="page-003.html">&larr; Prev</a>
+<a href="page-001.html">1</a>
+<a href="page-002.html">2</a>
+<a href="page-003.html">3</a>
+<span class="current">4</span>
+<a href="page-005.html">5</a>
+<a href="page-006.html">6</a>
+<a href="page-005.html">Next &rarr;</a>
+</div>
+
+    </div>
+    <script>
+document.querySelectorAll('time[data-timestamp]').forEach(function(el) {
+    const timestamp = el.getAttribute('data-timestamp');
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    if (isToday) { el.textContent = timeStr; }
+    else { el.textContent = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + timeStr; }
+});
+document.querySelectorAll('pre.json').forEach(function(el) {
+    let text = el.textContent;
+    text = text.replace(/"([^"]+)":/g, '<span style="color: #ce93d8">"$1"</span>:');
+    text = text.replace(/: "([^"]*)"/g, ': <span style="color: #81d4fa">"$1"</span>');
+    text = text.replace(/: (\d+)/g, ': <span style="color: #ffcc80">$1</span>');
+    text = text.replace(/: (true|false|null)/g, ': <span style="color: #f48fb1">$1</span>');
+    el.innerHTML = text;
+});
+document.querySelectorAll('.truncatable').forEach(function(wrapper) {
+    const content = wrapper.querySelector('.truncatable-content');
+    const btn = wrapper.querySelector('.expand-btn');
+    if (content.scrollHeight > 250) {
+        wrapper.classList.add('truncated');
+        btn.addEventListener('click', function() {
+            if (wrapper.classList.contains('truncated')) { wrapper.classList.remove('truncated'); wrapper.classList.add('expanded'); btn.textContent = 'Show less'; }
+            else { wrapper.classList.remove('expanded'); wrapper.classList.add('truncated'); btn.textContent = 'Show more'; }
+        });
+    }
+});
+</script>
+</body>
+</html>

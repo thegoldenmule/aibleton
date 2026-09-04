@@ -1,0 +1,3194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code transcript - page 1</title>
+    <style>
+:root { --bg-color: #f5f5f5; --card-bg: #ffffff; --user-bg: #e3f2fd; --user-border: #1976d2; --assistant-bg: #f5f5f5; --assistant-border: #9e9e9e; --thinking-bg: #fff8e1; --thinking-border: #ffc107; --thinking-text: #666; --tool-bg: #f3e5f5; --tool-border: #9c27b0; --tool-result-bg: #e8f5e9; --tool-error-bg: #ffebee; --text-color: #212121; --text-muted: #757575; --code-bg: #263238; --code-text: #aed581; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 16px; line-height: 1.6; }
+.container { max-width: 800px; margin: 0 auto; }
+h1 { font-size: 1.5rem; margin-bottom: 24px; padding-bottom: 8px; border-bottom: 2px solid var(--user-border); }
+.header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 2px solid var(--user-border); padding-bottom: 8px; margin-bottom: 24px; }
+.header-row h1 { border-bottom: none; padding-bottom: 0; margin-bottom: 0; flex: 1; min-width: 200px; }
+.message { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.message.user { background: var(--user-bg); border-left: 4px solid var(--user-border); }
+.message.assistant { background: var(--card-bg); border-left: 4px solid var(--assistant-border); }
+.message.tool-reply { background: #fff8e1; border-left: 4px solid #ff9800; }
+.tool-reply .role-label { color: #e65100; }
+.tool-reply .tool-result { background: transparent; padding: 0; margin: 0; }
+.tool-reply .tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.message-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
+.role-label { font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.user .role-label { color: var(--user-border); }
+time { color: var(--text-muted); font-size: 0.8rem; }
+.timestamp-link { color: inherit; text-decoration: none; }
+.timestamp-link:hover { text-decoration: underline; }
+.message:target { animation: highlight 2s ease-out; }
+@keyframes highlight { 0% { background-color: rgba(25, 118, 210, 0.2); } 100% { background-color: transparent; } }
+.message-content { padding: 16px; }
+.message-content p { margin: 0 0 12px 0; }
+.message-content p:last-child { margin-bottom: 0; }
+.thinking { background: var(--thinking-bg); border: 1px solid var(--thinking-border); border-radius: 8px; padding: 12px; margin: 12px 0; font-size: 0.9rem; color: var(--thinking-text); }
+.thinking-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #f57c00; margin-bottom: 8px; }
+.thinking p { margin: 8px 0; }
+.assistant-text { margin: 8px 0; }
+.tool-use { background: var(--tool-bg); border: 1px solid var(--tool-border); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tool-header { font-weight: 600; color: var(--tool-border); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.tool-icon { font-size: 1.1rem; }
+.tool-description { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px; font-style: italic; }
+.tool-result { background: var(--tool-result-bg); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tool-result.tool-error { background: var(--tool-error-bg); }
+.file-tool { border-radius: 8px; padding: 12px; margin: 12px 0; }
+.write-tool { background: linear-gradient(135deg, #e3f2fd 0%, #e8f5e9 100%); border: 1px solid #4caf50; }
+.edit-tool { background: linear-gradient(135deg, #fff3e0 0%, #fce4ec 100%); border: 1px solid #ff9800; }
+.file-tool-header { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.write-header { color: #2e7d32; }
+.edit-header { color: #e65100; }
+.file-tool-icon { font-size: 1rem; }
+.file-tool-path { font-family: monospace; background: rgba(0,0,0,0.08); padding: 2px 8px; border-radius: 4px; }
+.file-tool-fullpath { font-family: monospace; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; word-break: break-all; }
+.file-content { margin: 0; }
+.edit-section { display: flex; margin: 4px 0; border-radius: 4px; overflow: hidden; }
+.edit-label { padding: 8px 12px; font-weight: bold; font-family: monospace; display: flex; align-items: flex-start; }
+.edit-old { background: #fce4ec; }
+.edit-old .edit-label { color: #b71c1c; background: #f8bbd9; }
+.edit-old .edit-content { color: #880e4f; }
+.edit-new { background: #e8f5e9; }
+.edit-new .edit-label { color: #1b5e20; background: #a5d6a7; }
+.edit-new .edit-content { color: #1b5e20; }
+.edit-content { margin: 0; flex: 1; background: transparent; font-size: 0.85rem; }
+.edit-replace-all { font-size: 0.75rem; font-weight: normal; color: var(--text-muted); }
+.write-tool .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #e6f4ea); }
+.edit-tool .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff0e5); }
+.todo-list { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); border: 1px solid #81c784; border-radius: 8px; padding: 12px; margin: 12px 0; }
+.todo-header { font-weight: 600; color: #2e7d32; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.todo-items { list-style: none; margin: 0; padding: 0; }
+.todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.06); font-size: 0.9rem; }
+.todo-item:last-child { border-bottom: none; }
+.todo-icon { flex-shrink: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 50%; }
+.todo-completed .todo-icon { color: #2e7d32; background: rgba(46, 125, 50, 0.15); }
+.todo-completed .todo-content { color: #558b2f; text-decoration: line-through; }
+.todo-in-progress .todo-icon { color: #f57c00; background: rgba(245, 124, 0, 0.15); }
+.todo-in-progress .todo-content { color: #e65100; font-weight: 500; }
+.todo-pending .todo-icon { color: #757575; background: rgba(0,0,0,0.05); }
+.todo-pending .todo-content { color: #616161; }
+pre { background: var(--code-bg); color: var(--code-text); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; margin: 8px 0; white-space: pre-wrap; word-wrap: break-word; }
+pre.json { color: #e0e0e0; }
+code { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre code { background: none; padding: 0; }
+.user-content { margin: 0; }
+.truncatable { position: relative; }
+.truncatable.truncated .truncatable-content { max-height: 200px; overflow: hidden; }
+.truncatable.truncated::after { content: ''; position: absolute; bottom: 32px; left: 0; right: 0; height: 60px; background: linear-gradient(to bottom, transparent, var(--card-bg)); pointer-events: none; }
+.message.user .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--user-bg)); }
+.message.tool-reply .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.tool-use .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--tool-bg)); }
+.tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--tool-result-bg)); }
+.expand-btn { display: none; width: 100%; padding: 8px 16px; margin-top: 4px; background: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); }
+.expand-btn:hover { background: rgba(0,0,0,0.1); }
+.truncatable.truncated .expand-btn, .truncatable.expanded .expand-btn { display: block; }
+.pagination { display: flex; justify-content: center; gap: 8px; margin: 24px 0; flex-wrap: wrap; }
+.pagination a, .pagination span { padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; }
+.pagination a { background: var(--card-bg); color: var(--user-border); border: 1px solid var(--user-border); }
+.pagination a:hover { background: var(--user-bg); }
+.pagination .current { background: var(--user-border); color: white; }
+.pagination .disabled { color: var(--text-muted); border: 1px solid #ddd; }
+.pagination .index-link { background: var(--user-border); color: white; }
+details.continuation { margin-bottom: 16px; }
+details.continuation summary { cursor: pointer; padding: 12px 16px; background: var(--user-bg); border-left: 4px solid var(--user-border); border-radius: 12px; font-weight: 500; color: var(--text-muted); }
+details.continuation summary:hover { background: rgba(25, 118, 210, 0.15); }
+details.continuation[open] summary { border-radius: 12px 12px 0 0; margin-bottom: 0; }
+.index-item { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); background: var(--user-bg); border-left: 4px solid var(--user-border); }
+.index-item a { display: block; text-decoration: none; color: inherit; }
+.index-item a:hover { background: rgba(25, 118, 210, 0.1); }
+.index-item-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
+.index-item-number { font-weight: 600; color: var(--user-border); }
+.index-item-content { padding: 16px; }
+.index-item-stats { padding: 8px 16px 12px 32px; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid rgba(0,0,0,0.06); }
+.index-item-commit { margin-top: 6px; padding: 4px 8px; background: #fff3e0; border-radius: 4px; font-size: 0.85rem; color: #e65100; }
+.index-item-commit code { background: rgba(0,0,0,0.08); padding: 1px 4px; border-radius: 3px; font-size: 0.8rem; margin-right: 6px; }
+.commit-card { margin: 8px 0; padding: 10px 14px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 6px; }
+.commit-card a { text-decoration: none; color: #5d4037; display: block; }
+.commit-card a:hover { color: #e65100; }
+.commit-card-hash { font-family: monospace; color: #e65100; font-weight: 600; margin-right: 8px; }
+.index-commit { margin-bottom: 12px; padding: 10px 16px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.index-commit a { display: block; text-decoration: none; color: inherit; }
+.index-commit a:hover { background: rgba(255, 152, 0, 0.1); margin: -10px -16px; padding: 10px 16px; border-radius: 8px; }
+.index-commit-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 4px; }
+.index-commit-hash { font-family: monospace; color: #e65100; font-weight: 600; }
+.index-commit-msg { color: #5d4037; }
+.index-item-long-text { margin-top: 8px; padding: 12px; background: var(--card-bg); border-radius: 8px; border-left: 3px solid var(--assistant-border); }
+.index-item-long-text .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--card-bg)); }
+.index-item-long-text-content { color: var(--text-color); }
+#search-box { display: none; align-items: center; gap: 8px; }
+#search-box input { padding: 6px 12px; border: 1px solid var(--assistant-border); border-radius: 6px; font-size: 16px; width: 180px; }
+#search-box button, #modal-search-btn, #modal-close-btn { background: var(--user-border); color: white; border: none; border-radius: 6px; padding: 6px 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#search-box button:hover, #modal-search-btn:hover { background: #1565c0; }
+#modal-close-btn { background: var(--text-muted); margin-left: 8px; }
+#modal-close-btn:hover { background: #616161; }
+#search-modal[open] { border: none; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.2); padding: 0; width: 90vw; max-width: 900px; height: 80vh; max-height: 80vh; display: flex; flex-direction: column; }
+#search-modal::backdrop { background: rgba(0,0,0,0.5); }
+.search-modal-header { display: flex; align-items: center; gap: 8px; padding: 16px; border-bottom: 1px solid var(--assistant-border); background: var(--bg-color); border-radius: 12px 12px 0 0; }
+.search-modal-header input { flex: 1; padding: 8px 12px; border: 1px solid var(--assistant-border); border-radius: 6px; font-size: 16px; }
+#search-status { padding: 8px 16px; font-size: 0.85rem; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.06); }
+#search-results { flex: 1; overflow-y: auto; padding: 16px; }
+.search-result { margin-bottom: 16px; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.search-result a { display: block; text-decoration: none; color: inherit; }
+.search-result a:hover { background: rgba(25, 118, 210, 0.05); }
+.search-result-page { padding: 6px 12px; background: rgba(0,0,0,0.03); font-size: 0.8rem; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.06); }
+.search-result-content { padding: 12px; }
+.search-result mark { background: #fff59d; padding: 1px 2px; border-radius: 2px; }
+@media (max-width: 600px) { body { padding: 8px; } .message, .index-item { border-radius: 8px; } .message-content, .index-item-content { padding: 12px; } pre { font-size: 0.8rem; padding: 8px; } #search-box input { width: 120px; } #search-modal[open] { width: 95vw; height: 90vh; } }
+</style>
+</head>
+<body>
+    <div class="container">
+        <h1><a href="index.html" style="color: inherit; text-decoration: none;">Claude Code transcript</a> - page 1/2</h1>
+        
+
+<div class="pagination">
+<a href="index.html" class="index-link">Index</a>
+<span class="disabled">&larr; Prev</span>
+<span class="current">1</span>
+<a href="page-002.html">2</a>
+<a href="page-002.html">Next &rarr;</a>
+</div>
+
+        
+<div class="message user" id="msg-2026-09-04T18-03-17-612Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-09-04T18-03-17-612Z" class="timestamp-link"><time datetime="2026-09-04T18:03:17.612Z" data-timestamp="2026-09-04T18:03:17.612Z">2026-09-04T18:03:17.612Z</time></a></div><div class="message-content">
+<div class="user-content"><p><local-command-caveat>Caveat: The messages below were generated by the user while running local commands. DO NOT respond to these messages or otherwise consider them in your response unless the user explicitly asks you to.</local-command-caveat></p></div></div></div>
+<div class="message user" id="msg-2026-09-04T18-03-17-587Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-09-04T18-03-17-587Z" class="timestamp-link"><time datetime="2026-09-04T18:03:17.587Z" data-timestamp="2026-09-04T18:03:17.587Z">2026-09-04T18:03:17.587Z</time></a></div><div class="message-content">
+<div class="user-content"><p><command-name>/clear</command-name>
+            <command-message>clear</command-message>
+            <command-args></command-args></p></div></div></div>
+<div class="message user" id="msg-2026-09-04T18-03-26-676Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-09-04T18-03-26-676Z" class="timestamp-link"><time datetime="2026-09-04T18:03:26.676Z" data-timestamp="2026-09-04T18:03:26.676Z">2026-09-04T18:03:26.676Z</time></a></div><div class="message-content">
+<div class="user-content"><p><system-reminder>
+The user named this session "Song Packing". This may indicate the session's focus or intent.
+</system-reminder></p></div></div></div>
+<div class="message user" id="msg-2026-09-04T18-04-09-886Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-09-04T18-04-09-886Z" class="timestamp-link"><time datetime="2026-09-04T18:04:09.886Z" data-timestamp="2026-09-04T18:04:09.886Z">2026-09-04T18:04:09.886Z</time></a></div><div class="message-content">
+<div class="user-content"><p>Right now the way we are building out songs is extremely dense. That is: every part is always playing. This is not very realistic. We should expect tracks to come in and out. Investigate the current algorithm and data model for songs and see how we can accomplish this.</p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-13-089Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-13-089Z" class="timestamp-link"><time datetime="2026-09-04T18:04:13.089Z" data-timestamp="2026-09-04T18:04:13.089Z">2026-09-04T18:04:13.089Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-13-843Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-13-843Z" class="timestamp-link"><time datetime="2026-09-04T18:04:13.843Z" data-timestamp="2026-09-04T18:04:13.843Z">2026-09-04T18:04:13.843Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>I'll start by mapping the song data model and the arrange/build path in mate, then report how parts could enter and leave.</p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-15-805Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-15-805Z" class="timestamp-link"><time datetime="2026-09-04T18:04:15.805Z" data-timestamp="2026-09-04T18:04:15.805Z">2026-09-04T18:04:15.805Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01P6JtjuLwScZz8T9oog8T97">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">List protocol and songwriting modules</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">ls packages/protocol/src mate/src mate/src/songwriting mate/src/intelligence mate/src/ports/ableton 2&gt;/dev/null &amp;&amp; wc -l packages/protocol/src/*.ts mate/src/songwriting/*.ts</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T18-04-15-841Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T18-04-15-841Z" class="timestamp-link"><time datetime="2026-09-04T18:04:15.841Z" data-timestamp="2026-09-04T18:04:15.841Z">2026-09-04T18:04:15.841Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>mate/src:
+api
+cli
+config.ts
+core
+index.ts
+inputs
+intelligence
+log.ts
+ports
+songwriting
+
+mate/src/intelligence:
+brain
+effects.ts
+index.ts
+loop.ts
+machine.ts
+tools
+types.ts
+
+mate/src/ports/ableton:
+fixtures
+index.ts
+mcp.ts
+snapshot.schema.ts
+stub.ts
+types.ts
+
+mate/src/songwriting:
+arrange.ts
+briefer
+compose.ts
+download.ts
+edit.ts
+feedback.ts
+layout.ts
+pick.ts
+recipe-writer
+resolve.ts
+
+packages/protocol/src:
+api.ts
+bands.ts
+commands.ts
+daw.ts
+events.ts
+form.ts
+index.ts
+songs.ts
+state.ts
+templates.ts
+     150 packages/protocol/src/api.ts
+     151 packages/protocol/src/bands.ts
+      38 packages/protocol/src/commands.ts
+     271 packages/protocol/src/daw.ts
+      60 packages/protocol/src/events.ts
+      75 packages/protocol/src/form.ts
+       9 packages/protocol/src/index.ts
+     342 packages/protocol/src/songs.ts
+      99 packages/protocol/src/state.ts
+      57 packages/protocol/src/templates.ts
+     136 mate/src/songwriting/arrange.ts
+     102 mate/src/songwriting/compose.ts
+     115 mate/src/songwriting/download.ts
+      37 mate/src/songwriting/edit.ts
+      70 mate/src/songwriting/feedback.ts
+     126 mate/src/songwriting/layout.ts
+     213 mate/src/songwriting/pick.ts
+     392 mate/src/songwriting/resolve.ts
+    2443 total</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-18-384Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-18-384Z" class="timestamp-link"><time datetime="2026-09-04T18:04:18.384Z" data-timestamp="2026-09-04T18:04:18.384Z">2026-09-04T18:04:18.384Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_013r9uALVKJxLjaco8qLX1CA">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Read song, form and DAW schemas</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cat packages/protocol/src/songs.ts packages/protocol/src/form.ts packages/protocol/src/daw.ts</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T18-04-18-412Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T18-04-18-412Z" class="timestamp-link"><time datetime="2026-09-04T18:04:18.412Z" data-timestamp="2026-09-04T18:04:18.412Z">2026-09-04T18:04:18.412Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>import { z } from &quot;zod&quot;;
+import { BandSchema } from &quot;./bands.ts&quot;;
+import { SectionLabelSchema, parseForm } from &quot;./form.ts&quot;;
+import type { Track } from &quot;./state.ts&quot;;
+import { TemplateSchema } from &quot;./templates.ts&quot;;
+
+/**
+ * A song is a template (time) crossed with a band (space), briefed by the LLM
+ * and laid out deterministically. Everything the model returns is a
+ * `SongBrief`; everything mate derives from it is a `SongPlan`. Both are stored
+ * verbatim on the `Song`, so a plan can be re-derived without another model call.
+ */
+
+export const KEY_ROOTS = [&quot;C&quot;, &quot;C#&quot;, &quot;D&quot;, &quot;D#&quot;, &quot;E&quot;, &quot;F&quot;, &quot;F#&quot;, &quot;G&quot;, &quot;G#&quot;, &quot;A&quot;, &quot;A#&quot;, &quot;B&quot;] as const;
+export const KeyRootSchema = z.enum(KEY_ROOTS);
+export type KeyRoot = z.infer&lt;typeof KeyRootSchema&gt;;
+
+export const KEY_MODES = [&quot;major&quot;, &quot;minor&quot;, &quot;dorian&quot;, &quot;mixolydian&quot;, &quot;lydian&quot;, &quot;phrygian&quot;] as const;
+export const KeyModeSchema = z.enum(KEY_MODES);
+export type KeyMode = z.infer&lt;typeof KeyModeSchema&gt;;
+
+export const MusicalKeySchema = z.object({ root: KeyRootSchema, mode: KeyModeSchema });
+export type MusicalKey = z.infer&lt;typeof MusicalKeySchema&gt;;
+
+/** Render a key the way sample libraries tag it: `&quot;F minor&quot;`. */
+export function keyName(key: MusicalKey): string {
+  return `${key.root} ${key.mode}`;
+}
+
+export const MIN_BPM = 40;
+export const MAX_BPM = 220;
+
+export const BpmRangeSchema = z
+  .object({
+    min: z.number().int().min(MIN_BPM).max(MAX_BPM),
+    max: z.number().int().min(MIN_BPM).max(MAX_BPM),
+    target: z.number().int().min(MIN_BPM).max(MAX_BPM),
+  })
+  .refine((r) =&gt; r.min &lt;= r.target &amp;&amp; r.target &lt;= r.max, { message: &quot;bpm must satisfy min &lt;= target &lt;= max&quot; });
+export type BpmRange = z.infer&lt;typeof BpmRangeSchema&gt;;
+
+export const TimeSignatureSchema = z.object({
+  numerator: z.number().int().min(1).max(32),
+  denominator: z.union([z.literal(2), z.literal(4), z.literal(8), z.literal(16)]),
+});
+export type TimeSignature = z.infer&lt;typeof TimeSignatureSchema&gt;;
+
+/** Loop lengths a sample slot may ask Splice for, in bars. */
+export const LOOP_BARS = [1, 2, 4, 8, 16] as const;
+export const LoopBarsSchema = z.union([z.literal(1), z.literal(2), z.literal(4), z.literal(8), z.literal(16)]);
+export type LoopBars = z.infer&lt;typeof LoopBarsSchema&gt;;
+
+export const MAX_BRIEF_GENRES = 5;
+export const MAX_BRIEF_HINTS = 5;
+export const MAX_ADDED_PARTS = 2;
+
+/** What the brief says about one band part, keyed by the part&#x27;s id. */
+export const BriefPartSchema = z.object({
+  partId: z.string().min(1),
+  /** False drops the part from the song. */
+  keep: z.boolean(),
+  /** Replaces the part&#x27;s Splice brief when set. */
+  brief: z.string().nullable(),
+  /** Extra Splice search words for this part. */
+  soundHints: z.array(z.string()).max(MAX_BRIEF_HINTS),
+  /** Preferred loop length; the layout fits it to each section&#x27;s bars. */
+  loopBars: LoopBarsSchema,
+});
+export type BriefPart = z.infer&lt;typeof BriefPartSchema&gt;;
+
+/** What the brief says about one template section, keyed by label. */
+export const BriefSectionSchema = z.object({
+  label: SectionLabelSchema,
+  /** Replaces the section&#x27;s brief when set. */
+  brief: z.string().nullable(),
+  descriptors: z.array(z.string()).max(MAX_BRIEF_HINTS),
+  intensity: z.number().min(0).max(1).nullable(),
+});
+export type BriefSection = z.infer&lt;typeof BriefSectionSchema&gt;;
+
+export const AddedPartSchema = z.object({
+  role: z.string().min(1),
+  name: z.string().min(1),
+  brief: z.string().min(1),
+});
+export type AddedPart = z.infer&lt;typeof AddedPartSchema&gt;;
+
+/**
+ * The model&#x27;s structured answer to &quot;what should this song be?&quot;. Validated
+ * after a deterministic normalisation pass, so ranges here are hard limits
+ * rather than something the model has to hit exactly.
+ */
+export const SongBriefSchema = z.object({
+  /** One line, shown in the UI and spoken to the drummer. */
+  summary: z.string().min(1),
+  /** Splice-searchable genre words. */
+  genres: z.array(z.string().min(1)).min(1).max(MAX_BRIEF_GENRES),
+  /** Mood and texture words: &quot;upbeat&quot;, &quot;syncopated&quot;, &quot;dry&quot;. */
+  descriptors: z.array(z.string().min(1)).max(MAX_BRIEF_HINTS),
+  key: MusicalKeySchema,
+  bpm: BpmRangeSchema,
+  timeSignature: TimeSignatureSchema,
+  swing: z.number().min(0).max(1).nullable(),
+  parts: z.array(BriefPartSchema),
+  sections: z.array(BriefSectionSchema),
+  templateFeedback: z.object({
+    /** A revised form string using only the template&#x27;s labels, or null to keep it. */
+    form: z.string().nullable(),
+    notes: z.string(),
+  }),
+  bandFeedback: z.object({
+    addParts: z.array(AddedPartSchema).max(MAX_ADDED_PARTS),
+    notes: z.string(),
+  }),
+});
+export type SongBrief = z.infer&lt;typeof SongBriefSchema&gt;;
+
+/** One Ableton track the song needs; one per surviving band part, in band order. */
+export const SongTrackSchema = z.object({
+  index: z.number().int().min(0),
+  partId: z.string().min(1),
+  name: z.string().min(1),
+  role: z.string().min(1),
+  kind: z.literal(&quot;audio&quot;),
+  /**
+   * The name of the track mate created for this part in the Live set, once it
+   * has. Names are the only identity Live exposes, so this is how the track is
+   * found again; null until the song is arranged in Live.
+   */
+  liveName: z.string().min(1).nullable().default(null),
+});
+export type SongTrack = z.infer&lt;typeof SongTrackSchema&gt;;
+
+/** One occurrence of a section in the form, placed on the timeline. */
+export const SongOccurrenceSchema = z.object({
+  index: z.number().int().min(0),
+  label: SectionLabelSchema,
+  bars: z.number().int().positive(),
+  startBar: z.number().int().min(0),
+  startBeat: z.number().min(0),
+  lengthBeats: z.number().positive(),
+});
+export type SongOccurrence = z.infer&lt;typeof SongOccurrenceSchema&gt;;
+
+/** A sample once Splice has been asked for it. Null until then. */
+export const ResolvedSampleSchema = z.object({
+  soundUuid: z.string().min(1),
+  fileName: z.string(),
+  /** Absolute path once downloaded. */
+  localPath: z.string().nullable(),
+});
+export type ResolvedSample = z.infer&lt;typeof ResolvedSampleSchema&gt;;
+
+/** A key as Splice tags a sound: a root, and a mode only when the tag has one (&quot;Key: a&quot;). */
+export const SoundKeySchema = z.object({ root: KeyRootSchema, mode: z.enum([&quot;major&quot;, &quot;minor&quot;]).nullable() });
+export type SoundKey = z.infer&lt;typeof SoundKeySchema&gt;;
+
+/** One Splice search hit kept on a slot, scored against the slot. Stored best first. */
+export const SpliceCandidateSchema = z.object({
+  uuid: z.string().min(1),
+  fileName: z.string(),
+  /** The sample&#x27;s splice.com page; the app links to it for preview. */
+  url: z.string(),
+  bpm: z.number().nullable(),
+  key: SoundKeySchema.nullable(),
+  durationSec: z.number().nullable(),
+  pack: z.string(),
+  tags: z.array(z.string()),
+  /** Whole bars at the sound&#x27;s own bpm in the song&#x27;s time signature; null when not derivable. */
+  bars: z.number().int().positive().nullable(),
+  /** Resolver score, higher is better. */
+  score: z.number(),
+});
+export type SpliceCandidate = z.infer&lt;typeof SpliceCandidateSchema&gt;;
+
+/** Id of the slot for a part in a section: `&quot;&lt;partId&gt;:&lt;label&gt;&quot;`. */
+export function sampleSlotId(partId: string, label: string): string {
+  return `${partId}:${label}`;
+}
+
+/**
+ * The sample one part plays in one section. Every occurrence of that section
+ * reuses the same slot, so `material[part.id][section.label]` is one lookup.
+ */
+export const SampleSlotSchema = z.object({
+  id: z.string().min(1),
+  partId: z.string().min(1),
+  label: SectionLabelSchema,
+  /** Query text for Splice, composed deterministically from the briefs. */
+  query: z.string().min(1),
+  bpm: BpmRangeSchema,
+  key: MusicalKeySchema,
+  tags: z.array(z.string()),
+  loopBars: LoopBarsSchema,
+  /** The sample on disk, once downloaded. Null until then. */
+  resolved: ResolvedSampleSchema.nullable(),
+  /** Best search hits, best first. Empty until the song is resolved on Splice. */
+  candidates: z.array(SpliceCandidateSchema).default([]),
+  /** The candidate to download: auto-picked on resolve, overridable per slot. */
+  pickedUuid: z.string().nullable().default(null),
+});
+export type SampleSlot = z.infer&lt;typeof SampleSlotSchema&gt;;
+
+/** One slot played for one occurrence: the sample looped `repeats` times. */
+export const PlacementSchema = z.object({
+  partId: z.string().min(1),
+  label: SectionLabelSchema,
+  occurrence: z.number().int().min(0),
+  slotId: z.string().min(1),
+  startBar: z.number().int().min(0),
+  bars: z.number().int().positive(),
+  loopBars: LoopBarsSchema,
+  repeats: z.number().int().positive(),
+  startBeat: z.number().min(0),
+  lengthBeats: z.number().positive(),
+});
+export type Placement = z.infer&lt;typeof PlacementSchema&gt;;
+
+const SongPlanShape = z.object({
+  bpm: z.number().int().min(MIN_BPM).max(MAX_BPM),
+  key: MusicalKeySchema,
+  timeSignature: TimeSignatureSchema,
+  tracks: z.array(SongTrackSchema).min(1),
+  timeline: z.array(SongOccurrenceSchema).min(1),
+  slots: z.array(SampleSlotSchema),
+  placements: z.array(PlacementSchema),
+});
+
+/** The DAW-shaped result: what tracks, what samples, and when. */
+export const SongPlanSchema = SongPlanShape.superRefine((plan, ctx) =&gt; {
+  const tracks = new Set(plan.tracks.map((t) =&gt; t.partId));
+  const slots = new Set(plan.slots.map((s) =&gt; s.id));
+  plan.placements.forEach((p, i) =&gt; {
+    if (!tracks.has(p.partId)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [&quot;placements&quot;, i, &quot;partId&quot;], message: `no track for part ${JSON.stringify(p.partId)}` });
+    }
+    if (!slots.has(p.slotId)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [&quot;placements&quot;, i, &quot;slotId&quot;], message: `no slot ${JSON.stringify(p.slotId)}` });
+    }
+    if (p.repeats * p.loopBars !== p.bars) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [&quot;placements&quot;, i, &quot;repeats&quot;],
+        message: `${p.repeats} x ${p.loopBars} bars does not fill ${p.bars} bars`,
+      });
+    }
+  });
+});
+export type SongPlan = z.infer&lt;typeof SongPlanSchema&gt;;
+
+export const SongRequestSchema = z.object({
+  /** What the drummer typed. */
+  text: z.string().min(1),
+  /** Seed for the deterministic picks, so the same request reproduces. */
+  seed: z.number().int(),
+});
+export type SongRequest = z.infer&lt;typeof SongRequestSchema&gt;;
+
+/**
+ * A composed song. Carries revised copies of the template and band rather than
+ * references, so later edits or deletes in the libraries cannot break it.
+ */
+export const SongSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  request: SongRequestSchema,
+  templateId: z.string().min(1),
+  bandId: z.string().min(1),
+  template: TemplateSchema,
+  band: BandSchema,
+  brief: SongBriefSchema,
+  plan: SongPlanSchema,
+  createdAt: z.number(),
+});
+export type Song = z.infer&lt;typeof SongSchema&gt;;
+
+/** Beats in one bar for a time signature, in quarter-note beats as Ableton counts them. */
+export function beatsPerBar(sig: TimeSignature): number {
+  return (sig.numerator * 4) / sig.denominator;
+}
+
+/** True when the slot&#x27;s pick is on disk. */
+export function slotDownloaded(slot: Pick&lt;SampleSlot, &quot;pickedUuid&quot; | &quot;resolved&quot;&gt;): boolean {
+  return slot.pickedUuid !== null &amp;&amp; slot.resolved?.soundUuid === slot.pickedUuid &amp;&amp; slot.resolved.localPath !== null;
+}
+
+/**
+ * Distinct picked uuids no slot has on disk yet, in first-seen order. One
+ * Splice credit each; a uuid another slot already downloaded is reused for free.
+ */
+export function pendingDownloadUuids(plan: Pick&lt;SongPlan, &quot;slots&quot;&gt;): string[] {
+  const onDisk = new Set&lt;string&gt;();
+  for (const slot of plan.slots) if (slot.resolved?.localPath) onDisk.add(slot.resolved.soundUuid);
+  const out: string[] = [];
+  for (const slot of plan.slots) {
+    const uuid = slot.pickedUuid;
+    if (uuid &amp;&amp; !onDisk.has(uuid) &amp;&amp; !out.includes(uuid)) out.push(uuid);
+  }
+  return out;
+}
+
+/**
+ * Project a plan onto the DAW picture the app already renders: one clip slot
+ * per section label in form order (a scene per section), and one arrangement
+ * clip per placement. Repeats live on placements only, so the same slot may
+ * loop twice under `b8` and once under `b4`.
+ */
+export function songTracks(song: Pick&lt;Song, &quot;plan&quot; | &quot;template&quot;&gt;): Track[] {
+  const { plan } = song;
+  const labels: string[] = [];
+  for (const entry of parseForm(song.template.form)) {
+    if (!labels.includes(entry.label)) labels.push(entry.label);
+  }
+  const bpb = beatsPerBar(plan.timeSignature);
+  const slotById = new Map(plan.slots.map((s) =&gt; [s.id, s]));
+
+  return plan.tracks.map((track) =&gt; ({
+    index: track.index,
+    name: track.name,
+    kind: track.kind,
+    mute: false,
+    solo: false,
+    arm: false,
+    volume: 0.85,
+    clipSlots: labels.map((label, i) =&gt; {
+      const slot = slotById.get(sampleSlotId(track.partId, label));
+      return {
+        index: i,
+        clip: slot ? { name: `${label} · ${slot.loopBars} bar${slot.loopBars === 1 ? &quot;&quot; : &quot;s&quot;}`, length: slot.loopBars * bpb } : null,
+      };
+    }),
+    arrangementClips: plan.placements
+      .filter((p) =&gt; p.partId === track.partId)
+      .map((p) =&gt; ({
+        name: `${p.label} · ${p.loopBars}×${p.repeats}`,
+        startTime: p.startBeat,
+        endTime: p.startBeat + p.lengthBeats,
+        length: p.lengthBeats,
+        type: &quot;audio&quot;,
+      })),
+  }));
+}
+import { z } from &quot;zod&quot;;
+
+/** Section labels are single lowercase letters: `a`, `b`, `c`, ... */
+export const SectionLabelSchema = z
+  .string()
+  .regex(/^[a-z]$/, &quot;section label must be a single lowercase letter&quot;);
+export type SectionLabel = z.infer&lt;typeof SectionLabelSchema&gt;;
+
+/**
+ * One occurrence of a section in a form: the `a8` in `&quot;a8 b8 a8&quot;`.
+ * Length lives on the occurrence, not the section, so `b` can run 8 bars in one
+ * place and 4 in another.
+ */
+export const FormEntrySchema = z.object({
+  label: SectionLabelSchema,
+  bars: z.number().int().positive(),
+});
+export type FormEntry = z.infer&lt;typeof FormEntrySchema&gt;;
+
+/** Default bars for a form token written without a length (`&quot;a b a&quot;`). */
+export const DEFAULT_SECTION_BARS = 8;
+
+const TOKEN = /^([a-z])(\d*)$/;
+
+/**
+ * Parse a form string into its occurrences.
+ *
+ * `&quot;a8 b8 a8 b8 b8 c4 c4 b8 b8&quot;` is the canonical shape: a letter for the
+ * section and a bar count. Commas are allowed as separators and a bare letter
+ * takes `defaultBars`, so `&quot;a, b, a, b&quot;` also parses.
+ *
+ * @throws if the string is empty or holds a token that is not `&lt;letter&gt;&lt;bars?&gt;`.
+ */
+export function parseForm(form: string, defaultBars = DEFAULT_SECTION_BARS): FormEntry[] {
+  const tokens = form.trim().split(/[\s,]+/).filter(Boolean);
+  if (tokens.length === 0) throw new Error(&quot;form is empty&quot;);
+  return tokens.map((token) =&gt; {
+    const m = TOKEN.exec(token);
+    if (!m) throw new Error(`bad form token ${JSON.stringify(token)}: expected a lowercase letter then bars, e.g. &quot;a8&quot;`);
+    const bars = m[2] ? Number(m[2]) : defaultBars;
+    if (bars &lt;= 0) throw new Error(`bad form token ${JSON.stringify(token)}: bars must be greater than zero`);
+    return { label: m[1]!, bars };
+  });
+}
+
+/** Render occurrences back to canonical form-string text (always explicit bars). */
+export function stringifyForm(entries: readonly FormEntry[]): string {
+  return entries.map((e) =&gt; `${e.label}${e.bars}`).join(&quot; &quot;);
+}
+
+/** Distinct section labels, in order of first appearance. */
+export function formLabels(entries: readonly FormEntry[]): SectionLabel[] {
+  const seen = new Set&lt;string&gt;();
+  const out: SectionLabel[] = [];
+  for (const e of entries) {
+    if (seen.has(e.label)) continue;
+    seen.add(e.label);
+    out.push(e.label);
+  }
+  return out;
+}
+
+/** Total length of the form in bars. */
+export function formTotalBars(entries: readonly FormEntry[]): number {
+  return entries.reduce((n, e) =&gt; n + e.bars, 0);
+}
+
+/** A string that `parseForm` accepts. Use at API boundaries. */
+export const FormStringSchema = z.string().superRefine((value, ctx) =&gt; {
+  try {
+    parseForm(value);
+  } catch (err) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: err instanceof Error ? err.message : String(err) });
+  }
+});
+import { formLabels, parseForm } from &quot;./form.ts&quot;;
+import { beatsPerBar, slotDownloaded } from &quot;./songs.ts&quot;;
+import type { SampleSlot, Song, SongOccurrence } from &quot;./songs.ts&quot;;
+import type { ArrangementClip, Clip, SessionState, Track } from &quot;./state.ts&quot;;
+
+/**
+ * How a song maps onto the Live set. Live exposes no stable ids through the
+ * MCP server, so the tracks mate creates are marked by a suffix in their name
+ * and everything else (clips, placements) is found by file path and position.
+ * `dawStatus` is the pure diff between a song and a session snapshot: what is
+ * already in Live, and the steps still needed. mate runs the steps; the app
+ * renders the status. Both use this one function, so they always agree.
+ */
+
+/** Marks a track as one mate created. Anything without it is the drummer&#x27;s and is never touched. */
+export const MATE_TRACK_SUFFIX = &quot; [mate]&quot;;
+
+export function mateTrackName(base: string): string {
+  const b = base.trim();
+  return b.endsWith(MATE_TRACK_SUFFIX) ? b : `${b}${MATE_TRACK_SUFFIX}`;
+}
+
+export function isMateTrack(track: Pick&lt;Track, &quot;name&quot;&gt;): boolean {
+  return track.name.endsWith(MATE_TRACK_SUFFIX);
+}
+
+/** Indexes of the tracks mate owns in a snapshot. */
+export function ownedTrackIndexes(session: Pick&lt;SessionState, &quot;tracks&quot;&gt; | null | undefined): Set&lt;number&gt; {
+  const out = new Set&lt;number&gt;();
+  for (const t of session?.tracks ?? []) if (isMateTrack(t)) out.add(t.index);
+  return out;
+}
+
+/** `&quot;Bass [mate]&quot;`, or `&quot;Bass 2 [mate]&quot;` when that name is taken, and so on. */
+export function uniqueTrackName(base: string, taken: ReadonlySet&lt;string&gt;): string {
+  const b = base.trim().replace(/\s*\[mate\]$/, &quot;&quot;);
+  for (let n = 1; ; n++) {
+    const candidate = mateTrackName(n === 1 ? b : `${b} ${n}`);
+    if (!taken.has(candidate)) return candidate;
+  }
+}
+
+/** Session scene (clip slot row) for a section label: labels in form order, one scene each. -1 when unknown. */
+export function sceneIndexOf(song: Pick&lt;Song, &quot;template&quot;&gt;, label: string): number {
+  return formLabels(parseForm(song.template.form)).indexOf(label);
+}
+
+/** Name for the session clip holding a slot&#x27;s sample; Live copies it onto every arrangement clip made from it. */
+export function liveClipName(slot: Pick&lt;SampleSlot, &quot;label&quot; | &quot;resolved&quot;&gt;): string {
+  const file = slot.resolved?.fileName ?? &quot;&quot;;
+  return `${slot.label} · ${file.replace(/\.[A-Za-z0-9]{1,5}$/, &quot;&quot;) || slot.resolved?.soundUuid || &quot;sample&quot;}`;
+}
+
+/** One thing mate must do in Live to bring the set closer to the song. */
+export type ArrangeStep =
+  | { type: &quot;setTempo&quot;; bpm: number }
+  | { type: &quot;createTrack&quot;; partId: string; name: string }
+  | { type: &quot;importClip&quot;; partId: string; slotId: string; track: number; scene: number; path: string; name: string }
+  /** The slot&#x27;s scene holds a different sample (a re-pick): delete it, then import. */
+  | { type: &quot;replaceClip&quot;; partId: string; slotId: string; track: number; scene: number; path: string; name: string }
+  | { type: &quot;placeClip&quot;; partId: string; slotId: string; track: number; scene: number; atBeat: number }
+  | { type: &quot;createLocator&quot;; name: string; atBeat: number };
+
+export interface DawTrackStatus {
+  partId: string;
+  /** The Live track name, chosen when the track is created. */
+  name: string | null;
+  /** Index in the snapshot, or null when the track is not in Live (yet, or any more). */
+  index: number | null;
+}
+
+export type DawSlotState =
+  /** The sample is not on disk, so there is nothing to import. */
+  | &quot;waiting&quot;
+  /** The part&#x27;s track has fewer scenes than the form has sections; Live has no tool to add one. */
+  | &quot;no-scene&quot;
+  /** On disk but not in Live: the track or the clip is still to come. */
+  | &quot;pending&quot;
+  /** The scene holds a different sample; it will be replaced. */
+  | &quot;stale&quot;
+  | &quot;in-live&quot;;
+
+export interface DawSlotStatus {
+  slotId: string;
+  partId: string;
+  scene: number;
+  state: DawSlotState;
+  /** Clip length Live reports after import; null until then. Live&#x27;s auto-warp decides it, mate cannot. */
+  lengthBeats: number | null;
+  /** What the plan wanted: loopBars in beats. */
+  expectedBeats: number;
+}
+
+export interface DawPlacementStatus {
+  slotId: string;
+  partId: string;
+  occurrence: number;
+  repeat: number;
+  atBeat: number;
+  placed: boolean;
+}
+
+export interface DawStatus {
+  tracks: DawTrackStatus[];
+  slots: DawSlotStatus[];
+  placements: DawPlacementStatus[];
+  /** Everything still to do, in an order that is safe to run top to bottom against this snapshot. */
+  steps: ArrangeStep[];
+  /** Things mate cannot fix through Live&#x27;s MCP server, for the drummer. */
+  notes: string[];
+}
+
+const EPS = 1e-3;
+
+function near(a: number, b: number): boolean {
+  return Math.abs(a - b) &lt; EPS;
+}
+
+function baseName(path: string): string {
+  return path.split(/[\\/]/).pop() ?? path;
+}
+
+/** Live may report a resolved or relocated path; the file name is the fallback identity. */
+function samePath(a: string | undefined, b: string | null | undefined): boolean {
+  if (!a || !b) return false;
+  return a === b || baseName(a) === baseName(b);
+}
+
+function findTrack(session: SessionState, name: string | null): Track | null {
+  if (!name) return null;
+  return session.tracks.find((t) =&gt; t.name === name &amp;&amp; isMateTrack(t)) ?? null;
+}
+
+function placedAt(track: Track, atBeat: number, clip: Clip, path: string): boolean {
+  return track.arrangementClips.some((c: ArrangementClip) =&gt; near(c.startTime, atBeat) &amp;&amp; (c.filePath ? samePath(c.filePath, path) : c.name === clip.name));
+}
+
+/** Locator label for an occurrence: `a1`, `b1`, `a2`... counting occurrences of each label. */
+export function locatorName(timeline: readonly SongOccurrence[], occurrence: SongOccurrence): string {
+  const n = timeline.filter((o) =&gt; o.label === occurrence.label &amp;&amp; o.index &lt;= occurrence.index).length;
+  return `${occurrence.label}${n}`;
+}
+
+/**
+ * Diff a song against a Live snapshot. Pure. With no snapshot every slot is
+ * pending and there are no steps: nothing can be planned blind.
+ */
+export function dawStatus(song: Song, session: SessionState | null | undefined): DawStatus {
+  const { plan } = song;
+  const bpb = beatsPerBar(plan.timeSignature);
+  const notes: string[] = [];
+  const steps: ArrangeStep[] = [];
+
+  const tracks: DawTrackStatus[] = plan.tracks.map((t) =&gt; ({ partId: t.partId, name: t.liveName, index: null }));
+  const slots: DawSlotStatus[] = plan.slots.map((s) =&gt; ({
+    slotId: s.id,
+    partId: s.partId,
+    scene: sceneIndexOf(song, s.label),
+    state: slotDownloaded(s) ? &quot;pending&quot; : &quot;waiting&quot;,
+    lengthBeats: null,
+    expectedBeats: s.loopBars * bpb,
+  }));
+  const placements: DawPlacementStatus[] = plan.placements.flatMap((p) =&gt;
+    Array.from({ length: p.repeats }, (_, repeat) =&gt; ({
+      slotId: p.slotId,
+      partId: p.partId,
+      occurrence: p.occurrence,
+      repeat,
+      atBeat: p.startBeat + repeat * p.loopBars * bpb,
+      placed: false,
+    })),
+  );
+  if (!session) return { tracks, slots, placements, steps, notes: [&quot;no Ableton snapshot yet&quot;] };
+
+  // Tracks: found by the name mate gave them; missing ones are created at the end of the set.
+  const firstRun = plan.tracks.every((t) =&gt; t.liveName === null);
+  if (firstRun &amp;&amp; !near(session.transport.tempo, plan.bpm)) steps.push({ type: &quot;setTempo&quot;, bpm: plan.bpm });
+  const taken = new Set(session.tracks.map((t) =&gt; t.name));
+  const liveTracks = new Map&lt;string, Track&gt;();
+  for (const [i, t] of plan.tracks.entries()) {
+    const live = findTrack(session, t.liveName);
+    if (live) {
+      tracks[i]!.index = live.index;
+      liveTracks.set(t.partId, live);
+      continue;
+    }
+    const name = t.liveName ?? uniqueTrackName(t.name, taken);
+    taken.add(name);
+    tracks[i]!.name = name;
+    if (t.liveName) notes.push(`track ${JSON.stringify(t.liveName)} is no longer in the set; it will be created again`);
+    steps.push({ type: &quot;createTrack&quot;, partId: t.partId, name });
+  }
+
+  // Session clips: one scene per section label, holding the slot&#x27;s downloaded sample.
+  const slotById = new Map(plan.slots.map((s) =&gt; [s.id, s]));
+  const liveClips = new Map&lt;string, Clip&gt;();
+  const replaced: ArrangeStep[] = [];
+  const imported: ArrangeStep[] = [];
+  for (const status of slots) {
+    if (status.state === &quot;waiting&quot;) continue;
+    const slot = slotById.get(status.slotId)!;
+    const track = liveTracks.get(slot.partId);
+    if (!track) continue; // pending: the track comes first
+    if (status.scene &lt; 0 || status.scene &gt;= track.clipSlots.length) {
+      status.state = &quot;no-scene&quot;;
+      notes.push(`${track.name} has ${track.clipSlots.length} scenes but section ${slot.label} needs scene ${status.scene + 1}; add a scene in Live`);
+      continue;
+    }
+    const path = slot.resolved!.localPath!;
+    const clip = track.clipSlots[status.scene]!.clip;
+    const base = { partId: slot.partId, slotId: slot.id, track: track.index, scene: status.scene, path, name: liveClipName(slot) };
+    if (!clip) {
+      imported.push({ type: &quot;importClip&quot;, ...base });
+    } else if (samePath(clip.filePath, path)) {
+      status.state = &quot;in-live&quot;;
+      status.lengthBeats = clip.length;
+      liveClips.set(slot.id, clip);
+      if (clip.length &gt; 0 &amp;&amp; !near(clip.length % status.expectedBeats, 0) &amp;&amp; !near(status.expectedBeats % clip.length, 0)) {
+        notes.push(`${clip.name || slot.id}: Live made it ${clip.length} beats, the plan wanted ${status.expectedBeats}; check its warp markers`);
+      }
+    } else {
+      status.state = &quot;stale&quot;;
+      replaced.push({ type: &quot;replaceClip&quot;, ...base });
+    }
+  }
+  steps.push(...replaced, ...imported);
+
+  // Arrangement: copies of the session clip, back to back, as many as fill the occurrence at the clip&#x27;s real length.
+  const placementSteps: ArrangeStep[] = [];
+  const byPlacement = new Map&lt;string, DawPlacementStatus[]&gt;();
+  for (const p of placements) {
+    const key = `${p.slotId}:${p.occurrence}`;
+    byPlacement.set(key, [...(byPlacement.get(key) ?? []), p]);
+  }
+  const placementsOut: DawPlacementStatus[] = [];
+  for (const p of plan.placements) {
+    const key = `${p.slotId}:${p.occurrence}`;
+    const planned = byPlacement.get(key) ?? [];
+    const clip = liveClips.get(p.slotId);
+    const track = liveTracks.get(p.partId);
+    const slot = slotById.get(p.slotId)!;
+    if (!clip || !track) {
+      placementsOut.push(...planned);
+      continue;
+    }
+    const length = clip.length &gt; 0 ? clip.length : p.loopBars * bpb;
+    const copies = Math.max(1, Math.floor(p.lengthBeats / length + EPS));
+    for (let repeat = 0; repeat &lt; copies; repeat++) {
+      const atBeat = p.startBeat + repeat * length;
+      const placed = placedAt(track, atBeat, clip, slot.resolved!.localPath!);
+      placementsOut.push({ slotId: p.slotId, partId: p.partId, occurrence: p.occurrence, repeat, atBeat, placed });
+      if (!placed) placementSteps.push({ type: &quot;placeClip&quot;, partId: p.partId, slotId: p.slotId, track: track.index, scene: sceneIndexOf(song, slot.label), atBeat });
+    }
+  }
+  steps.push(...placementSteps);
+
+  // Locators along the form, when the source reports them (the stub and the real server both do).
+  if (session.locators) {
+    for (const occ of plan.timeline) {
+      const name = locatorName(plan.timeline, occ);
+      if (!session.locators.some((l) =&gt; near(l.time, occ.startBeat))) steps.push({ type: &quot;createLocator&quot;, name, atBeat: occ.startBeat });
+    }
+  }
+
+  return { tracks, slots, placements: placementsOut, steps, notes };
+}
+
+/** True when every downloaded slot is in Live with all its placements. */
+export function fullyArranged(status: DawStatus): boolean {
+  return status.steps.length === 0 &amp;&amp; status.slots.some((s) =&gt; s.state === &quot;in-live&quot;);
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-21-709Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-21-709Z" class="timestamp-link"><time datetime="2026-09-04T18:04:21.709Z" data-timestamp="2026-09-04T18:04:21.709Z">2026-09-04T18:04:21.709Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01MX2xpviswe4qocz1ss8AqM">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Read layout, compose, band and template schemas</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cat mate/src/songwriting/layout.ts mate/src/songwriting/compose.ts packages/protocol/src/bands.ts packages/protocol/src/templates.ts; ls mate/src/songwriting/briefer mate/src/songwriting/recipe-writer</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T18-04-21-740Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T18-04-21-740Z" class="timestamp-link"><time datetime="2026-09-04T18:04:21.740Z" data-timestamp="2026-09-04T18:04:21.740Z">2026-09-04T18:04:21.740Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>import { LOOP_BARS, SongPlanSchema, beatsPerBar, keyName, parseForm, sampleSlotId } from &quot;@aibleton/protocol&quot;;
+import type { Band, LoopBars, Placement, SampleSlot, SongBrief, SongOccurrence, SongPlan, SongTrack, Template } from &quot;@aibleton/protocol&quot;;
+
+/** Loop length used for a part the brief says nothing about. */
+export const DEFAULT_LOOP_BARS: LoopBars = 4;
+
+/**
+ * The longest allowed loop that divides `bars` evenly without exceeding
+ * `preferred`. An 8-bar section with a 4-bar preference loops 4 twice; a
+ * 6-bar section with the same preference falls to 2 three times; a 5-bar
+ * section can only take 1-bar loops.
+ */
+export function fitLoop(bars: number, preferred: LoopBars): LoopBars {
+  let fit: LoopBars = 1;
+  for (const candidate of LOOP_BARS) {
+    if (candidate &gt; preferred) break;
+    if (bars % candidate === 0) fit = candidate;
+  }
+  return fit;
+}
+
+/** Deduplicated, trimmed, non-empty words in first-seen order. */
+function distinct(words: readonly (string | null | undefined)[]): string[] {
+  const seen = new Set&lt;string&gt;();
+  const out: string[] = [];
+  for (const word of words) {
+    const w = word?.trim();
+    if (!w) continue;
+    const key = w.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(w);
+  }
+  return out;
+}
+
+/**
+ * Lay a briefed template and band out as a DAW plan: one track per part, the
+ * form as a timeline, one sample slot per part x section label, and a
+ * placement per part x occurrence that loops the slot&#x27;s sample to fill the
+ * occurrence&#x27;s bars. Pure; the same inputs always yield the same plan.
+ */
+export function layoutSong(template: Template, band: Band, brief: SongBrief): SongPlan {
+  const timeSignature = brief.timeSignature;
+  const bpb = beatsPerBar(timeSignature);
+  const partNotes = new Map(brief.parts.map((p) =&gt; [p.partId, p]));
+  const sectionNotes = new Map(brief.sections.map((s) =&gt; [s.label, s]));
+  const key = keyName(brief.key);
+
+  const tracks: SongTrack[] = band.parts.map((part, index) =&gt; ({
+    index,
+    partId: part.id,
+    name: part.name,
+    role: part.role,
+    kind: &quot;audio&quot;,
+    liveName: null,
+  }));
+
+  const timeline: SongOccurrence[] = [];
+  let startBar = 0;
+  parseForm(template.form).forEach((entry, index) =&gt; {
+    timeline.push({
+      index,
+      label: entry.label,
+      bars: entry.bars,
+      startBar,
+      startBeat: startBar * bpb,
+      lengthBeats: entry.bars * bpb,
+    });
+    startBar += entry.bars;
+  });
+
+  const slots: SampleSlot[] = [];
+  const slotIds = new Set&lt;string&gt;();
+  const placements: Placement[] = [];
+
+  for (const part of band.parts) {
+    const note = partNotes.get(part.id);
+    const preferred = note?.loopBars ?? DEFAULT_LOOP_BARS;
+    for (const occurrence of timeline) {
+      const id = sampleSlotId(part.id, occurrence.label);
+      if (!slotIds.has(id)) {
+        slotIds.add(id);
+        const section = template.sections[occurrence.label];
+        const sectionNote = sectionNotes.get(occurrence.label);
+        const tags = distinct([...(note?.soundHints ?? []), ...(sectionNote?.descriptors ?? []), ...brief.genres, ...brief.descriptors]);
+        slots.push({
+          id,
+          partId: part.id,
+          label: occurrence.label,
+          query: distinct([part.brief, section?.brief, ...tags, key]).join(&quot;, &quot;),
+          bpm: brief.bpm,
+          key: brief.key,
+          tags,
+          loopBars: preferred,
+          resolved: null,
+          candidates: [],
+          pickedUuid: null,
+        });
+      }
+      const loopBars = fitLoop(occurrence.bars, preferred);
+      placements.push({
+        partId: part.id,
+        label: occurrence.label,
+        occurrence: occurrence.index,
+        slotId: id,
+        startBar: occurrence.startBar,
+        bars: occurrence.bars,
+        loopBars,
+        repeats: occurrence.bars / loopBars,
+        startBeat: occurrence.startBeat,
+        lengthBeats: occurrence.lengthBeats,
+      });
+    }
+  }
+
+  return SongPlanSchema.parse({
+    bpm: brief.bpm.target,
+    key: brief.key,
+    timeSignature,
+    tracks,
+    timeline,
+    slots,
+    placements,
+  });
+}
+import { BandSchema, SongSchema, genreKey } from &quot;@aibleton/protocol&quot;;
+import type { Band, ComposeStage, Song, SongBrief, Template } from &quot;@aibleton/protocol&quot;;
+import { generateBand } from &quot;../core/band-generator.ts&quot;;
+import { newId } from &quot;../core/commands.ts&quot;;
+import type { RecipeBook } from &quot;../core/recipes.ts&quot;;
+import type { Briefer } from &quot;./briefer/types.ts&quot;;
+import { applyFeedback } from &quot;./feedback.ts&quot;;
+import { layoutSong } from &quot;./layout.ts&quot;;
+import { bandGenreKeys, genreKeysIn, matchesGenre, pickBand, pickTemplate, tokenize } from &quot;./pick.ts&quot;;
+
+/** How many bands the flow rolls for a genre it had none for. */
+export const BANDS_PER_NEW_GENRE = 3;
+
+export interface ComposeOptions {
+  text: string;
+  seed: number;
+  name?: string;
+  templates: readonly Template[];
+  bands: readonly Band[];
+  briefer: Briefer;
+  /** Fills a genre gap: a recipe is written (once) and a few bands rolled from it. */
+  recipes: RecipeBook;
+  /** Persists a band the flow rolled, so the next request finds it in the library. */
+  saveBand: (band: Band) =&gt; Promise&lt;Band&gt;;
+  now: () =&gt; number;
+  signal: AbortSignal;
+  /** Narrates each step as it starts or finishes; wired to an SSE event by the route. */
+  onProgress?: (stage: ComposeStage, message: string) =&gt; void;
+}
+
+/**
+ * The song flow, end to end: deterministic picks, one brief from the model,
+ * the deterministic feedback pass, then the layout. Everything but the brief
+ * is pure, and the brief is stored verbatim so the rest can be re-run.
+ *
+ * When the request names a genre no saved band covers, the brief is the only
+ * thing that can say so. On that miss the flow makes sure a recipe exists,
+ * rolls a few bands from it, saves them, picks one and briefs again with it.
+ * @throws EmptyLibraryError, ModelRefusedError, or whatever the briefer or writer throws.
+ */
+export async function composeSong(opts: ComposeOptions): Promise&lt;Song&gt; {
+  const progress = opts.onProgress ?? (() =&gt; {});
+  const template = pickTemplate(opts.templates, opts.text, opts.seed);
+  let band = pickBand(opts.bands, opts.text, opts.seed);
+  progress(&quot;picking&quot;, `picked the form “${template.name}” (${template.form}) and the band “${band.name}”`);
+  progress(&quot;briefing&quot;, &quot;asking the model what this song should be…&quot;);
+  let brief = await opts.briefer.brief({ text: opts.text, template, band }, opts.signal);
+  progress(&quot;briefing&quot;, `brief: ${brief.summary}`);
+
+  if (!coversGenre(opts.bands, band, brief, opts.text)) {
+    const genre = brief.genres[0]!;
+    const known = opts.recipes.get(genre);
+    progress(&quot;recipe&quot;, known ? `no saved band plays ${genre}; staffing one from its recipe` : `no saved band plays ${genre}; asking the model how to staff one…`);
+    await opts.recipes.ensure(genre, opts.signal);
+    const rolled: Band[] = [];
+    for (let i = 1; i &lt;= BANDS_PER_NEW_GENRE; i++) {
+      const seed = opts.seed + i;
+      const staffed = generateBand({ seed, genre }, opts.recipes);
+      const at = opts.now();
+      rolled.push(await opts.saveBand(BandSchema.parse({ id: newId(&quot;band&quot;), name: `${staffed.metadata.genre} band ${seed}`, parts: staffed.parts, metadata: staffed.metadata, createdAt: at })));
+      progress(&quot;bands&quot;, `rolled ${genre} band ${i} of ${BANDS_PER_NEW_GENRE}: ${staffed.parts.map((p) =&gt; p.name).join(&quot;, &quot;)}`);
+    }
+    band = pickBand(rolled, opts.text, opts.seed);
+    // The first brief&#x27;s part feedback keyed on the old band; brief again so nothing is lost.
+    progress(&quot;rebriefing&quot;, `briefing again with “${band.name}”…`);
+    brief = await opts.briefer.brief({ text: opts.text, template, band }, opts.signal);
+    progress(&quot;rebriefing&quot;, `brief: ${brief.summary}`);
+  }
+
+  const revised = applyFeedback(template, band, brief);
+  const plan = layoutSong(revised.template, revised.band, brief);
+  progress(&quot;layout&quot;, `laid out ${plan.tracks.length} tracks and ${plan.slots.length} sample slots over ${plan.timeline.length} sections`);
+
+  return SongSchema.parse({
+    id: newId(&quot;song&quot;),
+    name: opts.name ?? brief.summary,
+    request: { text: opts.text, seed: opts.seed },
+    templateId: template.id,
+    bandId: band.id,
+    template: revised.template,
+    band: revised.band,
+    brief,
+    plan,
+    createdAt: opts.now(),
+  });
+}
+
+/**
+ * True unless the brief names genres that no saved band is tagged with and
+ * the pick had no genre signal to go on. A request that matched a band by
+ * genre is trusted even if the model&#x27;s genre words differ.
+ */
+export function coversGenre(bands: readonly Band[], picked: Band, brief: SongBrief, text: string): boolean {
+  if (matchesGenre(picked, genreKeysIn(tokenize(text)))) return true;
+  const wanted = new Set(brief.genres.map(genreKey));
+  wanted.delete(&quot;&quot;);
+  if (wanted.size === 0) return true;
+  for (const band of bands) {
+    for (const key of bandGenreKeys(band)) if (wanted.has(key)) return true;
+  }
+  return false;
+}
+import { z } from &quot;zod&quot;;
+
+/**
+ * Genres are free text everywhere: a band&#x27;s genre lives in `metadata.genre`,
+ * a recipe is filed under `genreKey(genre)`. &quot;Hip-Hop&quot;, &quot;hip hop&quot; and
+ * &quot;hiphop&quot; are the same key.
+ */
+export function genreKey(genre: string): string {
+  return genre.toLowerCase().replace(/[^a-z0-9]+/g, &quot;&quot;);
+}
+
+/** Suggested role vocabulary. Roles are free text; this is for pickers and generator recipes. */
+export const ROLES = [
+  &quot;drums&quot;,
+  &quot;percussion&quot;,
+  &quot;bass&quot;,
+  &quot;guitar&quot;,
+  &quot;keys&quot;,
+  &quot;synth&quot;,
+  &quot;horns&quot;,
+  &quot;strings&quot;,
+  &quot;vocals&quot;,
+  &quot;fx&quot;,
+] as const;
+export type Role = (typeof ROLES)[number];
+
+/** Part ids are stable keys, so they are restricted to a slug shape. */
+export const PartIdSchema = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9-]{0,31}$/, &quot;part id must be a lowercase slug, e.g. \&quot;keys-rhodes\&quot;&quot;);
+
+/**
+ * One player in a band. `id` is stable for the life of the band because a
+ * composition keys its material on it (`material[part.id][section.label]`),
+ * and each part becomes one Ableton track.
+ */
+export const BandPartSchema = z.object({
+  id: PartIdSchema,
+  /** Free text, but usually one of ROLES. */
+  role: z.string().min(1),
+  /** What this player is called on the stage plot, e.g. &quot;Rhodes&quot; or &quot;rhythm guitar&quot;. */
+  name: z.string().min(1),
+  /** Prompt text handed to Splice when this part is bound to material. */
+  brief: z.string().min(1),
+  /** Reserved for a later mix-prominence input. Nothing reads it yet. */
+  emphasis: z.number().min(0).max(1).optional(),
+});
+export type BandPart = z.infer&lt;typeof BandPartSchema&gt;;
+
+const BandShape = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  /** Ordered: this is the track order in Ableton. */
+  parts: z.array(BandPartSchema).min(1),
+  /** Free-form tags. `genre` is a conventional key; nothing here is required. */
+  metadata: z.record(z.string(), z.string()).default({}),
+  createdAt: z.number(),
+});
+
+/**
+ * Who plays in a song. Bands are the space axis; templates are the time axis.
+ * A composition is a template crossed with a band: parts become tracks,
+ * sections become scenes.
+ */
+export const BandSchema = BandShape.superRefine((band, ctx) =&gt; {
+  const seen = new Set&lt;string&gt;();
+  band.parts.forEach((part, i) =&gt; {
+    if (seen.has(part.id)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [&quot;parts&quot;, i, &quot;id&quot;],
+        message: `duplicate part id ${JSON.stringify(part.id)}`,
+      });
+    }
+    seen.add(part.id);
+  });
+});
+export type Band = z.infer&lt;typeof BandSchema&gt;;
+/** Input shape: `metadata` may be omitted and defaults to `{}`. */
+export type BandDraft = z.input&lt;typeof BandSchema&gt;;
+
+/** Distinct roles in a band, in part order. */
+export function bandRoles(band: Pick&lt;Band, &quot;parts&quot;&gt;): string[] {
+  const seen = new Set&lt;string&gt;();
+  const out: string[] = [];
+  for (const part of band.parts) {
+    if (seen.has(part.role)) continue;
+    seen.add(part.role);
+    out.push(part.role);
+  }
+  return out;
+}
+
+/** The band&#x27;s genre tag, or null when it was never tagged. */
+export function bandGenre(band: Pick&lt;Band, &quot;metadata&quot;&gt;): string | null {
+  return band.metadata.genre ?? null;
+}
+
+/** Recipe ids are genre keys: lowercase alphanumerics, so they double as filenames. */
+export const GenreKeySchema = z.string().regex(/^[a-z0-9]{1,64}$/, &quot;genre key must be lowercase alphanumerics&quot;);
+
+/**
+ * How one genre staffs a band. Built-in recipes ship with mate; the rest are
+ * written by the model the first time a genre is asked for, and saved.
+ *
+ * `names` and `briefs` are parallel per role: the brief at index `i` describes
+ * the instrument named at index `i`. Where the arrays differ in length the
+ * brief index wraps.
+ */
+export const BandRecipeSchema = z
+  .object({
+    /** `genreKey(genre)`; the document id. */
+    id: GenreKeySchema,
+    /** The genre as written, e.g. &quot;Hip-Hop&quot;. */
+    genre: z.string().min(1),
+    /** Always staffed, in this order — this is the track order in Ableton. A role may repeat. */
+    core: z.array(z.string().min(1)).min(1),
+    /** Drawn by weight, without replacement, until the size is met. A role may repeat a core role. */
+    optional: z.array(z.object({ role: z.string().min(1), weight: z.number().positive() })),
+    /** Display names per role, drawn without replacement so duplicate roles read differently. */
+    names: z.record(z.string(), z.array(z.string().min(1)).min(1)),
+    /** Splice prompt text per role, paired by index with `names`. */
+    briefs: z.record(z.string(), z.array(z.string().min(1)).min(1)),
+    /** How many leading `names` entries a core slot may be drawn from, per role. */
+    anchors: z.record(z.string(), z.number().int().positive()).default({}),
+    source: z.enum([&quot;builtin&quot;, &quot;generated&quot;]),
+    createdAt: z.number(),
+  })
+  .superRefine((recipe, ctx) =&gt; {
+    const roles = new Set([...recipe.core, ...recipe.optional.map((o) =&gt; o.role)]);
+    for (const role of roles) {
+      if (!recipe.names[role]) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: [&quot;names&quot;, role], message: `role ${JSON.stringify(role)} has no names` });
+      }
+      if (!recipe.briefs[role]) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: [&quot;briefs&quot;, role], message: `role ${JSON.stringify(role)} has no briefs` });
+      }
+    }
+  });
+export type BandRecipe = z.infer&lt;typeof BandRecipeSchema&gt;;
+/** Input shape: `anchors` may be omitted. */
+export type BandRecipeDraft = z.input&lt;typeof BandRecipeSchema&gt;;
+
+/** What `GET /recipes` lists per recipe: enough for a genre picker. */
+export const RecipeSummarySchema = z.object({
+  id: GenreKeySchema,
+  genre: z.string().min(1),
+  source: z.enum([&quot;builtin&quot;, &quot;generated&quot;]),
+  roles: z.array(z.string()),
+});
+export type RecipeSummary = z.infer&lt;typeof RecipeSummarySchema&gt;;
+import { z } from &quot;zod&quot;;
+import { FormStringSchema, SectionLabelSchema, formLabels, parseForm } from &quot;./form.ts&quot;;
+
+/**
+ * What one letter in a form means musically. `brief` is the prompt handed to
+ * Splice when the section is bound to material.
+ */
+export const SectionSchema = z.object({
+  label: SectionLabelSchema,
+  brief: z.string().min(1),
+  /** Reserved for a later energy/tension input (e.g. a DAW plugin). Nothing reads it yet. */
+  intensity: z.number().min(0).max(1).optional(),
+});
+export type Section = z.infer&lt;typeof SectionSchema&gt;;
+
+const TemplateShape = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  /** Form string, e.g. `&quot;a8 b8 a8 b8 b8 c4 c4 b8 b8&quot;`. */
+  form: FormStringSchema,
+  sections: z.record(z.string(), SectionSchema),
+  bpm: z.number().positive().optional(),
+  createdAt: z.number(),
+});
+
+/**
+ * A song roadmap: a form string plus the meaning of each letter in it.
+ * Every label used by the form must have a section, and each section must be
+ * filed under its own label.
+ */
+export const TemplateSchema = TemplateShape.superRefine((template, ctx) =&gt; {
+  for (const [key, section] of Object.entries(template.sections)) {
+    if (section.label !== key) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [&quot;sections&quot;, key, &quot;label&quot;],
+        message: `section filed under ${JSON.stringify(key)} is labelled ${JSON.stringify(section.label)}`,
+      });
+    }
+  }
+  let labels: string[];
+  try {
+    labels = formLabels(parseForm(template.form));
+  } catch {
+    return;
+  }
+  for (const label of labels) {
+    if (!template.sections[label]) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [&quot;sections&quot;],
+        message: `form uses section ${JSON.stringify(label)} but no section defines it`,
+      });
+    }
+  }
+});
+export type Template = z.infer&lt;typeof TemplateSchema&gt;;
+mate/src/songwriting/briefer:
+anthropic.ts
+index.ts
+normalize.ts
+prompt.ts
+schema.ts
+scripted.ts
+types.ts
+
+mate/src/songwriting/recipe-writer:
+anthropic.ts
+index.ts
+normalize.ts
+prompt.ts
+schema.ts
+scripted.ts
+types.ts</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-24-851Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-24-851Z" class="timestamp-link"><time datetime="2026-09-04T18:04:24.851Z" data-timestamp="2026-09-04T18:04:24.851Z">2026-09-04T18:04:24.851Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-27-047Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-27-047Z" class="timestamp-link"><time datetime="2026-09-04T18:04:27.047Z" data-timestamp="2026-09-04T18:04:27.047Z">2026-09-04T18:04:27.047Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01KEtipK1Jrw9R7k43xuXmPJ">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Read briefer prompt, schema, normalize, feedback, edit</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cat mate/src/songwriting/briefer/prompt.ts mate/src/songwriting/briefer/schema.ts mate/src/songwriting/briefer/normalize.ts mate/src/songwriting/feedback.ts mate/src/songwriting/edit.ts</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T18-04-27-074Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T18-04-27-074Z" class="timestamp-link"><time datetime="2026-09-04T18:04:27.074Z" data-timestamp="2026-09-04T18:04:27.074Z">2026-09-04T18:04:27.074Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>import { KEY_MODES, KEY_ROOTS, LOOP_BARS, MAX_ADDED_PARTS, MAX_BRIEF_GENRES, MAX_BRIEF_HINTS, MAX_BPM, MIN_BPM, parseForm } from &quot;@aibleton/protocol&quot;;
+import type { BriefInput } from &quot;./types.ts&quot;;
+
+/**
+ * The system prompt for the one structured call that turns a request, a
+ * template and a band into a SongBrief. Frozen text: it sits first in the
+ * request so prompt caching can pick it up.
+ */
+export const BRIEF_SYSTEM_PROMPT = `You are a producer preparing a practice track for a drummer. The track is assembled from Splice loops in Ableton Live, one audio track per band part, one sample per part per section. Your job is to turn what the drummer asked for, plus a song template and a band that were already picked for them, into a structured brief that a program will use to search Splice and lay the song out. You never touch Ableton or Splice yourself; you only describe.
+
+What you are given:
+- The drummer&#x27;s request in their own words.
+- A template: a form string like &quot;a8 b8 a8 b8 c4 c4&quot; (letter = section, number = bars for that occurrence) and, for each letter, a short brief of what that section does.
+- A band: an ordered list of parts. Each part has a stable id, a role (drums, bass, guitar, keys, ...), a stage name and a Splice brief describing its sound. Part order is track order.
+
+What you return, as JSON matching the schema you were given:
+- summary: one short line the drummer will read, e.g. &quot;Upbeat funk in E dorian around 108 bpm, tight and dry&quot;.
+- genres: ${MAX_BRIEF_GENRES} or fewer genre words as a sample library tags them (&quot;funk&quot;, &quot;boom bap&quot;, &quot;deep house&quot;).
+- descriptors: up to ${MAX_BRIEF_HINTS} mood or texture words (&quot;upbeat&quot;, &quot;syncopated&quot;, &quot;dry&quot;, &quot;lush&quot;).
+- key: a root (${KEY_ROOTS.join(&quot;, &quot;)}) and a mode (${KEY_MODES.join(&quot;, &quot;)}). Pick what loops in this genre are most often tagged with.
+- bpm: a search window {min, max} of about 8 to 20 bpm and the target inside it. Stay between ${MIN_BPM} and ${MAX_BPM}. Honour a tempo the drummer names exactly.
+- timeSignature: normally 4/4 unless the request or genre clearly says otherwise.
+- swing: 0 (straight) to 1 (heavily swung), or null when it does not matter.
+- parts: one entry per band part, using the part&#x27;s exact id. keep=false removes a part that does not fit the request (never remove every part). brief replaces the part&#x27;s Splice brief when you want a different sound, else null. soundHints are extra search words for that part only. loopBars is the loop length you would search for: one of ${LOOP_BARS.join(&quot;, &quot;)} bars. Rhythm parts usually loop shorter (2 or 4), bass lines and pads longer (8 or 16). A loop is repeated to fill a section, so an 8-bar section with a 4-bar guitar loop plays it twice while an 8-bar bass loop plays once.
+- sections: one entry per section letter. brief replaces the section brief when the request calls for a different arc, else null. descriptors are search words for every part in that section. intensity is 0 (sparsest) to 1 (fullest), or null.
+- templateFeedback.form: a revised form string using only the letters the template already has, or null to keep the form. Change it only when the request clearly needs a different shape or length. notes: one line of reasoning.
+- bandFeedback.addParts: up to ${MAX_ADDED_PARTS} parts to add when something essential is missing (role, stage name, Splice brief), else an empty list. notes: one line of reasoning.
+
+Rules:
+- Reference only the part ids and section letters you were given; anything else is dropped.
+- Be decisive and concrete. Search words should be things a sample library actually tags, not prose.
+- Do not restate the inputs. Return only the JSON object.`;
+
+/** Render the user turn: the request, the template and the band, plainly. */
+export function renderBriefPrompt(input: BriefInput): string {
+  const { text, template, band } = input;
+  const entries = parseForm(template.form);
+  const totalBars = entries.reduce((n, e) =&gt; n + e.bars, 0);
+  const lines: string[] = [];
+
+  lines.push(`Drummer&#x27;s request: ${JSON.stringify(text)}`);
+  lines.push(&quot;&quot;);
+  lines.push(`Template &quot;${template.name}&quot;: form ${template.form} (${entries.length} sections, ${totalBars} bars)${template.bpm ? `, saved at ${template.bpm} bpm` : &quot;&quot;}`);
+  for (const section of Object.values(template.sections)) {
+    lines.push(`- section ${section.label}: ${section.brief}${section.intensity !== undefined ? ` (intensity ${section.intensity})` : &quot;&quot;}`);
+  }
+  lines.push(&quot;&quot;);
+  lines.push(`Band &quot;${band.name}&quot;${band.metadata.genre ? ` (genre: ${band.metadata.genre})` : &quot;&quot;}, ${band.parts.length} parts in track order:`);
+  band.parts.forEach((part, i) =&gt; {
+    lines.push(`${i + 1}. id=${part.id} role=${part.role} name=${JSON.stringify(part.name)}: ${part.brief}`);
+  });
+  lines.push(&quot;&quot;);
+  lines.push(&quot;Write the brief.&quot;);
+  return lines.join(&quot;\n&quot;);
+}
+import { KEY_MODES, KEY_ROOTS, LOOP_BARS } from &quot;@aibleton/protocol&quot;;
+
+/**
+ * The JSON schema sent as `output_config.format` for the brief. Hand-written
+ * in the structured-output subset: every object has `additionalProperties:
+ * false` and lists every property in `required`; optionality is `anyOf` with
+ * null; no numeric or string constraints (those live in `normalizeBrief` and
+ * `SongBriefSchema`); enums for closed sets; arrays of keyed objects instead
+ * of records. Mirrors `SongBriefSchema` in protocol/songs.ts.
+ */
+
+type JsonSchema = Record&lt;string, unknown&gt;;
+
+const nullable = (schema: JsonSchema): JsonSchema =&gt; ({ anyOf: [schema, { type: &quot;null&quot; }] });
+const str = (description?: string): JsonSchema =&gt; (description ? { type: &quot;string&quot;, description } : { type: &quot;string&quot; });
+const strings = (description: string): JsonSchema =&gt; ({ type: &quot;array&quot;, description, items: { type: &quot;string&quot; } });
+const object = (properties: Record&lt;string, JsonSchema&gt;, description?: string): JsonSchema =&gt; ({
+  type: &quot;object&quot;,
+  ...(description ? { description } : {}),
+  properties,
+  required: Object.keys(properties),
+  additionalProperties: false,
+});
+
+export const SONG_BRIEF_JSON_SCHEMA: JsonSchema = object({
+  summary: str(&quot;One short line for the drummer.&quot;),
+  genres: strings(&quot;Genre words as a sample library tags them, at most 5.&quot;),
+  descriptors: strings(&quot;Mood or texture words, at most 5.&quot;),
+  key: object({
+    root: { type: &quot;string&quot;, enum: [...KEY_ROOTS] },
+    mode: { type: &quot;string&quot;, enum: [...KEY_MODES] },
+  }),
+  bpm: object(
+    {
+      min: { type: &quot;integer&quot; },
+      max: { type: &quot;integer&quot; },
+      target: { type: &quot;integer&quot; },
+    },
+    &quot;Search window and target tempo, 40..220, min &lt;= target &lt;= max.&quot;,
+  ),
+  timeSignature: object({
+    numerator: { type: &quot;integer&quot; },
+    denominator: { type: &quot;integer&quot;, enum: [2, 4, 8, 16] },
+  }),
+  swing: nullable({ type: &quot;number&quot;, description: &quot;0 straight to 1 heavily swung.&quot; }),
+  parts: {
+    type: &quot;array&quot;,
+    description: &quot;One entry per band part, using the given part id.&quot;,
+    items: object({
+      partId: str(),
+      keep: { type: &quot;boolean&quot; },
+      brief: nullable(str(&quot;Replacement Splice brief, or null to keep the part&#x27;s own.&quot;)),
+      soundHints: strings(&quot;Extra search words for this part only, at most 5.&quot;),
+      loopBars: { type: &quot;integer&quot;, enum: [...LOOP_BARS] },
+    }),
+  },
+  sections: {
+    type: &quot;array&quot;,
+    description: &quot;One entry per section letter.&quot;,
+    items: object({
+      label: str(&quot;The section letter.&quot;),
+      brief: nullable(str(&quot;Replacement section brief, or null to keep it.&quot;)),
+      descriptors: strings(&quot;Search words for every part in this section, at most 5.&quot;),
+      intensity: nullable({ type: &quot;number&quot;, description: &quot;0 sparsest to 1 fullest.&quot; }),
+    }),
+  },
+  templateFeedback: object({
+    form: nullable(str(&quot;Revised form string using only existing letters, or null to keep the form.&quot;)),
+    notes: str(),
+  }),
+  bandFeedback: object({
+    addParts: {
+      type: &quot;array&quot;,
+      description: &quot;Parts to add, at most 2.&quot;,
+      items: object({ role: str(), name: str(), brief: str() }),
+    },
+    notes: str(),
+  }),
+});
+import { KEY_ROOTS, LOOP_BARS, MAX_ADDED_PARTS, MAX_BPM, MAX_BRIEF_GENRES, MAX_BRIEF_HINTS, MIN_BPM } from &quot;@aibleton/protocol&quot;;
+import type { Band, Template } from &quot;@aibleton/protocol&quot;;
+
+/**
+ * The deterministic clamp between the model&#x27;s JSON and `SongBriefSchema`.
+ * The structured-output schema cannot carry numeric or length limits, so a
+ * brief that is nearly right (a bpm window written backwards, six genres, a
+ * part id the band does not have) is repaired here rather than rejected after
+ * a slow call. Shape errors still fall through to the schema.
+ */
+export function normalizeBrief(raw: unknown, template: Template, band: Band): unknown {
+  if (!isRecord(raw)) return raw;
+  const out: Record&lt;string, unknown&gt; = { ...raw };
+
+  out.summary = typeof raw.summary === &quot;string&quot; ? raw.summary.trim() || &quot;a new song&quot; : raw.summary;
+  out.genres = words(raw.genres, MAX_BRIEF_GENRES);
+  if (Array.isArray(out.genres) &amp;&amp; out.genres.length === 0) out.genres = [&quot;groove&quot;];
+  out.descriptors = words(raw.descriptors, MAX_BRIEF_HINTS);
+  out.key = normalizeKey(raw.key);
+  out.bpm = normalizeBpm(raw.bpm);
+  out.timeSignature = normalizeTimeSignature(raw.timeSignature);
+  out.swing = unit(raw.swing);
+
+  const partIds = new Set(band.parts.map((p) =&gt; p.id));
+  out.parts = Array.isArray(raw.parts)
+    ? raw.parts
+        .filter((p): p is Record&lt;string, unknown&gt; =&gt; isRecord(p) &amp;&amp; typeof p.partId === &quot;string&quot; &amp;&amp; partIds.has(p.partId))
+        .map((p) =&gt; ({
+          partId: p.partId,
+          keep: p.keep !== false,
+          brief: optionalText(p.brief),
+          soundHints: words(p.soundHints, MAX_BRIEF_HINTS),
+          loopBars: nearestLoop(p.loopBars),
+        }))
+    : raw.parts;
+
+  const labels = new Set(Object.keys(template.sections));
+  out.sections = Array.isArray(raw.sections)
+    ? raw.sections
+        .filter((s): s is Record&lt;string, unknown&gt; =&gt; isRecord(s) &amp;&amp; typeof s.label === &quot;string&quot; &amp;&amp; labels.has(s.label))
+        .map((s) =&gt; ({
+          label: s.label,
+          brief: optionalText(s.brief),
+          descriptors: words(s.descriptors, MAX_BRIEF_HINTS),
+          intensity: unit(s.intensity),
+        }))
+    : raw.sections;
+
+  out.templateFeedback = isRecord(raw.templateFeedback)
+    ? { form: optionalText(raw.templateFeedback.form), notes: text(raw.templateFeedback.notes) }
+    : { form: null, notes: &quot;&quot; };
+  out.bandFeedback = isRecord(raw.bandFeedback)
+    ? {
+        addParts: Array.isArray(raw.bandFeedback.addParts)
+          ? raw.bandFeedback.addParts.filter(isRecord).slice(0, MAX_ADDED_PARTS)
+          : [],
+        notes: text(raw.bandFeedback.notes),
+      }
+    : { addParts: [], notes: &quot;&quot; };
+
+  return out;
+}
+
+function isRecord(v: unknown): v is Record&lt;string, unknown&gt; {
+  return typeof v === &quot;object&quot; &amp;&amp; v !== null &amp;&amp; !Array.isArray(v);
+}
+
+function text(v: unknown): string {
+  return typeof v === &quot;string&quot; ? v.trim() : &quot;&quot;;
+}
+
+function optionalText(v: unknown): string | null {
+  const t = text(v);
+  return t ? t : null;
+}
+
+/** Trimmed, deduplicated (case-insensitively) strings, cut to `max`. */
+function words(v: unknown, max: number): unknown {
+  if (!Array.isArray(v)) return v;
+  const seen = new Set&lt;string&gt;();
+  const out: string[] = [];
+  for (const item of v) {
+    if (typeof item !== &quot;string&quot;) continue;
+    const w = item.trim();
+    const key = w.toLowerCase();
+    if (!w || seen.has(key)) continue;
+    seen.add(key);
+    out.push(w);
+    if (out.length === max) break;
+  }
+  return out;
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, n));
+}
+
+function unit(v: unknown): unknown {
+  if (v === null || v === undefined) return null;
+  return typeof v === &quot;number&quot; &amp;&amp; Number.isFinite(v) ? clamp(v, 0, 1) : v;
+}
+
+function normalizeKey(v: unknown): unknown {
+  if (!isRecord(v)) return v;
+  const root = typeof v.root === &quot;string&quot; ? canonicalRoot(v.root) : v.root;
+  const mode = typeof v.mode === &quot;string&quot; ? v.mode.trim().toLowerCase() : v.mode;
+  return { root, mode: mode === &quot;maj&quot; ? &quot;major&quot; : mode === &quot;min&quot; || mode === &quot;aeolian&quot; ? &quot;minor&quot; : mode };
+}
+
+/** &quot;Eb&quot; -&gt; &quot;D#&quot;, &quot;f#&quot; -&gt; &quot;F#&quot;, &quot;Bb minor&quot; -&gt; &quot;A#&quot;. */
+function canonicalRoot(text: string): string {
+  const m = /^\s*([a-gA-G])\s*([#b♭♯]?)/.exec(text);
+  if (!m) return text;
+  const letter = m[1]!.toUpperCase();
+  const accidental = m[2] ?? &quot;&quot;;
+  const index = KEY_ROOTS.indexOf(letter as (typeof KEY_ROOTS)[number]);
+  if (index &lt; 0) return text;
+  const shift = accidental === &quot;#&quot; || accidental === &quot;♯&quot; ? 1 : accidental === &quot;b&quot; || accidental === &quot;♭&quot; ? -1 : 0;
+  return KEY_ROOTS[(index + shift + KEY_ROOTS.length) % KEY_ROOTS.length]!;
+}
+
+function normalizeBpm(v: unknown): unknown {
+  if (!isRecord(v)) return v;
+  const num = (n: unknown): number | null =&gt; (typeof n === &quot;number&quot; &amp;&amp; Number.isFinite(n) ? Math.round(clamp(n, MIN_BPM, MAX_BPM)) : null);
+  const min = num(v.min);
+  const max = num(v.max);
+  const target = num(v.target);
+  if (min === null || max === null || target === null) return v;
+  const lo = Math.min(min, max);
+  const hi = Math.max(min, max);
+  return { min: Math.min(lo, target), max: Math.max(hi, target), target };
+}
+
+function normalizeTimeSignature(v: unknown): unknown {
+  if (v === null || v === undefined) return { numerator: 4, denominator: 4 };
+  if (!isRecord(v)) return v;
+  const numerator = typeof v.numerator === &quot;number&quot; ? Math.round(clamp(v.numerator, 1, 32)) : v.numerator;
+  const denominator = typeof v.denominator === &quot;number&quot; ? nearest([2, 4, 8, 16], v.denominator) : v.denominator;
+  return { numerator, denominator };
+}
+
+function nearestLoop(v: unknown): unknown {
+  return typeof v === &quot;number&quot; &amp;&amp; Number.isFinite(v) ? nearest(LOOP_BARS, v) : v;
+}
+
+function nearest(allowed: readonly number[], n: number): number {
+  let best = allowed[0]!;
+  for (const a of allowed) if (Math.abs(a - n) &lt; Math.abs(best - n)) best = a;
+  return best;
+}
+import { BandSchema, MAX_ADDED_PARTS, TemplateSchema, formLabels, parseForm, stringifyForm } from &quot;@aibleton/protocol&quot;;
+import type { Band, BandPart, Section, SongBrief, Template } from &quot;@aibleton/protocol&quot;;
+import { partId } from &quot;../core/band-generator.ts&quot;;
+
+/**
+ * Apply the brief&#x27;s feedback to the template and band. Deterministic and
+ * tolerant: unknown ids and labels are ignored, a form that would break the
+ * template is dropped, and a band is never emptied. The results are
+ * re-validated against the protocol schemas; failing that is a bug here,
+ * not bad model output, so it throws.
+ */
+export function applyFeedback(template: Template, band: Band, brief: SongBrief): { template: Template; band: Band } {
+  const revisedTemplate = TemplateSchema.parse(reviseTemplate(template, brief));
+  const revisedBand = BandSchema.parse(reviseBand(band, brief));
+  return { template: revisedTemplate, band: revisedBand };
+}
+
+function reviseTemplate(template: Template, brief: SongBrief): Template {
+  const sections: Record&lt;string, Section&gt; = {};
+  for (const [label, section] of Object.entries(template.sections)) sections[label] = { ...section };
+
+  for (const note of brief.sections) {
+    const section = sections[note.label];
+    if (!section) continue;
+    if (note.brief &amp;&amp; note.brief.trim()) section.brief = note.brief.trim();
+    if (note.intensity !== null) section.intensity = note.intensity;
+  }
+
+  const form = acceptableForm(brief.templateFeedback.form, Object.keys(sections)) ?? template.form;
+  return { ...template, form, sections };
+}
+
+/** A revised form is kept only if it parses and uses labels the template already defines. */
+function acceptableForm(form: string | null, labels: readonly string[]): string | null {
+  if (!form || !form.trim()) return null;
+  let entries;
+  try {
+    entries = parseForm(form);
+  } catch {
+    return null;
+  }
+  const known = new Set(labels);
+  if (!formLabels(entries).every((label) =&gt; known.has(label))) return null;
+  return stringifyForm(entries);
+}
+
+function reviseBand(band: Band, brief: SongBrief): Band {
+  const notes = new Map(brief.parts.map((p) =&gt; [p.partId, p]));
+  const kept: BandPart[] = [];
+  for (const part of band.parts) {
+    const note = notes.get(part.id);
+    if (note &amp;&amp; !note.keep) continue;
+    const revised: BandPart = { ...part };
+    if (note?.brief &amp;&amp; note.brief.trim()) revised.brief = note.brief.trim();
+    kept.push(revised);
+  }
+  // A band with no players is not a band; keep the original line-up rather than none.
+  const parts = kept.length &gt; 0 ? kept : band.parts.map((p) =&gt; ({ ...p }));
+
+  const taken = new Set(parts.map((p) =&gt; p.id));
+  for (const added of brief.bandFeedback.addParts.slice(0, MAX_ADDED_PARTS)) {
+    const role = added.role.trim();
+    const name = added.name.trim();
+    const briefText = added.brief.trim();
+    if (!role || !name || !briefText) continue;
+    parts.push({ id: partId(role, name, taken), role, name, brief: briefText });
+  }
+
+  return { ...band, parts };
+}
+import { SongSchema } from &quot;@aibleton/protocol&quot;;
+import type { Song } from &quot;@aibleton/protocol&quot;;
+
+/** Structural edits to a composed song. Pure; every edit re-validates through the schema. */
+
+export class TrackNotFoundError extends Error {
+  constructor(readonly partId: string) {
+    super(`no track for part ${JSON.stringify(partId)}`);
+  }
+}
+
+export class LastTrackError extends Error {
+  constructor() {
+    super(&quot;a song needs at least one track&quot;);
+  }
+}
+
+/**
+ * Drop a part from the song: its track, every slot and placement it owned,
+ * and its entry in the song&#x27;s copy of the band. Remaining tracks keep their
+ * order and are re-indexed. The brief is left as the model wrote it.
+ */
+export function removeTrack(song: Song, partId: string): Song {
+  if (!song.plan.tracks.some((t) =&gt; t.partId === partId)) throw new TrackNotFoundError(partId);
+  if (song.plan.tracks.length === 1) throw new LastTrackError();
+  const keep = &lt;T extends { partId: string }&gt;(items: readonly T[]) =&gt; items.filter((item) =&gt; item.partId !== partId);
+  return SongSchema.parse({
+    ...song,
+    band: { ...song.band, parts: song.band.parts.filter((p) =&gt; p.id !== partId) },
+    plan: {
+      ...song.plan,
+      tracks: keep(song.plan.tracks).map((track, index) =&gt; ({ ...track, index })),
+      slots: keep(song.plan.slots),
+      placements: keep(song.plan.placements),
+    },
+  });
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-29-342Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-29-342Z" class="timestamp-link"><time datetime="2026-09-04T18:04:29.342Z" data-timestamp="2026-09-04T18:04:29.342Z">2026-09-04T18:04:29.342Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_012FBGimWsxEbzW8Y1SYnfJ5">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Read resolver head and find placement/slot consumers</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">sed -n 1,140p mate/src/songwriting/resolve.ts; echo ----; grep -rn &#34;placements\|slots\b\|intensity\|keep\b&#34; --include=*.ts --include=*.tsx app/src mate/src/api mate/src/songwriting/download.ts mate/src/songwriting/arrange.ts | grep -v &#34;^.*://&#34; | head -80</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T18-04-29-380Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T18-04-29-380Z" class="timestamp-link"><time datetime="2026-09-04T18:04:29.380Z" data-timestamp="2026-09-04T18:04:29.380Z">2026-09-04T18:04:29.380Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>import { KEY_ROOTS, SongSchema, beatsPerBar, keyName } from &quot;@aibleton/protocol&quot;;
+import type { KeyMode, MusicalKey, SampleSlot, Song, SoundKey, SpliceCandidate, TimeSignature } from &quot;@aibleton/protocol&quot;;
+import { mapLimit } from &quot;../core/async.ts&quot;;
+import type { Logger } from &quot;../log.ts&quot;;
+import type { Sound, SplicePort } from &quot;../ports/splice/types.ts&quot;;
+
+/**
+ * Turns each sample slot of a song into ranked Splice candidates. Splice&#x27;s
+ * search is one query in, ten hits out, no key filter and no pagination
+ * (docs/splice-integration.md), so the resolver fans several short queries
+ * out per slot, merges the hits and scores them here on bpm, key, loop
+ * length and instrument. Everything except `resolveSong` is pure.
+ */
+
+export const MAX_CANDIDATES = 5;
+export const MAX_QUERIES_PER_SLOT = 4;
+export const SEARCH_CONCURRENCY = 4;
+/** Roles whose material has no key; key scoring is skipped for them. */
+export const UNPITCHED_ROLES: ReadonlySet&lt;string&gt; = new Set([&quot;drums&quot;, &quot;percussion&quot;, &quot;fx&quot;]);
+
+export class SlotNotFoundError extends Error {
+  constructor(readonly slotId: string) {
+    super(`no slot ${JSON.stringify(slotId)}`);
+  }
+}
+
+export class NotACandidateError extends Error {
+  constructor(readonly slotId: string, readonly soundUuid: string) {
+    super(`${soundUuid} is not a candidate for slot ${JSON.stringify(slotId)}`);
+  }
+}
+
+/** Everything the resolver knows about one slot, pulled from the structured song parts. */
+export interface SlotContext {
+  slot: SampleSlot;
+  role: string;
+  name: string;
+  partBrief: string;
+  sectionBrief: string;
+  soundHints: string[];
+  sectionDescriptors: string[];
+  genres: string[];
+  descriptors: string[];
+  timeSignature: TimeSignature;
+}
+
+export function slotContext(song: Song, slot: SampleSlot): SlotContext {
+  const track = song.plan.tracks.find((t) =&gt; t.partId === slot.partId);
+  const part = song.band.parts.find((p) =&gt; p.id === slot.partId);
+  const briefPart = song.brief.parts.find((p) =&gt; p.partId === slot.partId);
+  const briefSection = song.brief.sections.find((s) =&gt; s.label === slot.label);
+  return {
+    slot,
+    role: track?.role ?? part?.role ?? &quot;unknown&quot;,
+    name: track?.name ?? part?.name ?? slot.partId,
+    partBrief: part?.brief ?? &quot;&quot;,
+    sectionBrief: song.template.sections[slot.label]?.brief ?? &quot;&quot;,
+    soundHints: briefPart?.soundHints ?? [],
+    sectionDescriptors: briefSection?.descriptors ?? [],
+    genres: song.brief.genres,
+    descriptors: song.brief.descriptors,
+    timeSignature: song.plan.timeSignature,
+  };
+}
+
+// ---- queries ---------------------------------------------------------------
+
+/** What to ask Splice for per role. &quot;grooves&quot; makes Splice return whole-kit drum patterns. */
+const INSTRUMENT: Record&lt;string, string&gt; = {
+  drums: &quot;drum grooves&quot;,
+  percussion: &quot;percussion grooves&quot;,
+  bass: &quot;bass loop&quot;,
+  guitar: &quot;guitar loop&quot;,
+  keys: &quot;keys loop&quot;,
+  synth: &quot;synth loop&quot;,
+  horns: &quot;horns loop&quot;,
+  strings: &quot;strings loop&quot;,
+  vocals: &quot;vocal loop&quot;,
+  fx: &quot;fx loop&quot;,
+};
+
+/** Words in tags or file names that mark a sound as belonging to a role. */
+const ROLE_WORDS: Record&lt;string, string[]&gt; = {
+  drums: [&quot;drums&quot;, &quot;drum&quot;, &quot;grooves&quot;, &quot;breaks&quot;, &quot;breakbeat&quot;, &quot;kit&quot;],
+  percussion: [&quot;percussion&quot;, &quot;perc&quot;, &quot;shaker&quot;, &quot;conga&quot;, &quot;bongo&quot;, &quot;tambourine&quot;],
+  bass: [&quot;bass&quot;, &quot;sub&quot;],
+  guitar: [&quot;guitar&quot;, &quot;gtr&quot;],
+  keys: [&quot;keys&quot;, &quot;piano&quot;, &quot;rhodes&quot;, &quot;organ&quot;, &quot;wurli&quot;, &quot;clav&quot;],
+  synth: [&quot;synth&quot;, &quot;pad&quot;, &quot;pads&quot;, &quot;lead&quot;, &quot;arp&quot;],
+  horns: [&quot;horns&quot;, &quot;brass&quot;, &quot;sax&quot;, &quot;trumpet&quot;, &quot;trombone&quot;],
+  strings: [&quot;strings&quot;, &quot;violin&quot;, &quot;cello&quot;, &quot;viola&quot;],
+  vocals: [&quot;vocals&quot;, &quot;vocal&quot;, &quot;vox&quot;],
+  fx: [&quot;fx&quot;, &quot;riser&quot;, &quot;impact&quot;, &quot;transition&quot;, &quot;texture&quot;],
+};
+
+const STOP_WORDS = new Set([&quot;the&quot;, &quot;and&quot;, &quot;with&quot;, &quot;for&quot;, &quot;some&quot;, &quot;that&quot;, &quot;this&quot;, &quot;very&quot;, &quot;into&quot;, &quot;over&quot;, &quot;under&quot;]);
+const KEY_TEXT = /^[a-g](#|b)?\s*(major|minor|maj|min|m|dorian|mixolydian|lydian|phrygian)?$/i;
+const BAR_COUNT = /\b\d+\s*bars?\b/i;
+
+function tokens(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9#]+/)
+    .filter(Boolean);
+}
+
+function instrumentPhrase(role: string): string {
+  return INSTRUMENT[role] ?? `${role} loop`;
+}
+
+/** Descriptor words that add signal: not key text, bar counts, genres, role words or filler. */
+function usable(word: string, ctx: SlotContext): boolean {
+  const w = word.trim();
+  if (w.length &lt; 3 || STOP_WORDS.has(w.toLowerCase())) return false;
+  if (KEY_TEXT.test(w) || BAR_COUNT.test(w)) return false;
+  if (w.toLowerCase() === keyName(ctx.slot.key).toLowerCase()) return false;
+  const lower = w.toLowerCase();
+  if (ctx.genres.some((g) =&gt; g.toLowerCase() === lower)) return false;
+  if (lower === ctx.role || (ROLE_WORDS[ctx.role] ?? []).includes(lower)) return false;
+  return true;
+}
+
+function distinct(words: readonly string[]): string[] {
+  const seen = new Set&lt;string&gt;();
+  const out: string[] = [];
+  for (const w of words) {
+    const key = w.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(w.trim());
+  }
+  return out;
+}
+
+function phrase(parts: readonly (string | undefined)[]): string {
+  return distinct(parts.filter((p): p is string =&gt; Boolean(p &amp;&amp; p.trim()))).join(&quot;, &quot;);
+}
+
+/**
+ * Short Splice queries for a slot, instrument first, then a couple of
+----
+(eval):1: no matches found: --include=*.ts</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-31-141Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-31-141Z" class="timestamp-link"><time datetime="2026-09-04T18:04:31.141Z" data-timestamp="2026-09-04T18:04:31.141Z">2026-09-04T18:04:31.141Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01BTTBCfJr7WexA1fS3WD1pB">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">List tests and scripted briefer</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">ls mate/test; grep -ln &#34;layoutSong\|dawStatus\|songTracks&#34; mate/test/*.ts app/src -r; ls mate/src/songwriting/briefer; cat mate/src/songwriting/briefer/scripted.ts | head -80</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T18-04-31-177Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T18-04-31-177Z" class="timestamp-link"><time datetime="2026-09-04T18:04:31.177Z" data-timestamp="2026-09-04T18:04:31.177Z">2026-09-04T18:04:31.177Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>ableton.stub.test.ts
+api.test.ts
+arrange.test.ts
+async.test.ts
+band-generator.test.ts
+bands.api.test.ts
+bands.store.test.ts
+briefer.normalize.test.ts
+briefer.prompt.test.ts
+briefer.scripted.test.ts
+config.test.ts
+daw.test.ts
+document-store.test.ts
+download.test.ts
+edit.test.ts
+feedback.test.ts
+form.test.ts
+generator.test.ts
+helpers
+layout.test.ts
+loop.test.ts
+machine.test.ts
+mailbox.test.ts
+pick.test.ts
+recipes.test.ts
+resolve.test.ts
+rng.test.ts
+snapshot.schema.test.ts
+songs.api.test.ts
+songs.store.test.ts
+splice.markdown.test.ts
+splice.mcp.download.test.ts
+splice.oauth.test.ts
+splice.stub.test.ts
+templates.api.test.ts
+templates.store.test.ts
+mate/test/arrange.test.ts
+mate/test/daw.test.ts
+mate/test/layout.test.ts
+mate/test/songs.api.test.ts
+app/src/components/SongView.tsx
+anthropic.ts
+index.ts
+normalize.ts
+prompt.ts
+schema.ts
+scripted.ts
+types.ts
+import { KEY_ROOTS, SongBriefSchema, bandGenre, genreKey } from &quot;@aibleton/protocol&quot;;
+import type { BpmRange, KeyMode, LoopBars, SongBrief } from &quot;@aibleton/protocol&quot;;
+import { mulberry32 } from &quot;../../core/rng.ts&quot;;
+import { bpmHint, genreKeysIn, tokenize } from &quot;../pick.ts&quot;;
+import type { BriefInput, Briefer } from &quot;./types.ts&quot;;
+
+export type BriefScript = (input: BriefInput, callIndex: number) =&gt; SongBrief | Promise&lt;SongBrief&gt;;
+
+/** Tempo and mode that read as the genre when the request says nothing. */
+const GENRE_DEFAULTS: Record&lt;string, { bpm: BpmRange; mode: KeyMode; genres: string[] }&gt; = {
+  funk: { bpm: { min: 96, max: 116, target: 106 }, mode: &quot;dorian&quot;, genres: [&quot;funk&quot;, &quot;soul&quot;] },
+  jazz: { bpm: { min: 110, max: 170, target: 140 }, mode: &quot;major&quot;, genres: [&quot;jazz&quot;, &quot;swing&quot;] },
+  rock: { bpm: { min: 110, max: 140, target: 124 }, mode: &quot;minor&quot;, genres: [&quot;rock&quot;, &quot;indie&quot;] },
+  metal: { bpm: { min: 130, max: 190, target: 160 }, mode: &quot;phrygian&quot;, genres: [&quot;metal&quot;] },
+  house: { bpm: { min: 120, max: 128, target: 124 }, mode: &quot;minor&quot;, genres: [&quot;house&quot;, &quot;electronic&quot;] },
+  hiphop: { bpm: { min: 84, max: 96, target: 90 }, mode: &quot;minor&quot;, genres: [&quot;hip hop&quot;, &quot;boom bap&quot;] },
+  ambient: { bpm: { min: 60, max: 90, target: 72 }, mode: &quot;lydian&quot;, genres: [&quot;ambient&quot;, &quot;cinematic&quot;] },
+  reggae: { bpm: { min: 70, max: 90, target: 78 }, mode: &quot;major&quot;, genres: [&quot;reggae&quot;, &quot;dub&quot;] },
+};
+const FALLBACK = { bpm: { min: 100, max: 120, target: 110 } as BpmRange, mode: &quot;minor&quot; as KeyMode, genres: [&quot;groove&quot;] };
+
+/** Loop length that suits each role: rhythm parts turn over faster than pads and lines. */
+const ROLE_LOOP_BARS: Record&lt;string, LoopBars&gt; = {
+  drums: 4,
+  percussion: 4,
+  guitar: 4,
+  bass: 8,
+  keys: 8,
+  synth: 8,
+  strings: 8,
+  vocals: 2,
+  horns: 2,
+  fx: 2,
+};
+
+/** Descriptor words worth echoing from the request. */
+const MOOD_WORDS = [&quot;upbeat&quot;, &quot;dark&quot;, &quot;bright&quot;, &quot;mellow&quot;, &quot;heavy&quot;, &quot;tight&quot;, &quot;loose&quot;, &quot;dry&quot;, &quot;wet&quot;, &quot;lush&quot;, &quot;sparse&quot;, &quot;busy&quot;, &quot;dirty&quot;, &quot;clean&quot;];
+
+/**
+ * Deterministic brief for tests and for running mate with no LLM: reads the
+ * band&#x27;s genre and the request&#x27;s tempo and mood words, keeps every part and
+ * changes nothing about the form. Records every input and can be told to fail.
+ */
+export class ScriptedBriefer implements Briefer {
+  readonly kind = &quot;scripted&quot; as const;
+  readonly calls: BriefInput[] = [];
+  private failNext: Error | null = null;
+
+  constructor(private readonly script: BriefScript | null = null) {}
+
+  /** The next brief() call rejects with this error. */
+  rejectNext(error: Error = new Error(&quot;scripted briefer failure&quot;)): void {
+    this.failNext = error;
+  }
+
+  async brief(input: BriefInput, signal: AbortSignal): Promise&lt;SongBrief&gt; {
+    const index = this.calls.length;
+    this.calls.push(input);
+    if (signal.aborted) throw new Error(&quot;aborted&quot;);
+    if (this.failNext) {
+      const err = this.failNext;
+      this.failNext = null;
+      throw err;
+    }
+    if (this.script) return this.script(input, index);
+    return defaultBrief(input);
+  }
+}
+
+/** The brief a scripted briefer writes when it has no script. Exported for tests. */
+export function defaultBrief(input: BriefInput): SongBrief {
+  const tokens = tokenize(input.text);
+  // A named genre wins over the band&#x27;s tag, the way a real brief follows the request.
+  const genre = [...genreKeysIn(tokens)].find((key) =&gt; key in GENRE_DEFAULTS) ?? bandGenre(input.band) ?? null;
+  const defaults = (genre &amp;&amp; GENRE_DEFAULTS[genreKey(genre)]) || FALLBACK;
+  const hinted = bpmHint(tokens);
+  const bpm: BpmRange = hinted !== null ? { min: Math.max(40, hinted - 8), max: Math.min(220, hinted + 8), target: hinted } : defaults.bpm;
+  const rng = mulberry32(hash(`${input.template.id}|${input.band.id}|${input.text}`));
+  const root = KEY_ROOTS[Math.floor(rng() * KEY_ROOTS.length)]!;
+  const descriptors = MOOD_WORDS.filter((w) =&gt; tokens.includes(w));</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-35-983Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-35-983Z" class="timestamp-link"><time datetime="2026-09-04T18:04:35.983Z" data-timestamp="2026-09-04T18:04:35.983Z">2026-09-04T18:04:35.983Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-38-245Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-38-245Z" class="timestamp-link"><time datetime="2026-09-04T18:04:38.245Z" data-timestamp="2026-09-04T18:04:38.245Z">2026-09-04T18:04:38.245Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01FArLo7JvikMFpzjKAnPKBp">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Find placement and slot consumers in app and api</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">grep -rn &#34;placements\|\.slots\b\|intensity&#34; --include=&#39;*.ts&#39; --include=&#39;*.tsx&#39; app/src mate/src/api mate/src/songwriting/download.ts mate/src/songwriting/arrange.ts | head -60; echo ----; ls docs mate/src/core; ls mate/src/core/recipes* mate/data 2&gt;/dev/null</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T18-04-38-285Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T18-04-38-285Z" class="timestamp-link"><time datetime="2026-09-04T18:04:38.285Z" data-timestamp="2026-09-04T18:04:38.285Z">2026-09-04T18:04:38.285Z</time></a></div><div class="message-content"><div class="tool-result tool-error"><div class="truncatable"><div class="truncatable-content"><pre>Exit code 1
+app/src/components/SongArrangement.tsx:46:  const slotById = new Map(plan.slots.map((s) =&gt; [s.id, s]));
+app/src/components/SongArrangement.tsx:47:  const dawSlot = new Map(daw.slots.map((s) =&gt; [s.slotId, s]));
+app/src/components/SongArrangement.tsx:50:  for (const p of daw.placements) {
+app/src/components/SongArrangement.tsx:55:  for (const p of plan.placements) {
+app/src/components/SongView.tsx:40:  const hasCandidates = plan.slots.some((s) =&gt; s.candidates.length &gt; 0);
+app/src/components/SongView.tsx:41:  const picked = plan.slots.filter((s) =&gt; s.pickedUuid !== null).length;
+app/src/components/SongView.tsx:42:  const onDisk = plan.slots.filter(slotDownloaded).length;
+app/src/components/SongView.tsx:46:  const slotsInLive = daw.slots.filter((s) =&gt; s.state === &quot;in-live&quot;).length;
+app/src/components/SongView.tsx:47:  const placed = daw.placements.filter((p) =&gt; p.placed).length;
+app/src/components/SongView.tsx:49:  const selected = plan.slots.find((s) =&gt; s.id === selectedSlotId) ?? null;
+app/src/components/SongView.tsx:123:            {slotsInLive}/{plan.slots.length} clips
+app/src/components/SongView.tsx:126:            {placed}/{daw.placements.length} placed
+app/src/components/SongView.tsx:204:        {plan.slots.length} sample slots · {picked} picked · {onDisk} on disk · {slotsInLive} in Live · “?” no pick yet, “○” picked, “✓” on disk, “▶” in Live · click a clip to choose its sound
+app/src/components/BandRoster.tsx:13: * theme tokens: related roles share a hue and separate on intensity, so the
+app/src/lib/songs.ts:75:/** Drops a part from the song: its track, slots and placements. The last track cannot be removed. */
+mate/src/songwriting/arrange.ts:27:  /** Snapshot-and-step rounds before giving up; tracks, clips and placements each need one. */
+mate/src/songwriting/download.ts:42:  for (const slot of song.plan.slots) {
+mate/src/songwriting/download.ts:46:  const slots = song.plan.slots.map((slot) =&gt; {
+mate/src/songwriting/download.ts:65:      slotIds: song.plan.slots.filter((s) =&gt; s.pickedUuid === uuid &amp;&amp; s.candidates.some((c) =&gt; c.uuid === uuid)).map((s) =&gt; s.id),
+mate/src/songwriting/download.ts:100:      plan: { ...current.plan, slots: current.plan.slots.map((s) =&gt; (slotIds.includes(s.id) ? { ...s, resolved } : s)) },
+mate/src/songwriting/download.ts:110:  for (const slot of song.plan.slots) {
+mate/src/api/routes/songs.ts:292:  /** Drop a part from the song: its track, its slots and placements. The last track cannot go. */
+----
+docs:
+splice-integration.md
+
+mate/src/core:
+anthropic.ts
+async.ts
+band-generator.ts
+bands.ts
+clock.ts
+commands.ts
+document-store.ts
+events.ts
+generator.ts
+mailbox.ts
+recipes.ts
+rng.ts
+songs.ts
+state.ts
+templates.ts
+mate/src/core/recipes.ts</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-39-789Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-39-789Z" class="timestamp-link"><time datetime="2026-09-04T18:04:39.789Z" data-timestamp="2026-09-04T18:04:39.789Z">2026-09-04T18:04:39.789Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01R9EZsucGqm9A87MYzcXdx7">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Read arrange, download, and built-in template data</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cat mate/src/songwriting/arrange.ts; sed -n 1,60p mate/src/songwriting/download.ts; grep -rn &#34;form:\|intensity&#34; mate/src/core/*.ts mate/src/data 2&gt;/dev/null | head -30</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T18-04-39-827Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T18-04-39-827Z" class="timestamp-link"><time datetime="2026-09-04T18:04:39.827Z" data-timestamp="2026-09-04T18:04:39.827Z">2026-09-04T18:04:39.827Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>import { SongSchema, dawStatus } from &quot;@aibleton/protocol&quot;;
+import type { ArrangeStep, DawStatus, SessionState, Song } from &quot;@aibleton/protocol&quot;;
+import type { Logger } from &quot;../log.ts&quot;;
+import type { AbletonPort } from &quot;../ports/ableton/types.ts&quot;;
+
+/**
+ * Builds the song in the Live set: one audio track per part, the downloaded
+ * sample of every slot in the scene for its section, and copies of it along
+ * the arrangement. `dawStatus` (protocol) decides what is missing against a
+ * fresh snapshot; this module only runs the steps, then looks again, until
+ * nothing is left. Safe to call any time: it adds what is missing and touches
+ * only tracks mate created. Live&#x27;s MCP server cannot delete tracks or
+ * arrangement clips, so nothing is ever removed.
+ */
+
+export interface ArrangeDeps {
+  ableton: AbletonPort;
+  log: Logger;
+  /** Checked before each step; an aborted request stops starting new ones. */
+  signal: AbortSignal;
+  /** Called with the song after a track is created for it (its `liveName` is set); save and publish it here. */
+  onProgress: (song: Song) =&gt; Promise&lt;void&gt;;
+  /** Called with every snapshot taken, so the app sees Live change round by round. */
+  onSnapshot?: (session: SessionState) =&gt; void;
+  /** Forwarded to the Ableton server&#x27;s telemetry field on every call. */
+  userPrompt?: string;
+  /** Snapshot-and-step rounds before giving up; tracks, clips and placements each need one. */
+  maxRounds?: number;
+}
+
+export interface ArrangeFailure {
+  step: ArrangeStep;
+  error: string;
+}
+
+export interface ArrangeOutcome {
+  song: Song;
+  /** Against the last snapshot taken: what is in Live now, and anything still missing. */
+  status: DawStatus;
+  applied: ArrangeStep[];
+  failed: ArrangeFailure[];
+}
+
+const DEFAULT_ROUNDS = 4;
+
+/** One line per step, for logs and the API. */
+export function describeStep(step: ArrangeStep): string {
+  switch (step.type) {
+    case &quot;setTempo&quot;:
+      return `set tempo to ${step.bpm}`;
+    case &quot;createTrack&quot;:
+      return `create track ${JSON.stringify(step.name)}`;
+    case &quot;importClip&quot;:
+      return `import ${step.slotId} into track ${step.track} scene ${step.scene}`;
+    case &quot;replaceClip&quot;:
+      return `replace ${step.slotId} in track ${step.track} scene ${step.scene}`;
+    case &quot;placeClip&quot;:
+      return `place ${step.slotId} at beat ${step.atBeat}`;
+    case &quot;createLocator&quot;:
+      return `locator ${step.name} at beat ${step.atBeat}`;
+  }
+}
+
+export async function arrangeSong(song: Song, deps: ArrangeDeps): Promise&lt;ArrangeOutcome&gt; {
+  const ctx = deps.userPrompt ? { userPrompt: deps.userPrompt } : undefined;
+  let current = song;
+  const applied: ArrangeStep[] = [];
+  const failed: ArrangeFailure[] = [];
+  const maxRounds = deps.maxRounds ?? DEFAULT_ROUNDS;
+
+  const look = async (): Promise&lt;DawStatus&gt; =&gt; {
+    const snapshot = await deps.ableton.getSnapshot(ctx);
+    deps.onSnapshot?.(snapshot);
+    return dawStatus(current, snapshot);
+  };
+
+  const run = async (step: ArrangeStep): Promise&lt;void&gt; =&gt; {
+    const { ableton } = deps;
+    switch (step.type) {
+      case &quot;setTempo&quot;:
+        await ableton.setTempo(step.bpm, ctx);
+        return;
+      case &quot;createTrack&quot;: {
+        await ableton.createAudioTrack(step.name, ctx);
+        current = SongSchema.parse({
+          ...current,
+          plan: { ...current.plan, tracks: current.plan.tracks.map((t) =&gt; (t.partId === step.partId ? { ...t, liveName: step.name } : t)) },
+        });
+        await deps.onProgress(current);
+        return;
+      }
+      case &quot;replaceClip&quot;:
+        await ableton.deleteClip(step.track, step.scene, ctx);
+      // falls through: the scene is empty now
+      case &quot;importClip&quot;: {
+        await ableton.createAudioClip(step.track, step.scene, step.path, ctx);
+        try {
+          await ableton.setClipName(step.track, step.scene, step.name, ctx);
+        } catch (err) {
+          deps.log.warn(`could not name clip ${step.slotId}: ${message(err)}`);
+        }
+        return;
+      }
+      case &quot;placeClip&quot;:
+        await ableton.duplicateToArrangement(step.track, step.scene, step.atBeat, ctx);
+        return;
+      case &quot;createLocator&quot;:
+        await ableton.createLocator(step.name, step.atBeat, ctx);
+        return;
+    }
+  };
+
+  let status = await look();
+  for (let round = 0; round &lt; maxRounds &amp;&amp; status.steps.length &gt; 0 &amp;&amp; failed.length === 0; round++) {
+    for (const step of status.steps) {
+      if (deps.signal.aborted) {
+        deps.log.warn(`client gone; not starting more Live steps (${describeStep(step)} and later skipped)`);
+        return { song: current, status: await look(), applied, failed };
+      }
+      try {
+        await run(step);
+        applied.push(step);
+      } catch (err) {
+        const error = message(err);
+        deps.log.warn(`${describeStep(step)} failed: ${error}`);
+        failed.push({ step, error });
+      }
+    }
+    status = await look();
+  }
+  return { song: current, status, applied, failed };
+}
+
+function message(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+import { SongSchema, pendingDownloadUuids } from &quot;@aibleton/protocol&quot;;
+import type { DownloadProgress, DownloadSongResponse, Song } from &quot;@aibleton/protocol&quot;;
+import type { Logger } from &quot;../log.ts&quot;;
+import type { SplicePort } from &quot;../ports/splice/types.ts&quot;;
+
+/**
+ * The paid half of the Splice integration: downloading the picked sound of
+ * every slot. One credit per distinct new asset, so picks are deduplicated,
+ * anything already on disk is reused, and a failed download is reported and
+ * never retried. Only `downloadPicks` does I/O.
+ */
+
+export interface DownloadDeps {
+  splice: Pick&lt;SplicePort, &quot;downloadAsset&quot;&gt;;
+  /** Directory the files land in. */
+  dir: string;
+  log: Logger;
+  /** Checked before each paid call; an aborted request stops starting new downloads. */
+  signal: AbortSignal;
+  /**
+   * Called after every successful download with the song so far; save and
+   * publish it here. Return a song to carry on from instead (the route
+   * arranges each file in Live as it lands, which names the song&#x27;s tracks).
+   */
+  onProgress: (song: Song) =&gt; Promise&lt;Song | void&gt;;
+  /** Called before each asset, after each failure, and once at the end with `current: null`. */
+  onStatus?: (progress: DownloadProgress) =&gt; void;
+}
+
+export type Downloaded = DownloadSongResponse[&quot;downloaded&quot;][number];
+export type DownloadFailure = DownloadSongResponse[&quot;failed&quot;][number];
+
+export interface DownloadOutcome {
+  song: Song;
+  downloaded: Downloaded[];
+  failed: DownloadFailure[];
+}
+
+/** Copy `resolved` onto every slot whose pick another slot already has on disk. Free. */
+export function reuseDownloaded(song: Song): Song {
+  const onDisk = new Map&lt;string, NonNullable&lt;Song[&quot;plan&quot;][&quot;slots&quot;][number][&quot;resolved&quot;]&gt;&gt;();
+  for (const slot of song.plan.slots) {
+    if (slot.resolved?.localPath) onDisk.set(slot.resolved.soundUuid, slot.resolved);
+  }
+  let changed = false;
+  const slots = song.plan.slots.map((slot) =&gt; {
+    if (!slot.pickedUuid || slot.resolved?.soundUuid === slot.pickedUuid) return slot;
+    const found = onDisk.get(slot.pickedUuid);
+    if (!found) return slot;
+    changed = true;
+    return { ...slot, resolved: found };
+  });
+  return changed ? SongSchema.parse({ ...song, plan: { ...song.plan, slots } }) : song;
+}
+
+/**
+ * What a download would spend: each pending uuid with the slots that want
+ * it. A uuid counts only where it is among the owning slot&#x27;s candidates, so a
+ * hand-edited song file cannot trigger arbitrary paid downloads.
+ */
+mate/src/core/generator.ts:140: * `intensity` is left unset — that field is reserved and nothing reads it.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-40-057Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-40-057Z" class="timestamp-link"><time datetime="2026-09-04T18:04:40.057Z" data-timestamp="2026-09-04T18:04:40.057Z">2026-09-04T18:04:40.057Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01Rt9dPAhwbSnSUao8kikJrh">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Read SongView rendering of the plan</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cat app/src/components/SongView.tsx | head -200</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T18-04-40-109Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T18-04-40-109Z" class="timestamp-link"><time datetime="2026-09-04T18:04:40.109Z" data-timestamp="2026-09-04T18:04:40.109Z">2026-09-04T18:04:40.109Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>import { useState } from &quot;react&quot;;
+import { dawStatus, formTotalBars, keyName, parseForm, pendingDownloadUuids, slotDownloaded, type DownloadProgress, type SessionState, type Song } from &quot;@aibleton/protocol&quot;;
+import { shortName } from &quot;../lib/format&quot;;
+import { CandidateList } from &quot;./CandidateList&quot;;
+import { FormStrip } from &quot;./FormStrip&quot;;
+import { SongArrangement } from &quot;./SongArrangement&quot;;
+
+interface Props {
+  song: Song;
+  /** Ableton&#x27;s picture of the set, for what of the song is in Live already. */
+  session: SessionState | null;
+  /** True when mate&#x27;s Splice port is the fixture stub: downloads write placeholder files and spend nothing. */
+  spliceStub: boolean;
+  /** True when mate&#x27;s Ableton port is the in-memory stub: &quot;Live&quot; is a pretend set. */
+  abletonStub: boolean;
+  resolving: boolean;
+  downloading: boolean;
+  arranging: boolean;
+  downloadProgress: DownloadProgress | null;
+  onResolve: () =&gt; Promise&lt;void&gt;;
+  onPick: (slotId: string, soundUuid: string) =&gt; Promise&lt;void&gt;;
+  onDownload: () =&gt; Promise&lt;void&gt;;
+  onArrange: () =&gt; Promise&lt;void&gt;;
+  onRemoveTrack: (partId: string) =&gt; Promise&lt;void&gt;;
+}
+
+/**
+ * The active song as the session mate intends to build: the brief in a row of
+ * chips, the form as a roadmap, then the arrangement — every track laid out
+ * along the form with its looped clips in each occurrence. Clicking a clip
+ * opens that slot&#x27;s Splice candidates below. This is mate&#x27;s state, not Ableton&#x27;s.
+ */
+export function SongView({ song, session, spliceStub, abletonStub, resolving, downloading, arranging, downloadProgress, onResolve, onPick, onDownload, onArrange, onRemoveTrack }: Props) {
+  const { brief, plan } = song;
+  const totalBars = formTotalBars(parseForm(song.template.form));
+  const [selectedSlotId, setSelectedSlotId] = useState&lt;string | null&gt;(null);
+  const [confirmDownload, setConfirmDownload] = useState(false);
+
+  const credits = pendingDownloadUuids(plan).length;
+  const hasCandidates = plan.slots.some((s) =&gt; s.candidates.length &gt; 0);
+  const picked = plan.slots.filter((s) =&gt; s.pickedUuid !== null).length;
+  const onDisk = plan.slots.filter(slotDownloaded).length;
+  const busy = resolving || downloading || arranging;
+  const daw = dawStatus(song, session);
+  const tracksInLive = daw.tracks.filter((t) =&gt; t.index !== null).length;
+  const slotsInLive = daw.slots.filter((s) =&gt; s.state === &quot;in-live&quot;).length;
+  const placed = daw.placements.filter((p) =&gt; p.placed).length;
+  const liveDone = daw.steps.length === 0;
+  const selected = plan.slots.find((s) =&gt; s.id === selectedSlotId) ?? null;
+  const selectedTrack = selected ? plan.tracks.find((t) =&gt; t.partId === selected.partId) ?? null : null;
+
+  const swallow = (p: Promise&lt;void&gt;) =&gt; p.catch(() =&gt; undefined);
+  const progress = downloading &amp;&amp; downloadProgress?.songId === song.id ? downloadProgress : null;
+  const progressText = progress
+    ? progress.current
+      ? `getting ${progress.done + progress.failed + 1} of ${progress.total} · ${shortName(progress.current.fileName)}`
+      : `${progress.done} of ${progress.total} done${progress.failed ? `, ${progress.failed} failed` : &quot;&quot;}`
+    : null;
+
+  return (
+    &lt;div className=&quot;flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto&quot;&gt;
+      &lt;div className=&quot;flex shrink-0 flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5&quot;&gt;
+        &lt;div className=&quot;flex flex-wrap items-center gap-x-3 gap-y-1&quot;&gt;
+          &lt;h3 className=&quot;text-sm font-semibold&quot;&gt;{song.name}&lt;/h3&gt;
+          &lt;span className=&quot;min-w-0 truncate text-xs text-muted&quot; title={song.request.text}&gt;
+            “{song.request.text}”
+          &lt;/span&gt;
+          &lt;span className=&quot;ml-auto flex items-center gap-1.5&quot;&gt;
+            &lt;button
+              type=&quot;button&quot;
+              disabled={busy}
+              onClick={() =&gt; void swallow(onResolve())}
+              className=&quot;rounded-sm border border-accent-2/60 bg-panel-2 px-2.5 py-1 text-xs font-medium text-accent-2 disabled:cursor-not-allowed disabled:opacity-40&quot;
+              title=&quot;Search Splice for every slot. Free.&quot;
+            &gt;
+              {resolving ? &quot;finding…&quot; : hasCandidates ? &quot;find again&quot; : &quot;find sounds&quot;}
+            &lt;/button&gt;
+            {confirmDownload ? (
+              &lt;&gt;
+                &lt;span className=&quot;text-[11px] text-audio&quot;&gt;
+                  spend {credits} credit{credits === 1 ? &quot;&quot; : &quot;s&quot;}?
+                &lt;/span&gt;
+                &lt;button
+                  type=&quot;button&quot;
+                  disabled={busy}
+                  onClick={() =&gt; {
+                    setConfirmDownload(false);
+                    void swallow(onDownload());
+                  }}
+                  className=&quot;rounded-sm border border-audio/60 px-2 py-0.5 text-[11px] font-medium text-audio disabled:cursor-not-allowed disabled:opacity-40&quot;
+                &gt;
+                  confirm
+                &lt;/button&gt;
+                &lt;button type=&quot;button&quot; onClick={() =&gt; setConfirmDownload(false)} className=&quot;rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted&quot;&gt;
+                  cancel
+                &lt;/button&gt;
+              &lt;/&gt;
+            ) : (
+              &lt;button
+                type=&quot;button&quot;
+                disabled={busy || !hasCandidates || credits === 0}
+                onClick={() =&gt; setConfirmDownload(true)}
+                className=&quot;rounded-sm bg-accent px-2.5 py-1 text-xs font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40&quot;
+                title={
+                  !hasCandidates
+                    ? &quot;Find sounds first&quot;
+                    : credits === 0
+                      ? &quot;Every pick is already on disk&quot;
+                      : &quot;Download every picked sound. One Splice credit per new sound.&quot;
+                }
+              &gt;
+                {downloading ? &quot;getting…&quot; : `get sounds (${credits} credit${credits === 1 ? &quot;&quot; : &quot;s&quot;})`}
+              &lt;/button&gt;
+            )}
+          &lt;/span&gt;
+        &lt;/div&gt;
+        &lt;div className=&quot;flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] text-muted&quot;&gt;
+          &lt;span className=&quot;uppercase tracking-wider text-muted/70&quot;&gt;live&lt;/span&gt;
+          &lt;span title=&quot;Tracks the bandmate created in the set, named with a [mate] suffix&quot;&gt;
+            {tracksInLive}/{plan.tracks.length} tracks
+          &lt;/span&gt;
+          &lt;span title=&quot;Session clips holding a downloaded sound&quot;&gt;
+            {slotsInLive}/{plan.slots.length} clips
+          &lt;/span&gt;
+          &lt;span title=&quot;Copies laid along the arrangement&quot;&gt;
+            {placed}/{daw.placements.length} placed
+          &lt;/span&gt;
+          {daw.notes.length ? (
+            &lt;span className=&quot;truncate text-audio&quot; title={daw.notes.join(&quot;\n&quot;)}&gt;
+              {daw.notes[0]}
+              {daw.notes.length &gt; 1 ? ` (+${daw.notes.length - 1})` : &quot;&quot;}
+            &lt;/span&gt;
+          ) : null}
+          &lt;button
+            type=&quot;button&quot;
+            disabled={busy || onDisk === 0 || (liveDone &amp;&amp; session !== null)}
+            onClick={() =&gt; void swallow(onArrange())}
+            className=&quot;ml-auto rounded-sm border border-accent-2/60 bg-panel-2 px-2.5 py-1 text-xs font-medium text-accent-2 disabled:cursor-not-allowed disabled:opacity-40&quot;
+            title={
+              onDisk === 0
+                ? &quot;Get sounds first: only downloaded sounds go into Live&quot;
+                : liveDone &amp;&amp; session !== null
+                  ? &quot;Everything on disk is in Live&quot;
+                  : &quot;Create the song&#x27;s tracks in Live and put every downloaded sound in place. Adds only; never touches your own tracks.&quot;
+            }
+          &gt;
+            {arranging ? &quot;building…&quot; : liveDone &amp;&amp; session !== null &amp;&amp; slotsInLive &gt; 0 ? &quot;in Live ✓&quot; : &quot;build in Live&quot;}
+          &lt;/button&gt;
+          {abletonStub ? &lt;span className=&quot;text-muted/70&quot;&gt;ableton stub: a pretend set&lt;/span&gt; : null}
+        &lt;/div&gt;
+        {downloading ? (
+          &lt;div className=&quot;flex items-center gap-2 font-mono text-[10px] text-muted&quot; role=&quot;status&quot; aria-live=&quot;polite&quot;&gt;
+            &lt;span className=&quot;h-1.5 w-1.5 animate-pulse rounded-full bg-accent&quot; /&gt;
+            &lt;span className=&quot;truncate&quot;&gt;{progressText ?? &quot;asking Splice…&quot;}&lt;/span&gt;
+            {progress?.lastError ? (
+              &lt;span className=&quot;truncate text-audio&quot; title={progress.lastError}&gt;
+                failed: {progress.lastError}
+              &lt;/span&gt;
+            ) : null}
+          &lt;/div&gt;
+        ) : null}
+        &lt;div className=&quot;flex flex-wrap items-center gap-1.5&quot;&gt;
+          &lt;Chip tone=&quot;accent&quot;&gt;{plan.bpm} bpm&lt;/Chip&gt;
+          &lt;Chip tone=&quot;accent-2&quot;&gt;{keyName(plan.key)}&lt;/Chip&gt;
+          &lt;Chip&gt;
+            {plan.timeSignature.numerator}/{plan.timeSignature.denominator}
+          &lt;/Chip&gt;
+          &lt;Chip&gt;{totalBars} bars&lt;/Chip&gt;
+          {brief.genres.map((genre) =&gt; (
+            &lt;Chip key={`g-${genre}`} tone=&quot;midi&quot;&gt;
+              {genre}
+            &lt;/Chip&gt;
+          ))}
+          {brief.descriptors.map((word) =&gt; (
+            &lt;Chip key={`d-${word}`}&gt;{word}&lt;/Chip&gt;
+          ))}
+          {brief.swing !== null ? &lt;Chip&gt;swing {Math.round(brief.swing * 100)}%&lt;/Chip&gt; : null}
+        &lt;/div&gt;
+        &lt;FormStrip form={song.template.form} sections={song.template.sections} showLegend={false} /&gt;
+        &lt;p className=&quot;text-[11px] text-muted&quot;&gt;
+          &lt;span className=&quot;text-foreground/80&quot;&gt;{song.template.name}&lt;/span&gt; × &lt;span className=&quot;text-foreground/80&quot;&gt;{song.band.name}&lt;/span&gt;
+          {brief.templateFeedback.notes || brief.bandFeedback.notes ? (
+            &lt;span title={[brief.templateFeedback.notes, brief.bandFeedback.notes].filter(Boolean).join(&quot;\n&quot;)}&gt; · notes&lt;/span&gt;
+          ) : null}
+          {spliceStub ? &lt;span className=&quot;font-mono text-[10px] text-muted/70&quot;&gt; · splice stub: placeholder files, no credits spent&lt;/span&gt; : null}
+        &lt;/p&gt;
+      &lt;/div&gt;
+
+      &lt;SongArrangement
+        song={song}
+        daw={daw}
+        selectedSlotId={selectedSlotId}
+        onSelect={setSelectedSlotId}
+        busy={busy}
+        resolving={resolving}
+        onRemoveTrack={(partId) =&gt; swallow(onRemoveTrack(partId))}
+      /&gt;
+
+      {selected ? (
+        &lt;CandidateList slot={selected} track={selectedTrack} busy={busy} onPick={(uuid) =&gt; swallow(onPick(selected.id, uuid))} /&gt;</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-45-307Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-45-307Z" class="timestamp-link"><time datetime="2026-09-04T18:04:45.307Z" data-timestamp="2026-09-04T18:04:45.307Z">2026-09-04T18:04:45.307Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-46-027Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-46-027Z" class="timestamp-link"><time datetime="2026-09-04T18:04:46.027Z" data-timestamp="2026-09-04T18:04:46.027Z">2026-09-04T18:04:46.027Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01Quim3ozhPkqQ7ZnBK5GyY3">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Read the arrangement grid component</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">cat app/src/components/SongArrangement.tsx</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T18-04-46-046Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T18-04-46-046Z" class="timestamp-link"><time datetime="2026-09-04T18:04:46.046Z" data-timestamp="2026-09-04T18:04:46.046Z">2026-09-04T18:04:46.046Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>import { useState } from &quot;react&quot;;
+import { slotDownloaded, type DawPlacementStatus, type DawSlotStatus, type DawStatus, type Placement, type SampleSlot, type Song } from &quot;@aibleton/protocol&quot;;
+import { letterClass } from &quot;./FormStrip&quot;;
+import { roleClass } from &quot;./BandRoster&quot;;
+import { shortName } from &quot;../lib/format&quot;;
+
+/** Narrowest an occurrence column may get, so a 1-bar section still shows its letter. */
+const MIN_COL_PX = 72;
+const PX_PER_BAR = 14;
+const HEADER_PX = 200;
+
+/**
+ * The song as it will be arranged: one column per form occurrence (the same
+ * blocks as the roadmap above), one row per track, and in each cell the
+ * sample slot for that part x section looped as many times as it takes to
+ * fill the occurrence — a 4-bar guitar loop shows twice under an 8-bar `a`,
+ * an 8-bar bass loop once. A clip shows the sound picked for its slot;
+ * clicking it selects the slot (every clip of that slot lights up) so the
+ * candidates can be shown below, and &quot;preview&quot; opens the pick on splice.com.
+ * Scrolls horizontally on its own; vertical scroll belongs to the session
+ * column so there is one scrollbar for the page.
+ */
+export function SongArrangement({
+  song,
+  daw,
+  selectedSlotId,
+  onSelect,
+  busy,
+  resolving,
+  onRemoveTrack,
+}: {
+  song: Song;
+  /** What of the song is in the Live set, from the session snapshot. */
+  daw: DawStatus;
+  selectedSlotId: string | null;
+  onSelect: (slotId: string | null) =&gt; void;
+  busy: boolean;
+  /** True while Splice is being searched: clips still without candidates pulse. */
+  resolving: boolean;
+  /** Drops a part and all its clips, e.g. the drums when the drummer is the one playing. */
+  onRemoveTrack: (partId: string) =&gt; void;
+}) {
+  const { plan } = song;
+  const [confirmPartId, setConfirmPartId] = useState&lt;string | null&gt;(null);
+  const canRemove = plan.tracks.length &gt; 1;
+  const slotById = new Map(plan.slots.map((s) =&gt; [s.id, s]));
+  const dawSlot = new Map(daw.slots.map((s) =&gt; [s.slotId, s]));
+  const dawTrack = new Map(daw.tracks.map((t) =&gt; [t.partId, t]));
+  const dawPlacements = new Map&lt;string, DawPlacementStatus[]&gt;();
+  for (const p of daw.placements) {
+    const key = `${p.slotId}:${p.occurrence}`;
+    dawPlacements.set(key, [...(dawPlacements.get(key) ?? []), p]);
+  }
+  const byTrack = new Map&lt;string, Map&lt;number, Placement&gt;&gt;();
+  for (const p of plan.placements) {
+    let row = byTrack.get(p.partId);
+    if (!row) byTrack.set(p.partId, (row = new Map()));
+    row.set(p.occurrence, p);
+  }
+
+  const colStyle = (bars: number) =&gt; ({ flexGrow: bars, flexBasis: 0, minWidth: Math.max(MIN_COL_PX, bars * PX_PER_BAR) });
+
+  return (
+    &lt;div className=&quot;shrink-0 overflow-x-auto&quot;&gt;
+      &lt;div className=&quot;flex min-w-max flex-col gap-1.5&quot;&gt;
+        {/* Header: the form, aligned with the columns below. */}
+        &lt;div className=&quot;grid gap-2&quot; style={{ gridTemplateColumns: `${HEADER_PX}px 1fr` }}&gt;
+          &lt;div className=&quot;flex items-end px-2 text-[10px] uppercase tracking-wider text-muted&quot;&gt;bar&lt;/div&gt;
+          &lt;div className=&quot;flex gap-1&quot;&gt;
+            {plan.timeline.map((occ) =&gt; (
+              &lt;div
+                key={occ.index}
+                className={`flex h-9 items-center justify-between rounded-sm border px-2 ${letterClass(occ.label)}`}
+                style={colStyle(occ.bars)}
+                title={`${occ.label} · ${occ.bars} bars · starts at bar ${occ.startBar + 1}`}
+              &gt;
+                &lt;span className=&quot;font-mono text-sm font-semibold leading-none&quot;&gt;{occ.label}&lt;/span&gt;
+                &lt;span className=&quot;font-mono text-[10px] leading-none opacity-70&quot;&gt;
+                  {occ.startBar + 1}–{occ.startBar + occ.bars}
+                &lt;/span&gt;
+              &lt;/div&gt;
+            ))}
+          &lt;/div&gt;
+        &lt;/div&gt;
+
+        {plan.tracks.map((track) =&gt; {
+          const row = byTrack.get(track.partId);
+          const live = dawTrack.get(track.partId);
+          return (
+            &lt;div key={track.partId} className=&quot;grid gap-2&quot; style={{ gridTemplateColumns: `${HEADER_PX}px 1fr` }}&gt;
+              &lt;div className=&quot;flex flex-col justify-between rounded-sm border border-line bg-panel-2 px-2 py-1.5&quot;&gt;
+                &lt;div className=&quot;flex min-w-0 items-center gap-2&quot;&gt;
+                  &lt;span className=&quot;font-mono text-[10px] text-muted&quot;&gt;{track.index + 1}&lt;/span&gt;
+                  &lt;span className=&quot;truncate text-sm font-medium&quot; title={track.name}&gt;
+                    {track.name}
+                  &lt;/span&gt;
+                &lt;/div&gt;
+                &lt;div className=&quot;flex items-center gap-1.5&quot;&gt;
+                  &lt;span className={`rounded-sm border px-1 text-[10px] font-semibold ${roleClass(track.role)}`}&gt;{track.role}&lt;/span&gt;
+                  &lt;span className=&quot;rounded-sm bg-audio/20 px-1 text-[10px] font-semibold tracking-wide text-audio&quot;&gt;AUDIO&lt;/span&gt;
+                  {live?.index !== null &amp;&amp; live?.index !== undefined ? (
+                    &lt;span className=&quot;rounded-sm border border-accent-2/60 px-1 font-mono text-[9px] text-accent-2&quot; title={`In Live as track ${live.index + 1}, ${live.name ?? &quot;&quot;}`}&gt;
+                      ▶ {live.index + 1}
+                    &lt;/span&gt;
+                  ) : null}
+                  &lt;span className=&quot;ml-auto flex items-center gap-1&quot;&gt;
+                    {confirmPartId === track.partId ? (
+                      &lt;&gt;
+                        &lt;button
+                          type=&quot;button&quot;
+                          disabled={busy}
+                          onClick={() =&gt; {
+                            setConfirmPartId(null);
+                            onRemoveTrack(track.partId);
+                          }}
+                          className=&quot;rounded-sm border border-audio/60 px-1.5 text-[10px] font-medium text-audio disabled:cursor-not-allowed disabled:opacity-40&quot;
+                        &gt;
+                          remove
+                        &lt;/button&gt;
+                        &lt;button type=&quot;button&quot; onClick={() =&gt; setConfirmPartId(null)} className=&quot;rounded-sm border border-line px-1.5 text-[10px] text-muted&quot;&gt;
+                          keep
+                        &lt;/button&gt;
+                      &lt;/&gt;
+                    ) : (
+                      &lt;button
+                        type=&quot;button&quot;
+                        disabled={busy || !canRemove}
+                        onClick={() =&gt; setConfirmPartId(track.partId)}
+                        className=&quot;rounded-sm border border-line px-1.5 text-[10px] text-muted hover:border-audio/60 hover:text-audio disabled:cursor-not-allowed disabled:opacity-40&quot;
+                        title={canRemove ? &quot;Remove this track and all its clips from the song&quot; : &quot;A song needs at least one track&quot;}
+                      &gt;
+                        ✕
+                      &lt;/button&gt;
+                    )}
+                  &lt;/span&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+              &lt;div className=&quot;flex gap-1&quot;&gt;
+                {plan.timeline.map((occ) =&gt; {
+                  const placement = row?.get(occ.index);
+                  const slot = placement ? slotById.get(placement.slotId) : undefined;
+                  return (
+                    &lt;div key={occ.index} className=&quot;flex gap-px&quot; style={colStyle(occ.bars)}&gt;
+                      {placement &amp;&amp; slot ? (
+                        Array.from({ length: placement.repeats }, (_, i) =&gt; (
+                          &lt;Clip
+                            key={i}
+                            slot={slot}
+                            placement={placement}
+                            repeat={i}
+                            label={occ.label}
+                            selected={slot.id === selectedSlotId}
+                            searching={resolving &amp;&amp; slot.candidates.length === 0}
+                            live={dawSlot.get(slot.id) ?? null}
+                            copies={dawPlacements.get(`${slot.id}:${occ.index}`) ?? []}
+                            onSelect={() =&gt; onSelect(slot.id === selectedSlotId ? null : slot.id)}
+                          /&gt;
+                        ))
+                      ) : (
+                        &lt;div className=&quot;h-14 flex-1 rounded-sm border border-dashed border-line/70&quot; title=&quot;rests&quot; /&gt;
+                      )}
+                    &lt;/div&gt;
+                  );
+                })}
+              &lt;/div&gt;
+            &lt;/div&gt;
+          );
+        })}
+      &lt;/div&gt;
+    &lt;/div&gt;
+  );
+}
+
+function Clip({
+  slot,
+  placement,
+  repeat,
+  label,
+  selected,
+  searching,
+  live,
+  copies,
+  onSelect,
+}: {
+  slot: SampleSlot;
+  placement: Placement;
+  repeat: number;
+  label: string;
+  selected: boolean;
+  /** Splice has not answered for this slot yet. */
+  searching: boolean;
+  /** The slot&#x27;s session clip in Live, if the snapshot is known. */
+  live: DawSlotStatus | null;
+  /** The arrangement copies Live has, or is due, for this occurrence. Live&#x27;s own clip length decides how many. */
+  copies: DawPlacementStatus[];
+  onSelect: () =&gt; void;
+}) {
+  const first = repeat === 0;
+  const pick = slot.candidates.find((c) =&gt; c.uuid === slot.pickedUuid) ?? null;
+  const previewUrl = first &amp;&amp; pick &amp;&amp; pick.url ? pick.url : null;
+  const onDisk = slotDownloaded(slot);
+  const inLive = live?.state === &quot;in-live&quot;;
+  const placedCopies = copies.filter((c) =&gt; c.placed).length;
+  const allPlaced = inLive &amp;&amp; copies.length &gt; 0 &amp;&amp; placedCopies === copies.length;
+  const title = [
+    slot.id,
+    pick ? pick.fileName : &quot;no pick yet&quot;,
+    `${placement.loopBars}-bar loop, ${repeat + 1} of ${placement.repeats}`,
+    slot.query,
+    live &amp;&amp; live.state !== &quot;waiting&quot; ? `Live: ${live.state}${live.lengthBeats !== null ? `, ${live.lengthBeats} beats` : &quot;&quot;}${copies.length ? `, ${placedCopies}/${copies.length} copies placed` : &quot;&quot;}` : &quot;&quot;,
+  ]
+    .filter(Boolean)
+    .join(&quot;\n&quot;);
+  return (
+    &lt;div
+      className={`relative flex h-14 min-w-0 flex-1 overflow-hidden rounded-sm border ${letterClass(label)}${onDisk ? &quot; border-b-4 border-b-accent-2&quot; : &quot;&quot;}${selected ? &quot; ring-1 ring-accent&quot; : &quot;&quot;}${searching ? &quot; animate-pulse border-dashed&quot; : &quot;&quot;}`}
+      title={onDisk ? `${title}\non disk: ${slot.resolved?.localPath ?? &quot;&quot;}` : title}
+    &gt;
+      &lt;button
+        type=&quot;button&quot;
+        onClick={onSelect}
+        aria-pressed={selected}
+        className=&quot;flex min-w-0 flex-1 cursor-pointer flex-col justify-between px-1.5 py-1 text-left&quot;
+      &gt;
+        &lt;span className={`w-full truncate text-[11px] font-medium leading-tight${previewUrl ? &quot; pr-14&quot; : &quot;&quot;}`}&gt;
+          {first ? (pick ? shortName(pick.fileName) : searching ? &quot;searching Splice…&quot; : slot.id) : &quot;↻&quot;}
+        &lt;/span&gt;
+        &lt;span className=&quot;font-mono text-[10px] opacity-80&quot;&gt;
+          {placement.loopBars} bar{placement.loopBars === 1 ? &quot;&quot; : &quot;s&quot;}
+          {placement.repeats &gt; 1 ? ` · ${repeat + 1}/${placement.repeats}` : &quot;&quot;}
+          {allPlaced ? &quot; · ▶&quot; : onDisk ? &quot; · ✓&quot; : slot.pickedUuid ? &quot; · ○&quot; : searching ? &quot; · …&quot; : &quot; · ?&quot;}
+        &lt;/span&gt;
+      &lt;/button&gt;
+      {first &amp;&amp; allPlaced ? (
+        &lt;span className=&quot;absolute bottom-1 right-1 rounded-sm bg-accent-2 px-1 text-[9px] font-semibold leading-tight text-black&quot; title=&quot;In the Live set: session clip and arrangement copies&quot;&gt;
+          ▶ in Live
+        &lt;/span&gt;
+      ) : first &amp;&amp; inLive ? (
+        &lt;span className=&quot;absolute bottom-1 right-1 rounded-sm border border-accent-2/60 bg-panel/70 px-1 text-[9px] font-semibold leading-tight text-accent-2&quot; title={`Session clip in Live; ${placedCopies}/${copies.length} arrangement copies placed`}&gt;
+          ▶ {placedCopies}/{copies.length}
+        &lt;/span&gt;
+      ) : onDisk &amp;&amp; first ? (
+        &lt;span className=&quot;absolute bottom-1 right-1 rounded-sm bg-accent-2 px-1 text-[9px] font-semibold leading-tight text-black&quot; title=&quot;Downloaded from Splice&quot;&gt;
+          ✓ on disk
+        &lt;/span&gt;
+      ) : null}
+      {previewUrl ? (
+        &lt;a
+          href={previewUrl}
+          target=&quot;_blank&quot;
+          rel=&quot;noopener noreferrer&quot;
+          onClick={(e) =&gt; e.stopPropagation()}
+          className=&quot;absolute right-1 top-1 rounded-sm border border-current/40 bg-panel/70 px-1 text-[10px] leading-tight opacity-80 hover:opacity-100&quot;
+          title=&quot;Open on splice.com to listen&quot;
+        &gt;
+          preview ↗
+        &lt;/a&gt;
+      ) : null}
+    &lt;/div&gt;
+  );
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-46-871Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-46-871Z" class="timestamp-link"><time datetime="2026-09-04T18:04:46.871Z" data-timestamp="2026-09-04T18:04:46.871Z">2026-09-04T18:04:46.871Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01Q5xUsaT1PWFQzsGAba5GhZ">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Read built-in template generation</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">sed -n 100,200p mate/src/core/generator.ts; grep -n &#34;form\|brief:&#34; mate/src/core/templates.ts | head -40</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T18-04-46-903Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T18-04-46-903Z" class="timestamp-link"><time datetime="2026-09-04T18:04:46.903Z" data-timestamp="2026-09-04T18:04:46.903Z">2026-09-04T18:04:46.903Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>      if (label === last) weight *= REPEAT_FACTOR;
+      candidates.push({ label, weight });
+    }
+
+    const total = candidates.reduce((n, c) =&gt; n + c.weight, 0);
+    let pick = candidates[candidates.length - 1]!.label;
+    let roll = rng() * total;
+    for (const candidate of candidates) {
+      roll -= candidate.weight;
+      if (roll &lt; 0) {
+        pick = candidate.label;
+        break;
+      }
+    }
+
+    if (pick === letters[introduced]) introduced++;
+    run = pick === last ? run + 1 : 1;
+    labels.push(pick);
+  }
+
+  const entries: FormEntry[] = labels.map((label) =&gt; ({ label, bars }));
+  return stringifyForm(entries);
+}
+
+function briefFor(index: number): string {
+  switch (index) {
+    case 0:
+      return &quot;main groove: the core beat and bassline, the song&#x27;s foundation&quot;;
+    case 1:
+      return &quot;lift: chorus energy, brighter and busier than the groove&quot;;
+    case 2:
+      return &quot;breakdown: stripped back and darker, space where the groove was&quot;;
+    default:
+      return `variation ${index - 2} on the groove: same feel, new texture`;
+  }
+}
+
+/**
+ * Starter sections for a set of labels, one per label, filed under its own
+ * letter. Roles follow position: groove, lift, breakdown, then variations.
+ * `intensity` is left unset — that field is reserved and nothing reads it.
+ */
+export function defaultSections(labels: readonly string[]): Record&lt;string, Section&gt; {
+  const sections: Record&lt;string, Section&gt; = {};
+  let index = 0;
+  for (const label of labels) {
+    if (sections[label]) continue;
+    sections[label] = { label, brief: briefFor(index) };
+    index++;
+  }
+  return sections;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-48-284Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-48-284Z" class="timestamp-link"><time datetime="2026-09-04T18:04:48.284Z" data-timestamp="2026-09-04T18:04:48.284Z">2026-09-04T18:04:48.284Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_012ciGmKAHNMJF6XXHMEkKKZ">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Read scripted brief parts and layout tests</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">sed -n 80,140p mate/src/songwriting/briefer/scripted.ts; echo ----; sed -n 1,80p mate/test/layout.test.ts</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T18-04-48-315Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T18-04-48-315Z" class="timestamp-link"><time datetime="2026-09-04T18:04:48.315Z" data-timestamp="2026-09-04T18:04:48.315Z">2026-09-04T18:04:48.315Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>  const descriptors = MOOD_WORDS.filter((w) =&gt; tokens.includes(w));
+
+  return SongBriefSchema.parse({
+    summary: `${descriptors[0] ?? defaults.genres[0]} ${genre ?? &quot;groove&quot;} in ${root} ${defaults.mode} around ${bpm.target} bpm`,
+    genres: defaults.genres,
+    descriptors,
+    key: { root, mode: defaults.mode },
+    bpm,
+    timeSignature: { numerator: 4, denominator: 4 },
+    swing: null,
+    parts: input.band.parts.map((part) =&gt; ({
+      partId: part.id,
+      keep: true,
+      brief: null,
+      soundHints: [],
+      loopBars: ROLE_LOOP_BARS[part.role] ?? 4,
+    })),
+    sections: Object.values(input.template.sections).map((section) =&gt; ({
+      label: section.label,
+      brief: null,
+      descriptors: [],
+      intensity: null,
+    })),
+    templateFeedback: { form: null, notes: &quot;scripted briefer: template kept as saved&quot; },
+    bandFeedback: { addParts: [], notes: &quot;scripted briefer: band kept as saved&quot; },
+  });
+}
+
+/** Small string hash so the scripted key depends on the inputs, not the clock. */
+function hash(text: string): number {
+  let h = 2166136261;
+  for (let i = 0; i &lt; text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h &gt;&gt;&gt; 0;
+}
+----
+import { describe, expect, test } from &quot;bun:test&quot;;
+import { SongPlanSchema, songTracks } from &quot;@aibleton/protocol&quot;;
+import type { Band, SongBrief, Template } from &quot;@aibleton/protocol&quot;;
+import { fitLoop, layoutSong } from &quot;../src/songwriting/layout.ts&quot;;
+
+const template: Template = {
+  id: &quot;tpl&quot;,
+  name: &quot;tpl&quot;,
+  form: &quot;a8 b8 a8&quot;,
+  sections: {
+    a: { label: &quot;a&quot;, brief: &quot;groove&quot; },
+    b: { label: &quot;b&quot;, brief: &quot;lift&quot; },
+  },
+  createdAt: 0,
+};
+
+const band: Band = {
+  id: &quot;band&quot;,
+  name: &quot;band&quot;,
+  parts: [
+    { id: &quot;guitar-strat&quot;, role: &quot;guitar&quot;, name: &quot;strat&quot;, brief: &quot;clean chords&quot; },
+    { id: &quot;bass-p&quot;, role: &quot;bass&quot;, name: &quot;p bass&quot;, brief: &quot;round bass&quot; },
+  ],
+  metadata: { genre: &quot;funk&quot; },
+  createdAt: 0,
+};
+
+const brief: SongBrief = {
+  summary: &quot;a funky jam&quot;,
+  genres: [&quot;funk&quot;, &quot;soul&quot;],
+  descriptors: [&quot;upbeat&quot;],
+  key: { root: &quot;E&quot;, mode: &quot;minor&quot; },
+  bpm: { min: 100, max: 120, target: 110 },
+  timeSignature: { numerator: 4, denominator: 4 },
+  swing: null,
+  parts: [
+    { partId: &quot;guitar-strat&quot;, keep: true, brief: null, soundHints: [&quot;wah&quot;], loopBars: 4 },
+    { partId: &quot;bass-p&quot;, keep: true, brief: null, soundHints: [], loopBars: 8 },
+  ],
+  sections: [{ label: &quot;b&quot;, brief: null, descriptors: [&quot;busy&quot;], intensity: 0.8 }],
+  templateFeedback: { form: null, notes: &quot;&quot; },
+  bandFeedback: { addParts: [], notes: &quot;&quot; },
+};
+
+describe(&quot;fitLoop&quot;, () =&gt; {
+  test.each([
+    [8, 4, 4],
+    [8, 8, 8],
+    [8, 16, 8],
+    [6, 4, 2],
+    [5, 8, 1],
+    [16, 8, 8],
+    [4, 1, 1],
+    [12, 8, 4],
+  ] as const)(&quot;bars %i preferred %i -&gt; %i&quot;, (bars, preferred, expected) =&gt; {
+    expect(fitLoop(bars, preferred)).toBe(expected);
+  });
+});
+
+describe(&quot;layoutSong&quot;, () =&gt; {
+  const plan = layoutSong(template, band, brief);
+
+  test(&quot;passes the plan schema&quot;, () =&gt; {
+    expect(SongPlanSchema.safeParse(plan).success).toBe(true);
+  });
+
+  test(&quot;tracks follow band order and are audio&quot;, () =&gt; {
+    expect(plan.tracks).toEqual([
+      { index: 0, partId: &quot;guitar-strat&quot;, name: &quot;strat&quot;, role: &quot;guitar&quot;, kind: &quot;audio&quot;, liveName: null },
+      { index: 1, partId: &quot;bass-p&quot;, name: &quot;p bass&quot;, role: &quot;bass&quot;, kind: &quot;audio&quot;, liveName: null },
+    ]);
+  });
+
+  test(&quot;timeline accumulates bars and beats in 4/4&quot;, () =&gt; {
+    expect(plan.timeline).toEqual([
+      { index: 0, label: &quot;a&quot;, bars: 8, startBar: 0, startBeat: 0, lengthBeats: 32 },
+      { index: 1, label: &quot;b&quot;, bars: 8, startBar: 8, startBeat: 32, lengthBeats: 32 },
+      { index: 2, label: &quot;a&quot;, bars: 8, startBar: 16, startBeat: 64, lengthBeats: 32 },
+    ]);
+  });</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-04-50-019Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-04-50-019Z" class="timestamp-link"><time datetime="2026-09-04T18:04:50.019Z" data-timestamp="2026-09-04T18:04:50.019Z">2026-09-04T18:04:50.019Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01H7WCgqhYbVxqdaDFQZZr3V">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">List song routes and resolver query building</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">grep -n &#34;app\.\(get\|post\|put\|delete\|patch\)\|router\.\(get\|post\|put\|delete\|patch\)\|\.on(\&#34;\(GET\|POST\)\|\&#34;/songs&#34; mate/src/api/routes/songs.ts | head -30; sed -n 140,200p mate/src/songwriting/resolve.ts</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T18-04-50-059Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T18-04-50-059Z" class="timestamp-link"><time datetime="2026-09-04T18:04:50.059Z" data-timestamp="2026-09-04T18:04:50.059Z">2026-09-04T18:04:50.059Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>80:  r.get(&quot;/songs&quot;, async (c) =&gt; {
+89:  r.post(&quot;/songs/compose&quot;, async (c) =&gt; {
+141:  r.delete(&quot;/songs/active&quot;, (c) =&gt; {
+147:  r.get(&quot;/songs/:id&quot;, async (c) =&gt; {
+156:  r.post(&quot;/songs/:id/activate&quot;, async (c) =&gt; {
+172:  r.post(&quot;/songs/:id/resolve&quot;, async (c) =&gt; {
+195:  r.post(&quot;/songs/:id/pick&quot;, async (c) =&gt; {
+241:  r.post(&quot;/songs/:id/download&quot;, async (c) =&gt; {
+272:  r.post(&quot;/songs/:id/arrange&quot;, async (c) =&gt; {
+293:  r.delete(&quot;/songs/:id/tracks/:partId&quot;, async (c) =&gt; {
+308:  r.delete(&quot;/songs/:id&quot;, async (c) =&gt; {
+ * Short Splice queries for a slot, instrument first, then a couple of
+ * descriptors, then a genre. Never the layout&#x27;s comma-joined `slot.query`,
+ * which returns the wrong instrument (docs/splice-integration.md).
+ */
+export function composeQueries(ctx: SlotContext): string[] {
+  const instrument = instrumentPhrase(ctx.role);
+  const genre = ctx.genres[0];
+  const moods = distinct([...ctx.soundHints, ...ctx.sectionDescriptors, ...ctx.descriptors]).filter((w) =&gt; usable(w, ctx));
+  const queries: string[] = [];
+
+  queries.push(phrase([instrument, ...moods.slice(0, 2), genre]));
+
+  const briefWords = tokens(ctx.partBrief)
+    .filter((w) =&gt; !KEY_TEXT.test(w) &amp;&amp; !STOP_WORDS.has(w))
+    .slice(0, 6);
+  if (briefWords.length) {
+    const roleWords = ROLE_WORDS[ctx.role] ?? [ctx.role];
+    if (!briefWords.some((w) =&gt; roleWords.includes(w))) briefWords.push(roleWords[0] ?? ctx.role);
+    if ((ctx.role === &quot;drums&quot; || ctx.role === &quot;percussion&quot;) &amp;&amp; !briefWords.includes(&quot;grooves&quot;)) briefWords.push(&quot;grooves&quot;);
+    queries.push(phrase([briefWords.join(&quot; &quot;), genre]));
+  }
+
+  const sectionWords = distinct([...ctx.sectionDescriptors, ...tokens(ctx.sectionBrief)]).filter((w) =&gt; usable(w, ctx));
+  if (sectionWords.length) queries.push(phrase([instrument, ...sectionWords.slice(0, 2), genre]));
+
+  if (ctx.genres[1]) queries.push(phrase([instrument, ...moods.slice(0, 1), ctx.genres[1]]));
+
+  return distinct(queries).slice(0, MAX_QUERIES_PER_SLOT);
+}
+
+// ---- scoring ---------------------------------------------------------------
+
+const SCALES: Record&lt;KeyMode, number[]&gt; = {
+  major: [0, 2, 4, 5, 7, 9, 11],
+  minor: [0, 2, 3, 5, 7, 8, 10],
+  dorian: [0, 2, 3, 5, 7, 9, 10],
+  mixolydian: [0, 2, 4, 5, 7, 9, 10],
+  lydian: [0, 2, 4, 6, 7, 9, 11],
+  phrygian: [0, 1, 3, 5, 7, 8, 10],
+};
+
+function pitchClass(root: string): number {
+  return KEY_ROOTS.indexOf(root as (typeof KEY_ROOTS)[number]);
+}
+
+/** Pitch classes (0 = C) in a key&#x27;s scale. */
+export function scalePitchClasses(key: MusicalKey): Set&lt;number&gt; {
+  const root = pitchClass(key.root);
+  return new Set(SCALES[key.mode].map((i) =&gt; (root + i) % 12));
+}
+
+/** The major/minor flavour of a mode, which is what Splice&#x27;s tags distinguish. */
+export function parallelMode(mode: KeyMode): &quot;major&quot; | &quot;minor&quot; {
+  return mode === &quot;major&quot; || mode === &quot;mixolydian&quot; || mode === &quot;lydian&quot; ? &quot;major&quot; : &quot;minor&quot;;
+}
+
+function sameSet(a: Set&lt;number&gt;, b: Set&lt;number&gt;): boolean {
+  if (a.size !== b.size) return false;
+  for (const x of a) if (!b.has(x)) return false;
+  return true;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-05-37-761Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-05-37-761Z" class="timestamp-link"><time datetime="2026-09-04T18:05:37.761Z" data-timestamp="2026-09-04T18:05:37.761Z">2026-09-04T18:05:37.761Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-05-37-764Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-05-37-764Z" class="timestamp-link"><time datetime="2026-09-04T18:05:37.764Z" data-timestamp="2026-09-04T18:05:37.764Z">2026-09-04T18:05:37.764Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Investigation done; I have the full picture of layout, brief, DAW diff and UI. Checking my proposed design with the advisor before writing it up.</p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-05-37-789Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-05-37-789Z" class="timestamp-link"><time datetime="2026-09-04T18:05:37.789Z" data-timestamp="2026-09-04T18:05:37.789Z">2026-09-04T18:05:37.789Z</time></a></div><div class="message-content"><pre class="json">{
+  &quot;type&quot;: &quot;server_tool_use&quot;,
+  &quot;id&quot;: &quot;srvtoolu_01R1cn3sX9EWRsvS94pwjoeY&quot;,
+  &quot;name&quot;: &quot;advisor&quot;,
+  &quot;input&quot;: {}
+}</pre></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-07-14-960Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-07-14-960Z" class="timestamp-link"><time datetime="2026-09-04T18:07:14.960Z" data-timestamp="2026-09-04T18:07:14.960Z">2026-09-04T18:07:14.960Z</time></a></div><div class="message-content"><pre class="json">{
+  &quot;type&quot;: &quot;advisor_tool_result&quot;,
+  &quot;tool_use_id&quot;: &quot;srvtoolu_01R1cn3sX9EWRsvS94pwjoeY&quot;,
+  &quot;content&quot;: {
+    &quot;type&quot;: &quot;advisor_redacted_result&quot;,
+    &quot;encrypted_content&quot;: &quot;Er8hCioIExgCIiQ4NDA4Njc4Zi00YTAwLTQ3YjAtYWRiYy04NmNmYTFlMmY3MDASDKpdNqHIIO4JmLf9XhoM1BjTJlDXA/f85AcKIjAjvRFELC4NO/hijhPd5/Ac9ITPyk0EpwNL2F2KGYeiEGhJjPegiDR7NZbPzMuvHJYqwiBn8pE2P3jaiE0TuSrbD+w5cjwsDY6WsJFtpAyZqQP6m2SMdZwBbjJcjRGFOl5bywjwTWUQDO4hGmUmWxCR7zGQi2q4fjJBOYdoZQhrP+WLGOhRxirtuhibiEZimM4OxfhC9bfeP902LCq0oUmtBqoYOWx9ZpMxIQbIb/duYKVsXUVOKhSIvBzQssn2AgEX4/i/JxBnlgqWWcbTctz7XWBbCIiR1YXrIU1I/iIF3LeCq1ZWld3yMTy6LsdYXqrZoi6EfbQ2XExNmqqjOP03OrMZM/k2Sz1dR2kwpUVEeJj/M3765RnHGdGvpvi8cVk1UVEIRvgRTqIBG1yK37h5kZKIjYoORW3g8KvxrNXvL6LZ15pSXzORNPIefgG7pBlgtKyU/Q4DFxehJIyoMYJzzbUUamJBZwMsXNkShYt7FCL2cq9i3nrpz1sg0w5LM57O6YqhUiET/xDn7NZbaidLUqSe7wAAMrZchcEQdSwOB8zicfEnx9DqFLSJgCw4Cjq5t7W/jYiiV++/8GepeLbciyzEe76gC3faGpKOkuT+LtLd4aY7ThsNuqpi6hWfEh/r6ZpoiVfLU+kDyWDFRWXHVdYi7FEAmwv4NJOSPyT11cE7krLdNc6BVKBlfjRHPWviYD2ZILuxTB/2wQjyQRnkX0tOreDRhEkSokkA/H/fczzaGzo3Tki2Apwc1zbTx6zWGrFqBe7Eh0n0aTSyroKGZmkGR8ST6OJ0WjLrPL97YzhUqgVRwcw9JCsXakA8b91r4Dq7EE2np8BJoYOluxnfVJrlR0AOUpYqd4f8MJs1vWYQE+hPcRHbcxlBeFFA1WisRrnFBIV7aPL0cvBVzHISKn2RhklNuEiRnPoxdlhUmT/qWdnEsVXNqTwEi+afr5kNCVn5Vngi+rEcHzs+kJtUsfyBtuGmptKH6OgbAAd74VTfKlafTyXAvVYgQ5QCeW82xwbihPPVYnqZup8otHyyyWDY3TQUvnFNZnzDvKOrlxRKe15TGKeFM3JrgxR6HCTcWJTYNaEnvO0o3dmRLK4ivTl46qWW/wMInGseeN4VJjDHeHFLda5R/MXHiHcW4jy6yBdRsMtJ8VIJLEFU2K/eHun2UfSO9WcKpb733S3fTsG1R/rzaYneWhRIdJmukH+DGdbBUsVG4l7QM1lTni/zmUnpieymO3TFwZjbk4x4G34phK9xEVxTTFVfIeUOIQySXsHABp5hmv1K7RrPaegodt4DdAA1+af7vJA252/XdoO7NL8ZQ8Ga7nrObFt9xbcIEpx8awCYDxejWPX1Cvg86jXSF/KcOdrdUNu3s1NAhMgmEHPKeat2tqSP1wcazpG/mKkOI8KXqV+PiDROulhc/GUl3pY/KS8K2IwWldB7s1XgIiMLfNPc+gL/AbaE+YgIYlYtIYxwqFoPYi7BlQaVMkuMELAIhG72fCf7RDniTYLjWzGtaICGnAECoxkqPalUshmysX2uJOWeRHZg9uSfHeMVDoq9D4Wy610LwlV0LSPiCqzKLMKBw3L+JbEvpHlKZW71c7bfQK1Fk/ZmsQ53IaaUoYCPxAECYruOn7T9amyVhWOtFzs8CVVOtLTrNEm5o56hjOWnEnWeQsrBv0patBbDSuY0kwEyn/zvP4XKvxKreudaa1ZNI1bGHQrLQsPrkRZXcAbYnTcp7D8EPXK+C3Gxhe0DDwdPnik18nwfeUxdZygI5Q78BwoFtPVpwQJFdbp+OKZB0LCebjYIS0ebjGc0jlFR4SKpbjl+GuQYAui0QTkaf26c2sJc2NuGHWQjGxYLqgUL5kTVmu444r7MRd4QiRGyVFFai67IPiAiMzvSehyvzScGK6F0W/RWHgheclmU4cSwSNbnHmsv7k7eYhyga305mORMo4CIpVHjwvppkQLYRYTFNWfe5TFs9ZRgj8zKMai7I5QpRRI3XS9JVcan0F6x++/70rGGealugiwMCM/zcw9JA0SnsmRRBZT+vQ6aY6x0VgbtFpP4GyApnpjhNgSubm+JG0dHTcstHCGoUisra2qfOtf8j1S+ovhqEFNoQn0IdlePo7MeO3xQ2Eif4EgQ1Ow/UodmtjbwjDvjm2LH38jtU5oysBMAh+kAiXNtiiWDwltHgKm9yxswkJaiucYVY8J5FKVP0Ma3jxs775C3kke25TO8ec7GSr6KWfyUEdMzWlRSrHkpQWwoba/6Sj+LbhR7Rp0BQHr4LClZTygrRVcF5IlzlIjIhmizkp54gYZ35JAIBOPhpuUu/lHiM9z2+xuOap0OmLS6PCA1iLZRp98kRmHxYxDktKLPuBhuCtAHSac039YgRLDyBRLrDLjOaa346U1NHPI1gStlTz2kwGEFcoWSLQ4F/XogbWmlH51+LHpvE+JGyi4/bXxIQmesGqPluZmtl/UlRgVPWoYiyXJQySacTZibNhovf5FxRwr158gv1VjqxWPwnCbWAGUr620kXFPSbGrevBaRxQZQen5OCz63Z+awPLy1ukPxW7r8OZGyX8RpRmNq9M9bIYvc570lrx68p0VQ+E1zXdQlzzsAqmLCEJnujszclMbthPEAxOhP+dk8ZzvjpxS7igEMRDt9cQX/nzAqrpepspqw6PU/h3GBJgoATxnxVuOxE4DHppuF/eUAhMhabI+M0UPx+3K/hj5rS4zulj98nnsz6Vt4Qv16oyXcOD9Iey05B4Vf9vu/hqOvS2nuTgoTk9hwRWbF3w95eqcUBCH0PwMxDlhKEI126K7siiKPqpxcVBD/34nvDKXtCmDnL8wU9x7dwz1Y24a0lDo4deTPK1agPssB9OOQVA45Z2uyH3nBshCFLEp9TbURKvWpi0x8bo7tY1nzcMuWxb084qePn1JYsw5QOc8GA3GxD8162uNsVZRrIof45GlVwX3mJyZj9Eb9rChDkT+sExqIg5s+IREaWpglHAcxDqn6vARYasPy8sjS3hQBqD/Pr9OYRgP4t4mWxIpjusRgyt5VFgpNI0vqxEpi/KXGhqJgx+SVre+KA3EzFFBMISWIA/E/A2u2OrBut5DYA8KwJxw+kseIXoniCAV9cYkPsDV+vElTMRD7ArPiqgOb3/w4xERcky8Yx5WrS9sahKzz6J2IGe7edq+Jub8+4P1joJEg2ER0OM2LfPJjjmcoBtVAiqqK3KtGza3TN0yleGk5WNtCckuuD1/NIGAlB+Xcat9lDYg/lyiqO9VWV9PUuo8GHCvPNapW9wfRMPPYPQsW0lWG6dF5oiKsnH53qj1/bnRZrxB9RTbXq2cr9bLet4qvIuPeqf/QKHKZB3YD584PZxxMmcoYsFd1JITigeTmhfUeFSTKBvYcivq1Ib8loB6fiy8CgrBYHPEyf7rwNaxSsoNpHDCkqKR9rHAVzGnk9GBqCRKZWg1bAMgX5vpR26Sfob3amdn5hw1sYvNmq8FCwVrNkOBIcgUv5Ot4nRxabEfUPh6Uxhtp/iwWEeAuT6iA+6mUozjgdds9MDmWem3g87fK9Vl5i0ZOj+wAiplTNejhP3agY9dDLTFZsW3MswLxzg/pznio4Y2jVlFXNoDfdrGAWec8eytehdyND+29+uceruIrednP5+i9h6ugq/fKKnzNFYQqOVsrnBWaLHH+IFOHHdaIkJJfhi2pvvxpnKuzA0J/ExfA9OJ4/M835qcOK3jMufyzmdBPsFD2Lwd3M3XaZWgZhUdjE9yY/X6MkHMoSszkrjMrqgZihbi7T/walJooyMGOcrbq1GGt+nZ3JxMMHDcg5zt8H3rDAboKJ/Eh7UlvsGpJZkKhLwc32fHkC1JUJNPWBQUnYg0YnbLrCHnFZkn9ljz+qaUpPGlOO1T+3CNBgwUMZ6hBzDODm5aTWRfX8/SYrdH/f90MPmfi6U2NpA6nIwQTm7nx7KYWez9oHlbDzJ0VXiyNRFhj3/9kxxKgrTbJm15bjN+oQA0JQb2Je6cXSNQgLhQojcIpsnbQvHNSexeQT2m9+O0jZEs1aKyTsFpKxZCd0Le6gn8yqmFG/NWlWBTv3uajHKta2OdYBkotYtzXjz9NUFHyc68+LXvzdyifldnk407KgJYOpmeChf8fLvaSVpRXSfU5RlrDrbeHctBiI1UF+ZC4pQpOorPHilgth4iPPXmGLHlr/DRz8djDFn5o6szuVy7CKPgTGE/3DcDTabQ4WNa1GpUkPmn3+vEy7MAHdpnDjmv2hrUG4EsGUnrYGVYfHN0WAAljpSW86D5g9xZhvemGV7Ro0ygAZe7p10fuHELU3Di9pAFOIk62eFVCNmgF8ZZEqz180+YbGKFqLGKjN9yWplSsd1okl0slMfyo4agPJwlML9bjk8bvUNDlwx5AsfiCPbB6XUBtXHvWUorYoABQEZlumnQN2hWbYhsADsf3WHe5kIxTgrryV9VIkzbtjfdcNxqIDBwlAtachj+tbDY+ehbce/0ST0hDknQ/dwTTT+REyd/zBY4gLrhPXk830Qn0QcgZjYOy3Ulz+5gCmg2+yN6oUmRTJxfI+gJuq9r6sOQAO8Pv3fpP9BqwDOn6mGlG9u558vGGML+O/RhzKJdjYO4BK/QTfpw9MIwQ9snYQTpZ5CywRx+VHxDxqA21iP6Yf+E8FLfie29fTx6eP97UyNXCZn89U7Mad9ui9HJeFe3vtGxIwVC9iDVSimufbelvAmO+ZbIh30esRf/korHXxhPp/yrzsi01oAVVNBnac52tHxH6UiRDguiyqH66dF1c11A80pNHWB8Tf6wSAB+Xc52uHGbvgApdbEf36dfhx9I/pXMPin7cjVZw9N7yJSl9kUK4/3mjfAQf0mcVVxFNxB11f8EjgGXEEFhEmHDfcNdlXz0PLAGzL+3UyXP2mIyzaIjv6mgMiJjima6yAKA147D4zQVJVJpxJvu5f7Vuat7wAKrDD80b9HrOnf5hQ8I7hVW0Dzcs+juX0dZH/XLCWm1XYC8+fgBlULQcEMk2TPhAvg+aEuLwziZP/y2+wUldSxaWvq5BN56Fnk63arNfppoJ+a+rNoW4kzHM07WrMZpQSJN7E4VbmeVEqEMs9ud80OLF2Uaz5uRDzrVRqnY7jIBG6Jy+Kn8SzzO4SzMlGR2tS9rIq/RpXaQDUIESgT5YNYjGgJ3A1CK0FuB14UpHGizvFP5Qf3/uC6vVhjO2Omw3RPyrBxNrCNL3a5Ly7/IQajeiRlHPq3JyPMkdGIM2+wEugKX0zr3j2Y1VGkagz6XwtxKrUv+aD9X5BqvOAznZhGcjZwDFCKgMIo+462xA5ocejTkv1aGLnVcozJnpGwvZCZiazjhW71OCANAN0Llwx1qkV4UXro+LklylZbvHC2s0d0ECv7p/GPVtPmsla9N5oV5LnDy82KQEual0Iff5g/Y/S1h+H5eOluOH+DU8SmURA+4eLzRahXSAa/T51nazKq5Q8ZH3W107XyUMAFXPcxHgKfTQww6bQeJsp0R5B6aJdB4vv1f7hiuVgitQUDhFq9cgdiYeV3D9NP6XLRjohTA1byaeMd1PssejePlG6cLCRu2Ds69kmQqOY1MpZ4dQ4BqKnoHvHn+6GAk=&quot;
+  }
+}</pre></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-07-15-922Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-07-15-922Z" class="timestamp-link"><time datetime="2026-09-04T18:07:15.922Z" data-timestamp="2026-09-04T18:07:15.922Z">2026-09-04T18:07:15.922Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01HHt9Ur4GE6MYqYhf51QDSq">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Check whether the band generator records core vs optional</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">grep -n &#34;emphasis\|optional\|core&#34; mate/src/core/band-generator.ts | head -20</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-09-04T18-07-15-983Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-09-04T18-07-15-983Z" class="timestamp-link"><time datetime="2026-09-04T18:07:15.983Z" data-timestamp="2026-09-04T18:07:15.983Z">2026-09-04T18:07:15.983Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>10: * `anchors`: how many leading `names` entries a *core* slot may be drawn from,
+13: * the role&#x27;s core multiplicity; widen it where every head-of-pool name is
+17:  core: Role[];
+18:  optional: { role: Role; weight: number }[];
+91:    core: [&quot;drums&quot;, &quot;bass&quot;, &quot;guitar&quot;, &quot;keys&quot;],
+93:    optional: [
+160:    core: [&quot;drums&quot;, &quot;bass&quot;, &quot;keys&quot;],
+162:    optional: [
+222:    core: [&quot;drums&quot;, &quot;bass&quot;, &quot;guitar&quot;],
+224:    optional: [
+278:    core: [&quot;drums&quot;, &quot;bass&quot;, &quot;guitar&quot;, &quot;guitar&quot;],
+280:    optional: [
+334:    core: [&quot;drums&quot;, &quot;bass&quot;, &quot;synth&quot;],
+336:    optional: [
+392:    core: [&quot;drums&quot;, &quot;bass&quot;, &quot;keys&quot;],
+394:    optional: [
+456:    core: [&quot;synth&quot;, &quot;fx&quot;],
+458:    optional: [
+524:    core: [&quot;drums&quot;, &quot;bass&quot;, &quot;guitar&quot;, &quot;keys&quot;],
+526:    optional: [</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-07-28-586Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-07-28-586Z" class="timestamp-link"><time datetime="2026-09-04T18:07:28.586Z" data-timestamp="2026-09-04T18:07:28.586Z">2026-09-04T18:07:28.586Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-07-37-925Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-07-37-925Z" class="timestamp-link"><time datetime="2026-09-04T18:07:37.925Z" data-timestamp="2026-09-04T18:07:37.925Z">2026-09-04T18:07:37.925Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Here is what I found and how I'd add parts coming in and out.</p>
+<h2>Why every part always plays</h2>
+<p>The density is a single loop. In <code>mate/src/songwriting/layout.ts:66</code> the layout walks every band part and, for each, every occurrence of the form, and unconditionally creates a slot for that part and section letter plus a placement that loops it across the whole occurrence. No input can suppress a cell.</p>
+<p>The only sparsity that exists today is all-or-nothing per part for the whole song: the brief's <code>keep: false</code> and the app's remove-track button. Two fields that could drive dynamics are collected and then ignored. Section <code>intensity</code> is asked of the model, copied onto the template by the feedback pass, and read by nothing. Band part <code>emphasis</code> is reserved with the same note.</p>
+<h2>The rest of the pipeline is already sparsity-ready</h2>
+<p>This is the good news. A plan with fewer placements is valid and flows through untouched:</p>
+<ul>
+<li><code>SongPlanSchema</code> only checks that each placement references a real track and slot and that its repeats fill its bars. It never requires a placement per cell.</li>
+<li><code>dawStatus</code> in the protocol iterates over the placements that exist, so Live gets only those copies.</li>
+<li><code>songTracks</code>, <code>removeTrack</code>, resolve and download are all per slot or per placement.</li>
+<li>The arrangement grid in the app already renders a dashed cell titled "rests" when a track has no placement for an occurrence. That branch has just never fired.</li>
+</ul>
+<p>One consequence to design around: slots are created per part and letter regardless of use. If a part rests in every occurrence of <code>b</code>, its <code>b</code> slot must not be created, or Splice gets searched and a credit spent on a sound nobody plays.</p>
+<h2>Recommended design</h2>
+<p>Make the lineup per occurrence, not per section letter. The same letter recurs, and the realistic shape is that the first <code>a</code> is drums and bass while the last <code>a</code> is everyone. Two layers:</p>
+<ol>
+<li><strong>The model decides.</strong> Add <code>arrangement</code> to the brief: one entry per form occurrence, in order, listing the part ids that play. The prompt tells the model to follow its own revised form when it changes one, to leave at least one part in every occurrence, and to build across the song. This is the musical call and the model is good at it.</li>
+<li><strong>A deterministic fallback.</strong> When the entry count does not match the final form, or the briefer is scripted, <code>normalizeBrief</code> derives the lineup from what already exists: parts ranked by foundation order using the recipes' core-versus-optional roles, section intensity trimming the tail, and a ramp so the first occurrence of each letter is sparser than later ones.</li>
+</ol>
+<p>Then <code>layoutSong</code> creates a placement only where the lineup says so, and a slot only once the first placement needs it.</p>
+<p>Files that change, in commit order:</p>
+<ul>
+<li><code>packages/protocol/src/songs.ts</code>: the arrangement field on the brief, and two new plan refinements, every slot used by a placement and every occurrence non-empty.</li>
+<li><code>mate/src/songwriting/briefer/{schema,prompt,normalize,scripted}.ts</code>: schema mirror, prompt text, the fallback rule.</li>
+<li><code>mate/src/songwriting/layout.ts</code>: the guarded loop.</li>
+<li><code>mate/test/layout.test.ts</code>, <code>briefer.normalize.test.ts</code>, <code>daw.test.ts</code>: sparse cases.</li>
+<li><code>mate/src/songwriting/edit.ts</code> plus a route: a per-cell toggle so the drummer can rest or add a part in one occurrence from the grid. The grid cell already has the hook point.</li>
+</ul>
+<h2>Caveats</h2>
+<ul>
+<li>Live's server cannot delete arrangement clips, so resting a part after a build leaves its copies in the set. Same known limitation as re-picks.</li>
+<li>Whole-occurrence granularity for v1. <code>Placement</code> already carries its own start and length, so a part entering halfway through a section is a later extension with no schema change.</li>
+<li>This addresses who plays, not variation. Every occurrence of a letter still plays the same loop. That is the next realism step and is separate work.</li>
+</ul>
+<p>I can start on the protocol and layout change if you want to go this way.</p></div></div></div>
+<div class="message user" id="msg-2026-09-04T18-07-38-031Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-09-04T18-07-38-031Z" class="timestamp-link"><time datetime="2026-09-04T18:07:38.031Z" data-timestamp="2026-09-04T18:07:38.031Z">2026-09-04T18:07:38.031Z</time></a></div><div class="message-content">
+<div class="user-content"><p>Stop hook feedback:</p></div></div></div>
+<div class="message assistant" id="msg-2026-09-04T18-07-42-782Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-09-04T18-07-42-782Z" class="timestamp-link"><time datetime="2026-09-04T18:07:42.782Z" data-timestamp="2026-09-04T18:07:42.782Z">2026-09-04T18:07:42.782Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Every part plays everywhere because one loop in <code>layout.ts</code> makes a placement for every part × occurrence, with no input to suppress a cell. Section intensity is collected but never read.</p>
+<p>The rest already handles sparse plans: schema, <code>dawStatus</code>, Live steps and the UI's "rests" cell all work with missing placements.</p>
+<p>Fix: add a per-occurrence lineup to the brief (model decides who plays where, deterministic fallback from role and intensity), and have layout create placements and slots only where the lineup says so. Touches protocol, briefer, layout, tests, plus an optional per-cell toggle route.</p>
+<p>Caveat: Live can't delete clips, so resting a part after a build leaves old copies.</p></div></div></div>
+        
+
+<div class="pagination">
+<a href="index.html" class="index-link">Index</a>
+<span class="disabled">&larr; Prev</span>
+<span class="current">1</span>
+<a href="page-002.html">2</a>
+<a href="page-002.html">Next &rarr;</a>
+</div>
+
+    </div>
+    <script>
+document.querySelectorAll('time[data-timestamp]').forEach(function(el) {
+    const timestamp = el.getAttribute('data-timestamp');
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    if (isToday) { el.textContent = timeStr; }
+    else { el.textContent = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + timeStr; }
+});
+document.querySelectorAll('pre.json').forEach(function(el) {
+    let text = el.textContent;
+    text = text.replace(/"([^"]+)":/g, '<span style="color: #ce93d8">"$1"</span>:');
+    text = text.replace(/: "([^"]*)"/g, ': <span style="color: #81d4fa">"$1"</span>');
+    text = text.replace(/: (\d+)/g, ': <span style="color: #ffcc80">$1</span>');
+    text = text.replace(/: (true|false|null)/g, ': <span style="color: #f48fb1">$1</span>');
+    el.innerHTML = text;
+});
+document.querySelectorAll('.truncatable').forEach(function(wrapper) {
+    const content = wrapper.querySelector('.truncatable-content');
+    const btn = wrapper.querySelector('.expand-btn');
+    if (content.scrollHeight > 250) {
+        wrapper.classList.add('truncated');
+        btn.addEventListener('click', function() {
+            if (wrapper.classList.contains('truncated')) { wrapper.classList.remove('truncated'); wrapper.classList.add('expanded'); btn.textContent = 'Show less'; }
+            else { wrapper.classList.remove('expanded'); wrapper.classList.add('truncated'); btn.textContent = 'Show more'; }
+        });
+    }
+});
+</script>
+</body>
+</html>
