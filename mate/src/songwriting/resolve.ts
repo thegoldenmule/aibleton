@@ -319,6 +319,8 @@ export interface ResolveDeps {
   log: Logger;
   signal: AbortSignal;
   concurrency?: number;
+  /** Called with the song so far each time a slot's candidates are in; save and publish it here. */
+  onSlot?: (song: Song) => Promise<void>;
 }
 
 export interface ResolveResult {
@@ -342,31 +344,42 @@ function choosePick(slot: SampleSlot, candidates: SpliceCandidate[]): string | n
  */
 export async function resolveSong(song: Song, deps: ResolveDeps): Promise<ResolveResult> {
   const contexts = song.plan.slots.map((slot) => slotContext(song, slot));
+  // Jobs are ordered slot by slot, so slots finish roughly in order and can be published as they do.
   const jobs = contexts.flatMap((ctx, slotIndex) => composeQueries(ctx).map((query) => ({ slotIndex, query })));
+  const results: Sound[][][] = contexts.map(() => []);
+  const remaining = contexts.map((ctx) => composeQueries(ctx).length);
+  const slots: SampleSlot[] = contexts.map((ctx) => ctx.slot);
+  const failedSlotIds: string[] = [];
+  const withSlots = () => SongSchema.parse({ ...song, plan: { ...song.plan, slots } });
 
-  const outcomes = await mapLimit(jobs, deps.concurrency ?? SEARCH_CONCURRENCY, async ({ slotIndex, query }) => {
+  const finishSlot = async (slotIndex: number) => {
+    const ctx = contexts[slotIndex]!;
+    const hits = results[slotIndex]!;
+    if (hits.length === 0) {
+      failedSlotIds.push(ctx.slot.id);
+      return;
+    }
+    const candidates = rankCandidates(ctx, hits);
+    slots[slotIndex] = { ...ctx.slot, candidates, pickedUuid: choosePick(ctx.slot, candidates) };
+    if (deps.onSlot) await deps.onSlot(withSlots());
+  };
+
+  // Slots with no queries at all cannot be searched; report them up front.
+  for (let i = 0; i < contexts.length; i++) if (remaining[i] === 0) failedSlotIds.push(contexts[i]!.slot.id);
+
+  await mapLimit(jobs, deps.concurrency ?? SEARCH_CONCURRENCY, async ({ slotIndex, query }) => {
     if (deps.signal.aborted) throw new Error("aborted");
     const { bpm } = contexts[slotIndex]!.slot;
     try {
-      return await deps.splice.searchSounds(query, { bpmMin: bpm.min, bpmMax: bpm.max, type: "loop" });
+      results[slotIndex]!.push(await deps.splice.searchSounds(query, { bpmMin: bpm.min, bpmMax: bpm.max, type: "loop" }));
     } catch (err) {
       deps.log.warn(`splice search failed for ${JSON.stringify(query)}: ${err instanceof Error ? err.message : String(err)}`);
-      return null;
     }
+    if (--remaining[slotIndex]! === 0) await finishSlot(slotIndex);
   });
 
-  const failedSlotIds: string[] = [];
-  const slots = contexts.map((ctx, slotIndex) => {
-    const results = jobs.flatMap((job, i) => (job.slotIndex === slotIndex && outcomes[i] ? [outcomes[i]!] : []));
-    if (results.length === 0) {
-      failedSlotIds.push(ctx.slot.id);
-      return ctx.slot;
-    }
-    const candidates = rankCandidates(ctx, results);
-    return { ...ctx.slot, candidates, pickedUuid: choosePick(ctx.slot, candidates) };
-  });
-
-  return { song: SongSchema.parse({ ...song, plan: { ...song.plan, slots } }), failedSlotIds };
+  failedSlotIds.sort((a, b) => song.plan.slots.findIndex((s) => s.id === a) - song.plan.slots.findIndex((s) => s.id === b));
+  return { song: withSlots(), failedSlotIds };
 }
 
 /** Set a slot's pick to one of its candidates. Pure; throws on an unknown slot or uuid. */

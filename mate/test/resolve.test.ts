@@ -205,6 +205,16 @@ describe("resolveSong", () => {
     expect(slotOf(again, "bass-p:a").resolved?.localPath).toBe("/tmp/x.wav");
   });
 
+  test("publishes each slot as its candidates land", async () => {
+    const song = await cMinorSong();
+    const seen: number[] = [];
+    const { song: resolved } = await resolveSong(song, { ...deps(new FixtureSpliceAdapter()), onSlot: async (s) => void seen.push(s.plan.slots.filter((x) => x.candidates.length > 0).length) });
+    expect(seen).toHaveLength(song.plan.slots.length);
+    expect(seen.at(-1)).toBe(song.plan.slots.length);
+    for (let i = 1; i < seen.length; i++) expect(seen[i]).toBeGreaterThan(seen[i - 1]!);
+    expect(resolved.plan.slots.every((s) => s.candidates.length > 0)).toBe(true);
+  });
+
   test("an aborted signal stops before any search", async () => {
     const song = await cMinorSong();
     const splice = new FakeSplice();

@@ -142,14 +142,20 @@ export function songRoutes(deps: SongRouteDeps): Hono {
 
   /**
    * Search Splice for every slot and store ranked candidates. Free. Reads no
-   * body. Slow-ish: a few queries per slot, fanned out; a client disconnect
-   * stops further searches.
+   * body. Slow-ish: a few queries per slot, fanned out, so each slot is saved
+   * and published as its candidates land, and the run carries on even if the
+   * browser that asked for it goes away (a reload mid-resolve loses nothing).
    */
   r.post("/songs/:id/resolve", async (c) => {
     const loaded = await load(c);
     if ("error" in loaded) return loaded.error;
     try {
-      const result = await resolveSong(loaded.song, { splice: deps.splice, log: deps.log, signal: c.req.raw.signal });
+      const result = await resolveSong(loaded.song, {
+        splice: deps.splice,
+        log: deps.log,
+        signal: new AbortController().signal,
+        onSlot: async (song) => publish(await deps.songs.save(reuseDownloaded(song))),
+      });
       // A pick that another slot already has on disk is reused for free.
       const saved = await deps.songs.save(reuseDownloaded(result.song));
       publish(saved);

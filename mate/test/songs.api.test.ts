@@ -360,14 +360,16 @@ describe("POST /songs/:id/resolve, /pick and /download", () => {
     }
     expect(await h.songs.get(active.id)).toEqual(body.song);
     expect(h.store.getSong()).toEqual(body.song);
-    expect(h.events.ofType("song.changed").length).toBe(before + 1);
+    // One publish as each slot lands, plus the final one.
+    const afterActive = h.events.ofType("song.changed").length;
+    expect(afterActive).toBe(before + active.plan.slots.length + 1);
     expect(StateResponseSchema.safeParse(h.store.snapshot()).success).toBe(true);
 
     const lib = await post(h.app, `/songs/${library.id}/resolve`);
     expect(lib.status).toBe(200);
     expect((await h.songs.get(library.id))!.plan.slots[0]!.candidates.length).toBeGreaterThan(0);
     expect(h.store.getSong()?.id).toBe(active.id);
-    expect(h.events.ofType("song.changed").length).toBe(before + 1);
+    expect(h.events.ofType("song.changed").length).toBe(afterActive);
   });
 
   test("resolve answers 400, 404 and 502", async () => {
