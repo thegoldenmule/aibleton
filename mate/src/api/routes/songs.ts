@@ -202,6 +202,7 @@ export function songRoutes(deps: SongRouteDeps): Hono {
       log: deps.log,
       signal: c.req.raw.signal,
       onProgress: async (song) => publish(await deps.songs.save(song)),
+      onStatus: (progress) => deps.store.events.emit({ type: "download.progress", progress }),
     });
     if (outcome.downloaded.length > 0) {
       const n = outcome.downloaded.length;

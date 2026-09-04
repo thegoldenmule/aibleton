@@ -110,3 +110,21 @@ describe("downloadPicks", () => {
     expect(out.song).toEqual(song);
   });
 });
+
+describe("downloadPicks progress", () => {
+  test("reports before each asset, after each failure, and once at the end", async () => {
+    const { song } = await prepared();
+    const splice = new FakeSplice();
+    const pending = pendingDownloadUuids(song.plan);
+    splice.failDownloads.add(pending[0]!);
+    const seen: { current: string | null; done: number; failed: number; lastError: string | null }[] = [];
+    const { deps: d } = deps(splice, { onStatus: (p) => void seen.push({ current: p.current?.uuid ?? null, done: p.done, failed: p.failed, lastError: p.lastError }) });
+    await downloadPicks(song, d);
+    expect(seen[0]).toEqual({ current: pending[0]!, done: 0, failed: 0, lastError: null });
+    expect(seen[1]).toMatchObject({ current: null, done: 0, failed: 1 });
+    expect(seen[1]!.lastError).toContain(pending[0]!);
+    expect(seen[2]).toEqual({ current: pending[1]!, done: 0, failed: 1, lastError: null });
+    expect(seen.at(-1)).toEqual({ current: null, done: pending.length - 1, failed: 1, lastError: null });
+    expect(seen.every((p) => p.current === null || pending.includes(p.current))).toBe(true);
+  });
+});

@@ -1,5 +1,5 @@
 import { SongSchema, pendingDownloadUuids } from "@aibleton/protocol";
-import type { DownloadSongResponse, Song } from "@aibleton/protocol";
+import type { DownloadProgress, DownloadSongResponse, Song } from "@aibleton/protocol";
 import type { Logger } from "../log.ts";
 import type { SplicePort } from "../ports/splice/types.ts";
 
@@ -19,6 +19,8 @@ export interface DownloadDeps {
   signal: AbortSignal;
   /** Called after every successful download with the song so far; save and publish it here. */
   onProgress: (song: Song) => Promise<void>;
+  /** Called before each asset, after each failure, and once at the end with `current: null`. */
+  onStatus?: (progress: DownloadProgress) => void;
 }
 
 export type Downloaded = DownloadSongResponse["downloaded"][number];
@@ -68,11 +70,16 @@ export async function downloadPicks(song: Song, deps: DownloadDeps): Promise<Dow
 
   const downloaded: Downloaded[] = [];
   const failed: DownloadFailure[] = [];
-  for (const { uuid, slotIds } of downloadPlan(current)) {
+  const plan = downloadPlan(current);
+  const status = (extra: Pick<DownloadProgress, "current" | "lastError">) =>
+    deps.onStatus?.({ songId: song.id, total: plan.length, done: downloaded.length, failed: failed.length, ...extra });
+  for (const { uuid, slotIds } of plan) {
     if (deps.signal.aborted) {
       deps.log.warn(`client gone; not starting more paid downloads (${uuid} and later skipped)`);
       break;
     }
+    const fileName = fileNameOf(current, uuid);
+    status({ current: { uuid, fileName }, lastError: null });
     let result;
     try {
       result = await deps.splice.downloadAsset(uuid, deps.dir);
@@ -80,6 +87,7 @@ export async function downloadPicks(song: Song, deps: DownloadDeps): Promise<Dow
       const error = err instanceof Error ? err.message : String(err);
       deps.log.warn(`download of ${uuid} failed: ${error}`);
       failed.push({ uuid, slotIds, error });
+      status({ current: null, lastError: `${fileName}: ${error}` });
       continue;
     }
     const resolved = { soundUuid: uuid, fileName: result.fileName, localPath: result.localPath };
@@ -90,5 +98,14 @@ export async function downloadPicks(song: Song, deps: DownloadDeps): Promise<Dow
     downloaded.push({ uuid, fileName: result.fileName, localPath: result.localPath, slotIds });
     await deps.onProgress(current);
   }
+  status({ current: null, lastError: null });
   return { song: current, downloaded, failed };
+}
+
+function fileNameOf(song: Song, uuid: string): string {
+  for (const slot of song.plan.slots) {
+    const c = slot.candidates.find((x) => x.uuid === uuid);
+    if (c) return c.fileName;
+  }
+  return uuid;
 }
