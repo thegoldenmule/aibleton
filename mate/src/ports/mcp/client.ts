@@ -1,12 +1,20 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { Logger } from "../../log.ts";
 
 export type McpTransportSpec =
   | { kind: "stdio"; command: string; args?: string[]; env?: Record<string, string> }
-  | { kind: "http"; url: string; bearerToken?: string };
+  | {
+      kind: "http";
+      url: string;
+      /** Plain bearer override; wins over `authProvider` when both are set. */
+      bearerToken?: string;
+      /** OAuth provider handed to the SDK transport; it refreshes tokens and raises `UnauthorizedError` when a login is needed. */
+      authProvider?: OAuthClientProvider;
+    };
 
 export interface McpToolInfo {
   name: string;
@@ -30,11 +38,27 @@ export class McpConnection {
   async connect(timeoutMs = 15_000): Promise<void> {
     if (this.client) return;
     const transport = createTransport(this.spec);
+    // Kept even when connect fails: an OAuth login needs `finishAuth` on the transport that
+    // received the 401 (it remembers the resource metadata URL and scope from the challenge).
+    this.transport = transport;
     const client = new Client({ name: this.clientName, version: "0.0.1" });
     await withTimeout(client.connect(transport), timeoutMs, `MCP connect (${describe(this.spec)})`);
     this.client = client;
-    this.transport = transport;
     this.log.info(`connected to ${describe(this.spec)}`);
+  }
+
+  /**
+   * Exchanges an OAuth authorization code for tokens after a `connect` failed with
+   * `UnauthorizedError`. The SDK transport cannot be restarted afterwards, so call `connect`
+   * again: it builds a fresh transport that picks up the saved tokens from the provider.
+   */
+  async finishAuth(code: string): Promise<void> {
+    const transport = this.transport;
+    if (!(transport instanceof StreamableHTTPClientTransport)) {
+      throw new Error(`finishAuth needs an http transport with an auth provider (${describe(this.spec)})`);
+    }
+    await transport.finishAuth(code);
+    this.transport = null;
   }
 
   isConnected(): boolean {
@@ -86,9 +110,12 @@ function createTransport(spec: McpTransportSpec): Transport {
       stderr: "ignore",
     });
   }
-  return new StreamableHTTPClientTransport(new URL(spec.url), {
-    requestInit: spec.bearerToken ? { headers: { Authorization: `Bearer ${spec.bearerToken}` } } : undefined,
-  });
+  if (spec.bearerToken) {
+    return new StreamableHTTPClientTransport(new URL(spec.url), {
+      requestInit: { headers: { Authorization: `Bearer ${spec.bearerToken}` } },
+    });
+  }
+  return new StreamableHTTPClientTransport(new URL(spec.url), spec.authProvider ? { authProvider: spec.authProvider } : undefined);
 }
 
 function describe(spec: McpTransportSpec): string {
