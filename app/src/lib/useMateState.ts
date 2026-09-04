@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   MateEventSchema,
   StateResponseSchema,
+  type ComposeProgress,
   type DownloadProgress,
   type ExternalCommand,
   type MateEvent,
@@ -21,6 +22,8 @@ export interface MateView {
   lastError: string | null;
   /** True while a compose request from this page is waiting on the model. */
   composing: boolean;
+  /** What mate has done so far for the compose in flight, oldest first. Empty when none is running. */
+  composeProgress: ComposeProgress[];
   /** True while Splice is being searched for the song's slots. Free. */
   resolving: boolean;
   /** True while picked sounds are being downloaded. Spends credits. */
@@ -54,6 +57,7 @@ const EVENT_TYPES: MateEvent["type"][] = [
   "song.changed",
   "transcript.appended",
   "download.progress",
+  "compose.progress",
 ];
 
 const RECENT_LIMIT = 50;
@@ -86,6 +90,7 @@ function applyEvent(prev: StateResponse | null, event: MateEvent): StateResponse
     case "cancelled":
     case "action.applied":
     case "download.progress":
+    case "compose.progress":
       return prev;
   }
 }
@@ -102,6 +107,7 @@ export function useMateState(): MateView {
   const [resolving, setResolving] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
+  const [composeProgress, setComposeProgress] = useState<ComposeProgress[]>([]);
   const retryRef = useRef(0);
 
   useEffect(() => {
@@ -156,7 +162,10 @@ export function useMateState(): MateView {
           const parsed = MateEventSchema.safeParse(JSON.parse(e.data));
           if (!parsed.success) return;
           if (parsed.data.type === "download.progress") setDownloadProgress(parsed.data.progress);
-          else setState((prev) => applyEvent(prev, parsed.data));
+          else if (parsed.data.type === "compose.progress") {
+            const step = parsed.data.progress;
+            setComposeProgress((prev) => (prev.length && prev[0]!.request !== step.request ? [step] : [...prev, step]));
+          } else setState((prev) => applyEvent(prev, parsed.data));
         });
       }
     };
@@ -204,6 +213,7 @@ export function useMateState(): MateView {
   const compose = useCallback(
     async (text: string) => {
       setComposing(true);
+      setComposeProgress([]);
       let song: Song;
       try {
         song = await composeSong({ text });
@@ -214,6 +224,7 @@ export function useMateState(): MateView {
         throw err;
       } finally {
         setComposing(false);
+        setComposeProgress([]);
       }
       // Candidates are free, so fetch them right away; the song is already on screen while this runs.
       try {
@@ -289,6 +300,7 @@ export function useMateState(): MateView {
     connection,
     lastError,
     composing,
+    composeProgress,
     resolving,
     downloading,
     downloadProgress,

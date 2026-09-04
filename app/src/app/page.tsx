@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import type { ComposeProgress } from "@aibleton/protocol";
 import { ConversationPane } from "../components/ConversationPane";
 import { EmptyState } from "../components/EmptyState";
 import { MailboxPanel } from "../components/MailboxPanel";
@@ -23,8 +24,23 @@ function useNow(intervalMs: number): number {
 const FALLBACK_ADAPTERS = { ableton: "stub", splice: "stub", brain: "scripted" } as const;
 
 export default function Home() {
-  const { state, connection, lastError, composing, resolving, downloading, send, compose, clearSong, downloadProgress, resolveSounds, pickSound, downloadSounds, removeTrack } =
-    useMateState();
+  const {
+    state,
+    connection,
+    lastError,
+    composing,
+    composeProgress,
+    resolving,
+    downloading,
+    downloadProgress,
+    send,
+    compose,
+    clearSong,
+    resolveSounds,
+    pickSound,
+    downloadSounds,
+    removeTrack,
+  } = useMateState();
   // Relative timestamps in the mailbox; ticks once a minute, not per frame.
   const now = useNow(15_000);
 
@@ -56,7 +72,7 @@ export default function Home() {
           {!state ? (
             <EmptyState error={lastError} />
           ) : composing ? (
-            <ComposingState />
+            <ComposingState steps={composeProgress} />
           ) : song ? (
             <SongView
               key={song.id}
@@ -101,11 +117,35 @@ export default function Home() {
   );
 }
 
-/** The session column while a song is being composed: the lanes it will fill, pulsing. */
-function ComposingState() {
+/**
+ * The session column while a song is being composed: the lanes it will fill,
+ * pulsing, under mate's running account of what it is doing.
+ */
+function ComposingState({ steps }: { steps: ComposeProgress[] }) {
+  const latest = steps.at(-1) ?? null;
+  const fraction = latest?.fraction ?? 0.05;
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3" role="status" aria-live="polite">
-      <div className="h-24 animate-pulse rounded-sm border border-line bg-panel-2" />
+      <div className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
+        <div className="h-1 overflow-hidden rounded-full bg-line">
+          <div className="h-full bg-accent transition-[width] duration-500" style={{ width: `${Math.round(fraction * 100)}%` }} />
+        </div>
+        <ol className="flex flex-col gap-0.5 font-mono text-[11px]">
+          {steps.length === 0 ? <li className="text-muted">sending the request to mate…</li> : null}
+          {steps.map((step, i) => {
+            const current = i === steps.length - 1 && step.stage !== "done" && step.stage !== "failed";
+            return (
+              <li key={`${step.at}-${i}`} className={current ? "flex items-center gap-1.5 text-foreground" : "flex items-center gap-1.5 text-muted"}>
+                <span className={current ? "h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" : "h-1.5 w-1.5 shrink-0 rounded-full bg-line"} />
+                <span className="w-16 shrink-0 uppercase tracking-wider text-muted/70">{step.stage}</span>
+                <span className="truncate" title={step.message}>
+                  {step.message}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
       <div className="flex flex-col gap-1.5">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="grid animate-pulse grid-cols-[200px_1fr] gap-2" style={{ animationDelay: `${i * 120}ms` }}>
@@ -114,7 +154,7 @@ function ComposingState() {
           </div>
         ))}
       </div>
-      <p className="text-center text-xs text-muted">Composing… picking a template and a band, then asking the model for a brief.</p>
+      <p className="text-center text-xs text-muted">Composing… then Splice is searched for every slot.</p>
     </div>
   );
 }
