@@ -2,6 +2,7 @@ import { z } from "zod";
 import { AdapterStatusSchema, PhaseSchema, SessionStateSchema } from "./state.ts";
 import { CommandSummarySchema, ExternalCommandSchema } from "./commands.ts";
 import { TemplateSchema } from "./templates.ts";
+import { BandSchema, GenreSchema } from "./bands.ts";
 
 export const HealthResponseSchema = z.object({ ok: z.literal(true), uptimeMs: z.number() });
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;
@@ -57,3 +58,30 @@ export type GenerateTemplateRequest = z.infer<typeof GenerateTemplateRequestSche
 
 export const DeleteTemplateResponseSchema = z.object({ deleted: z.boolean() });
 export type DeleteTemplateResponse = z.infer<typeof DeleteTemplateResponseSchema>;
+
+export const BandListResponseSchema = z.object({ bands: z.array(BandSchema) });
+export type BandListResponse = z.infer<typeof BandListResponseSchema>;
+
+export const BandResponseSchema = z.object({ band: BandSchema });
+export type BandResponse = z.infer<typeof BandResponseSchema>;
+
+/** Body of `POST /bands`. The client supplies a whole band; the store upserts it. */
+export const PutBandRequestSchema = z.object({ band: BandSchema });
+export type PutBandRequest = z.infer<typeof PutBandRequestSchema>;
+
+/**
+ * Body of `POST /bands/generate`. Every field is optional; `seed` is chosen from
+ * the clock when omitted, and an omitted `genre` is picked from the seed so an
+ * empty request still yields a coherent band.
+ */
+export const GenerateBandRequestSchema = z.object({
+  seed: z.number().int().optional(),
+  genre: GenreSchema.optional(),
+  /** Total parts. Clamped to what the genre's recipe can staff. */
+  size: z.number().int().min(1).max(16).optional(),
+  name: z.string().min(1).optional(),
+});
+export type GenerateBandRequest = z.infer<typeof GenerateBandRequestSchema>;
+
+export const DeleteBandResponseSchema = z.object({ deleted: z.boolean() });
+export type DeleteBandResponse = z.infer<typeof DeleteBandResponseSchema>;

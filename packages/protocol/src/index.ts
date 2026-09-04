@@ -4,3 +4,4 @@ export * from "./events.ts";
 export * from "./api.ts";
 export * from "./form.ts";
 export * from "./templates.ts";
+export * from "./bands.ts";
