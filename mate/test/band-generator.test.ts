@@ -116,6 +116,51 @@ describe("generateBand invariants", () => {
   }
 });
 
+describe("generateBand core naming", () => {
+  test("core slots only ever take an archetype from the head of the pool", () => {
+    for (const genre of GENRES) {
+      const recipe = RECIPES[genre];
+      const coreCounts = new Map<Role, number>();
+      for (const role of recipe.core) coreCounts.set(role, (coreCounts.get(role) ?? 0) + 1);
+
+      for (let seed = 0; seed < SEEDS; seed++) {
+        const { parts } = generateBand({ seed, genre });
+        parts.slice(0, recipe.core.length).forEach((part, i) => {
+          const role = recipe.core[i]!;
+          const pool = recipe.names[role]!;
+          const window = Math.max(recipe.anchors?.[role] ?? 0, coreCounts.get(role) ?? 0);
+          expect(pool.slice(0, window)).toContain(part.name);
+        });
+      }
+    }
+  });
+
+  test("the archetypes hold for the bands that only have one of a thing", () => {
+    for (let seed = 0; seed < SEEDS; seed++) {
+      // one rock guitar is a rhythm guitar; the lead only shows up alongside it
+      expect(generateBand({ seed, genre: "rock", size: 3 }).parts[2]!.name).toBe("rhythm guitar");
+      // reggae's core guitar plays the skank, full stop
+      expect(generateBand({ seed, genre: "reggae" }).parts[2]!.name).toBe("skank guitar");
+      // metal's two core guitars are the doubled rhythm pair, in that order, never two leads
+      const metal = generateBand({ seed, genre: "metal" }).parts.slice(2, 4).map((p) => p.name);
+      expect(metal).toEqual(["down-tuned rhythm guitar", "doubled rhythm guitar"]);
+      // the jazz bass is never a bowed one when it is the only bass
+      expect(generateBand({ seed, genre: "jazz" }).parts[1]!.name).not.toBe("arco upright");
+    }
+  });
+
+  test("supplementary names still reach the band as extra parts", () => {
+    const guitars = new Set<string>();
+    for (let seed = 0; seed < SEEDS; seed++) {
+      for (const part of generateBand({ seed, genre: "rock", size: 6 }).parts) {
+        if (part.role === "guitar") guitars.add(part.name);
+      }
+    }
+    expect(guitars.has("lead guitar")).toBe(true);
+    expect(guitars.size).toBeGreaterThan(2);
+  });
+});
+
 describe("generateBand size", () => {
   test("is honoured inside the recipe's range", () => {
     for (const genre of GENRES) {
@@ -235,6 +280,17 @@ describe("RECIPES", () => {
         // deep enough that the numeric fallback never fires in normal generation
         expect(names!.length).toBeGreaterThanOrEqual(count);
         expect(new Set(names).size).toBe(names!.length);
+        // ids are never truncated mid-word: role + name always slugs inside 32 chars
+        for (const name of names!) {
+          const slug = `${role}-${name}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+          expect(slug.length).toBeLessThanOrEqual(32);
+        }
+        // an anchor window is wide enough for the core and no wider than the pool
+        const anchor = recipe.anchors?.[role];
+        if (anchor !== undefined) {
+          expect(anchor).toBeLessThanOrEqual(names!.length);
+          expect(anchor).toBeGreaterThanOrEqual(recipe.core.filter((r) => r === role).length);
+        }
         for (const name of names!) expect(name.length).toBeGreaterThan(0);
         for (const brief of briefs!) expect(brief.length).toBeGreaterThan(0);
       }

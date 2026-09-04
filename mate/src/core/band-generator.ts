@@ -111,7 +111,7 @@ export const RECIPES: Record<Genre, BandRecipe> = {
       keys: ["Rhodes", "clav", "Hammond B3", "Wurlitzer"],
       horns: ["horn section stabs", "baritone sax", "muted trumpet"],
       percussion: ["congas", "tambourine", "cowbell and shaker"],
-      vocals: ["lead vocal ad-libs", "call-and-response backing vocals"],
+      vocals: ["lead vocal ad-libs", "call-and-response answers"],
       synth: ["Moog lead", "ARP string synth"],
       fx: ["tape delay throws", "phaser sweeps"],
     },
@@ -412,7 +412,7 @@ export const RECIPES: Record<Genre, BandRecipe> = {
       vocals: ["rap lead vocal", "chopped vocal sample"],
       synth: ["detuned lead", "warped pad"],
       fx: ["vinyl crackle bed", "tape stop and reverse"],
-      percussion: ["shaker", "rim clicks and tambourine"],
+      percussion: ["shaker", "dry tambourine"],
       horns: ["muted trumpet sample", "soul horn stab"],
       guitar: ["filtered soul guitar loop"],
       strings: ["chopped string sample"],
@@ -447,7 +447,7 @@ export const RECIPES: Record<Genre, BandRecipe> = {
       ],
       percussion: [
         "loose shaker on the eighths, sitting behind the beat",
-        "rim clicks and a dry tambourine filling the second bar",
+        "dry tambourine and rim clicks filling the second bar",
       ],
       horns: [
         "a lonely muted trumpet phrase, filtered like an old record",
@@ -616,7 +616,9 @@ function pickOptional(optional: BandRecipe["optional"], count: number, rng: () =
  * Core roles are always present, in recipe order, before any optionals; the
  * optionals are drawn by weight without replacement. Each part takes an unused
  * name from its role's pool — so two keys players read "Rhodes" and "clav",
- * never "keys 1" and "keys 2" — and the brief paired with that name.
+ * never "keys 1" and "keys 2" — and the brief paired with that name. A core
+ * slot draws only from the head of the pool (`anchors`), so the band's one
+ * guitar is always a rhythm guitar and the lead only appears alongside it.
  *
  * The seeded part count is always drawn, even when `size` is given, so
  * `{ seed, size: n }` is byte-identical to `{ seed }` whenever the seed picked
@@ -650,23 +652,36 @@ export function generateBand(opts: GenerateBandOptions): { parts: BandPart[]; me
 
   const roles: Role[] = [...recipe.core, ...pickOptional(recipe.optional, size - min, rng)];
 
+  const coreCounts = new Map<Role, number>();
+  for (const role of recipe.core) coreCounts.set(role, (coreCounts.get(role) ?? 0) + 1);
+
   const usedNames = new Map<Role, Set<number>>();
   const takenIds = new Set<string>();
   const parts: BandPart[] = [];
 
-  for (const role of roles) {
+  for (const [position, role] of roles.entries()) {
     const namePool = recipe.names[role] ?? [role];
     const briefPool = recipe.briefs[role] ?? [`${role} for a ${genre} track`];
     const used = usedNames.get(role) ?? new Set<number>();
     usedNames.set(role, used);
 
+    // Core slots see only the archetypes at the head of the pool; optionals see
+    // all of it. The window is never narrower than the role's core multiplicity,
+    // so every core slot has a name left to take.
+    const anchor = Math.max(recipe.anchors?.[role] ?? 0, coreCounts.get(role) ?? 0);
+    const window = position < recipe.core.length ? Math.min(namePool.length, anchor) : namePool.length;
+
     const free: number[] = [];
-    for (let i = 0; i < namePool.length; i++) if (!used.has(i)) free.push(i);
+    for (let i = 0; i < window; i++) if (!used.has(i)) free.push(i);
+
+    // A window with no slack is taken in pool order, so metal's two core
+    // guitars come out as the down-tuned one and then its double, in that order.
+    const inOrder = position < recipe.core.length && window <= (coreCounts.get(role) ?? 0);
 
     let name: string;
     let index: number;
     if (free.length > 0) {
-      index = free[Math.floor(rng() * free.length) % free.length]!;
+      index = inOrder ? free[0]! : free[Math.floor(rng() * free.length) % free.length]!;
       used.add(index);
       name = namePool[index]!;
     } else {

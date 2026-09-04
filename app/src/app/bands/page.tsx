@@ -208,7 +208,7 @@ export default function BandsPage() {
       const key = row.key.trim();
       if (!key) continue;
       // zod sees a Record by then, so a collapsed duplicate key has to be caught here.
-      if (key in metadata) {
+      if (Object.hasOwn(metadata, key)) {
         setDraftError(`metadata: duplicate key ${JSON.stringify(key)}`);
         return;
       }
