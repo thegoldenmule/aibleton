@@ -13,8 +13,8 @@ export function SongView({ song }: { song: Song }) {
   const totalBars = formTotalBars(parseForm(song.template.form));
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+      <div className="flex shrink-0 flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h3 className="text-sm font-semibold">{song.name}</h3>
           <span className="truncate text-xs text-muted" title={song.request.text}>
@@ -49,7 +49,7 @@ export function SongView({ song }: { song: Song }) {
 
       <SongArrangement song={song} />
 
-      <p className="text-[10px] text-muted/70">
+      <p className="shrink-0 text-[10px] text-muted/70">
         {plan.slots.length} sample slots · {plan.placements.length} placements · “?” marks a slot not yet resolved on Splice · nothing sent to Ableton yet
       </p>
     </div>

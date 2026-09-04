@@ -41,8 +41,8 @@ export default function Home() {
         goal={state?.goal ?? null}
       />
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[1fr_360px_320px]">
-        <section className="flex min-h-0 flex-col gap-2 rounded-md border border-line bg-panel p-3">
+      <div className="grid min-h-0 flex-1 auto-rows-[minmax(0,1fr)] grid-cols-1 gap-3 lg:grid-cols-[1fr_360px_320px]">
+        <section className="flex min-h-0 flex-col gap-2 overflow-hidden rounded-md border border-line bg-panel p-3">
           {/* Mate's picture of the session: the active song. Ableton shows Ableton's. */}
           <div className="flex items-baseline justify-between">
             <h2 className="text-[10px] uppercase tracking-wider text-muted">session</h2>

@@ -12,7 +12,8 @@ const HEADER_PX = 200;
  * blocks as the roadmap above), one row per track, and in each cell the
  * sample slot for that part x section looped as many times as it takes to
  * fill the occurrence — a 4-bar guitar loop shows twice under an 8-bar `a`,
- * an 8-bar bass loop once. Everything scrolls together horizontally.
+ * an 8-bar bass loop once. Scrolls horizontally on its own; vertical scroll
+ * belongs to the session column so there is one scrollbar for the page.
  */
 export function SongArrangement({ song }: { song: Song }) {
   const { plan } = song;
@@ -27,7 +28,7 @@ export function SongArrangement({ song }: { song: Song }) {
   const colStyle = (bars: number) => ({ flexGrow: bars, flexBasis: 0, minWidth: Math.max(MIN_COL_PX, bars * PX_PER_BAR) });
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
+    <div className="shrink-0 overflow-x-auto">
       <div className="flex min-w-max flex-col gap-1.5">
         {/* Header: the form, aligned with the columns below. */}
         <div className="grid gap-2" style={{ gridTemplateColumns: `${HEADER_PX}px 1fr` }}>
