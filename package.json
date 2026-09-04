@@ -1,0 +1,11 @@
+{
+  "name": "aibleton",
+  "private": true,
+  "workspaces": ["mate", "app", "packages/*"],
+  "scripts": {
+    "dev:mate": "bun run --cwd mate dev",
+    "dev:app": "bun run --cwd app dev",
+    "test": "bun run --cwd mate test",
+    "typecheck": "bun run --cwd packages/protocol typecheck && bun run --cwd mate typecheck && bun run --cwd app typecheck"
+  }
+}

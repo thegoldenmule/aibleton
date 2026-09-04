@@ -1,0 +1,385 @@
+{
+  "schema": "ableton_mcp_snapshot_v2",
+  "session": {
+    "tempo": 120.0,
+    "signature_numerator": 4,
+    "signature_denominator": 4,
+    "track_count": 4,
+    "return_track_count": 2,
+    "master_track": {
+      "name": "Master",
+      "volume": 0.8500000238418579,
+      "panning": 0.0
+    },
+    "is_playing": false,
+    "current_song_time": 0.0,
+    "song_length": 232.0,
+    "loop": false,
+    "loop_start": 8.0,
+    "loop_length": 16.0
+  },
+  "tracks": [
+    {
+      "index": 0,
+      "name": "1-MIDI",
+      "is_audio_track": false,
+      "is_midi_track": true,
+      "mute": false,
+      "solo": false,
+      "arm": false,
+      "volume": 0.8500000238418579,
+      "panning": 0.0,
+      "sends": [
+        {
+          "index": 0,
+          "value": 0.0,
+          "name": "A-Reverb"
+        },
+        {
+          "index": 1,
+          "value": 0.0,
+          "name": "B-Delay"
+        }
+      ],
+      "clip_slots": [
+        {
+          "index": 0,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 1,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 2,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 3,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 4,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 5,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 6,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 7,
+          "has_clip": false,
+          "clip": null
+        }
+      ],
+      "devices": [],
+      "arrangement_clips": []
+    },
+    {
+      "index": 1,
+      "name": "2-MIDI",
+      "is_audio_track": false,
+      "is_midi_track": true,
+      "mute": false,
+      "solo": false,
+      "arm": false,
+      "volume": 0.8500000238418579,
+      "panning": 0.0,
+      "sends": [
+        {
+          "index": 0,
+          "value": 0.0,
+          "name": "A-Reverb"
+        },
+        {
+          "index": 1,
+          "value": 0.0,
+          "name": "B-Delay"
+        }
+      ],
+      "clip_slots": [
+        {
+          "index": 0,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 1,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 2,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 3,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 4,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 5,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 6,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 7,
+          "has_clip": false,
+          "clip": null
+        }
+      ],
+      "devices": [],
+      "arrangement_clips": []
+    },
+    {
+      "index": 2,
+      "name": "3-Audio",
+      "is_audio_track": true,
+      "is_midi_track": false,
+      "mute": false,
+      "solo": false,
+      "arm": false,
+      "volume": 0.8500000238418579,
+      "panning": 0.0,
+      "sends": [
+        {
+          "index": 0,
+          "value": 0.0,
+          "name": "A-Reverb"
+        },
+        {
+          "index": 1,
+          "value": 0.0,
+          "name": "B-Delay"
+        }
+      ],
+      "clip_slots": [
+        {
+          "index": 0,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 1,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 2,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 3,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 4,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 5,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 6,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 7,
+          "has_clip": false,
+          "clip": null
+        }
+      ],
+      "devices": [],
+      "arrangement_clips": []
+    },
+    {
+      "index": 3,
+      "name": "4-Audio",
+      "is_audio_track": true,
+      "is_midi_track": false,
+      "mute": false,
+      "solo": false,
+      "arm": false,
+      "volume": 0.8500000238418579,
+      "panning": 0.0,
+      "sends": [
+        {
+          "index": 0,
+          "value": 0.0,
+          "name": "A-Reverb"
+        },
+        {
+          "index": 1,
+          "value": 0.0,
+          "name": "B-Delay"
+        }
+      ],
+      "clip_slots": [
+        {
+          "index": 0,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 1,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 2,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 3,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 4,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 5,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 6,
+          "has_clip": false,
+          "clip": null
+        },
+        {
+          "index": 7,
+          "has_clip": false,
+          "clip": null
+        }
+      ],
+      "devices": [],
+      "arrangement_clips": []
+    }
+  ],
+  "scenes": [
+    {
+      "index": 0,
+      "name": "",
+      "tempo": -1.0,
+      "is_triggered": false
+    },
+    {
+      "index": 1,
+      "name": "",
+      "tempo": -1.0,
+      "is_triggered": false
+    },
+    {
+      "index": 2,
+      "name": "",
+      "tempo": -1.0,
+      "is_triggered": false
+    },
+    {
+      "index": 3,
+      "name": "",
+      "tempo": -1.0,
+      "is_triggered": false
+    },
+    {
+      "index": 4,
+      "name": "",
+      "tempo": -1.0,
+      "is_triggered": false
+    },
+    {
+      "index": 5,
+      "name": "",
+      "tempo": -1.0,
+      "is_triggered": false
+    },
+    {
+      "index": 6,
+      "name": "",
+      "tempo": -1.0,
+      "is_triggered": false
+    },
+    {
+      "index": 7,
+      "name": "",
+      "tempo": -1.0,
+      "is_triggered": false
+    }
+  ],
+  "return_tracks": [
+    {
+      "index": 0,
+      "name": "A-Reverb",
+      "mute": false,
+      "solo": false,
+      "volume": 0.8500000238418579,
+      "panning": 0.0,
+      "devices": [
+        {
+          "index": 0,
+          "name": "Reverb",
+          "class_name": "Reverb",
+          "type": "unknown",
+          "automation_enabled": false
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "name": "B-Delay",
+      "mute": false,
+      "solo": false,
+      "volume": 0.8500000238418579,
+      "panning": 0.0,
+      "devices": [
+        {
+          "index": 0,
+          "name": "Delay",
+          "class_name": "Delay",
+          "type": "unknown",
+          "automation_enabled": false
+        }
+      ]
+    }
+  ],
+  "master_track": {
+    "volume": 0.8500000238418579,
+    "panning": 0.0,
+    "devices": []
+  },
+  "cue_points": [],
+  "include_notes": false,
+  "include_params": false
+}
