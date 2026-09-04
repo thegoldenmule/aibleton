@@ -38,6 +38,12 @@ const brief: SongBrief = {
     { partId: "bass-p", keep: true, brief: null, soundHints: [], loopBars: 8 },
   ],
   sections: [{ label: "b", brief: null, descriptors: ["busy"], intensity: 0.8 }],
+  // Everyone everywhere, so the loop arithmetic below is not tangled with the lineup rule.
+  arrangement: [
+    { label: "a", parts: ["guitar-strat", "bass-p"] },
+    { label: "b", parts: ["guitar-strat", "bass-p"] },
+    { label: "a", parts: ["guitar-strat", "bass-p"] },
+  ],
   templateFeedback: { form: null, notes: "" },
   bandFeedback: { addParts: [], notes: "" },
 };
@@ -103,7 +109,8 @@ describe("layoutSong", () => {
 
   test("a shorter occurrence of the same section loops the same slot fewer times", () => {
     const shorter = { ...template, form: "b8 b4" };
-    const out = layoutSong(shorter, band, brief);
+    const both = ["guitar-strat", "bass-p"];
+    const out = layoutSong(shorter, band, { ...brief, arrangement: [{ label: "b", parts: both }, { label: "b", parts: both }] });
     const guitar = out.placements.filter((p) => p.partId === "guitar-strat");
     expect(guitar.map((p) => [p.slotId, p.loopBars, p.repeats])).toEqual([
       ["guitar-strat:b", 4, 2],

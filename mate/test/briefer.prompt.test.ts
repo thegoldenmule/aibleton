@@ -85,7 +85,7 @@ describe("SONG_BRIEF_JSON_SCHEMA", () => {
 
   test("top-level properties mirror SongBriefSchema", () => {
     expect(Object.keys(SONG_BRIEF_JSON_SCHEMA.properties as object).sort()).toEqual(
-      ["summary", "genres", "descriptors", "key", "bpm", "timeSignature", "swing", "parts", "sections", "templateFeedback", "bandFeedback"].sort(),
+      ["summary", "genres", "descriptors", "key", "bpm", "timeSignature", "swing", "parts", "sections", "arrangement", "templateFeedback", "bandFeedback"].sort(),
     );
   });
 });

@@ -64,6 +64,14 @@ export const SONG_BRIEF_JSON_SCHEMA: JsonSchema = object({
       intensity: nullable({ type: "number", description: "0 sparsest to 1 fullest." }),
     }),
   },
+  arrangement: {
+    type: "array",
+    description: "One entry per occurrence of the form, in order: the letter and the ids of the parts that play. Parts left out rest.",
+    items: object({
+      label: str("The occurrence's section letter."),
+      parts: strings("Ids of the parts that play in this occurrence."),
+    }),
+  },
   templateFeedback: object({
     form: nullable(str("Revised form string using only existing letters, or null to keep the form.")),
     notes: str(),

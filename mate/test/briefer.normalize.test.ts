@@ -40,6 +40,7 @@ const sloppy = {
     { label: "a", brief: null, descriptors: [], intensity: -2 },
     { label: "z", brief: "ghost", descriptors: [], intensity: 0.5 },
   ],
+  arrangement: [{ label: "a", parts: ["drums-kit", "nope", 3] }, { label: "b" }, "junk", { parts: ["bass-p"] }],
   templateFeedback: { form: "  ", notes: "keep" },
   bandFeedback: { addParts: [{ role: "keys", name: "Rhodes", brief: "tines" }, { role: "fx", name: "riser", brief: "noise" }, { role: "x", name: "y", brief: "z" }], notes: "" },
 };
@@ -96,11 +97,20 @@ describe("normalizeBrief", () => {
     expect(parsed.data.summary).toBe("Funky and upbeat");
   });
 
-  test("missing feedback blocks and time signature get defaults", () => {
-    const { templateFeedback: _t, bandFeedback: _b, timeSignature: _s, ...rest } = sloppy;
+  test("arrangement entries keep known part ids only; entries without a label are dropped", () => {
+    if (!parsed.success) return;
+    expect(parsed.data.arrangement).toEqual([
+      { label: "a", parts: ["drums-kit"] },
+      { label: "b", parts: [] },
+    ]);
+  });
+
+  test("missing feedback blocks, arrangement and time signature get defaults", () => {
+    const { templateFeedback: _t, bandFeedback: _b, timeSignature: _s, arrangement: _a, ...rest } = sloppy;
     const result = SongBriefSchema.safeParse(normalizeBrief(rest, template, band));
     expect(result.success).toBe(true);
     if (result.success) {
+      expect(result.data.arrangement).toEqual([]);
       expect(result.data.templateFeedback).toEqual({ form: null, notes: "" });
       expect(result.data.bandFeedback).toEqual({ addParts: [], notes: "" });
       expect(result.data.timeSignature).toEqual({ numerator: 4, denominator: 4 });

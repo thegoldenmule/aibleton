@@ -38,8 +38,8 @@ const MOOD_WORDS = ["upbeat", "dark", "bright", "mellow", "heavy", "tight", "loo
 
 /**
  * Deterministic brief for tests and for running mate with no LLM: reads the
- * band's genre and the request's tempo and mood words, keeps every part and
- * changes nothing about the form. Records every input and can be told to fail.
+ * band's genre and the request's tempo and mood words, keeps every part,
+ * leaves the lineup to the layout and changes nothing about the form. Records every input and can be told to fail.
  */
 export class ScriptedBriefer implements Briefer {
   readonly kind = "scripted" as const;
@@ -100,6 +100,8 @@ export function defaultBrief(input: BriefInput): SongBrief {
       descriptors: [],
       intensity: null,
     })),
+    // Empty: the layout's own rule decides who plays where.
+    arrangement: [],
     templateFeedback: { form: null, notes: "scripted briefer: template kept as saved" },
     bandFeedback: { addParts: [], notes: "scripted briefer: band kept as saved" },
   });

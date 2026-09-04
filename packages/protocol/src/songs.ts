@@ -78,6 +78,20 @@ export const BriefSectionSchema = z.object({
 });
 export type BriefSection = z.infer<typeof BriefSectionSchema>;
 
+/**
+ * Who plays in one occurrence of the form, in form order. Parts left out
+ * rest for that occurrence. One entry per occurrence of the final form
+ * (the revised one when `templateFeedback.form` is set); when the entries
+ * do not line up with the form, the layout falls back to its own rule.
+ */
+export const BriefLineupSchema = z.object({
+  /** The occurrence's section letter, so a misaligned answer is caught. */
+  label: SectionLabelSchema,
+  /** Ids of the parts that play. */
+  parts: z.array(z.string().min(1)),
+});
+export type BriefLineup = z.infer<typeof BriefLineupSchema>;
+
 export const AddedPartSchema = z.object({
   role: z.string().min(1),
   name: z.string().min(1),
@@ -103,6 +117,8 @@ export const SongBriefSchema = z.object({
   swing: z.number().min(0).max(1).nullable(),
   parts: z.array(BriefPartSchema),
   sections: z.array(BriefSectionSchema),
+  /** Who plays where, one entry per form occurrence. Empty leaves it to the layout's rule. */
+  arrangement: z.array(BriefLineupSchema).default([]),
   templateFeedback: z.object({
     /** A revised form string using only the template's labels, or null to keep it. */
     form: z.string().nullable(),
@@ -226,10 +242,20 @@ const SongPlanShape = z.object({
   placements: z.array(PlacementSchema),
 });
 
-/** The DAW-shaped result: what tracks, what samples, and when. */
+/**
+ * The DAW-shaped result: what tracks, what samples, and when. A part need not
+ * play in every occurrence: a missing placement is a rest. Every slot must
+ * be played somewhere, though, since resolving and downloading it costs.
+ */
 export const SongPlanSchema = SongPlanShape.superRefine((plan, ctx) => {
   const tracks = new Set(plan.tracks.map((t) => t.partId));
   const slots = new Set(plan.slots.map((s) => s.id));
+  const played = new Set(plan.placements.map((p) => p.slotId));
+  plan.slots.forEach((s, i) => {
+    if (!played.has(s.id)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["slots", i], message: `slot ${JSON.stringify(s.id)} is never played` });
+    }
+  });
   plan.placements.forEach((p, i) => {
     if (!tracks.has(p.partId)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["placements", i, "partId"], message: `no track for part ${JSON.stringify(p.partId)}` });
@@ -303,7 +329,8 @@ export function pendingDownloadUuids(plan: Pick<SongPlan, "slots">): string[] {
  * Project a plan onto the DAW picture the app already renders: one clip slot
  * per section label in form order (a scene per section), and one arrangement
  * clip per placement. Repeats live on placements only, so the same slot may
- * loop twice under `b8` and once under `b4`.
+ * loop twice under `b8` and once under `b4`. An occurrence a part rests in
+ * has no arrangement clip; a section it never plays has no session clip.
  */
 export function songTracks(song: Pick<Song, "plan" | "template">): Track[] {
   const { plan } = song;

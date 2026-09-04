@@ -1,5 +1,6 @@
 import { LOOP_BARS, SongPlanSchema, beatsPerBar, keyName, parseForm, sampleSlotId } from "@aibleton/protocol";
 import type { Band, LoopBars, Placement, SampleSlot, SongBrief, SongOccurrence, SongPlan, SongTrack, Template } from "@aibleton/protocol";
+import { songLineup } from "./lineup.ts";
 
 /** Loop length used for a part the brief says nothing about. */
 export const DEFAULT_LOOP_BARS: LoopBars = 4;
@@ -36,9 +37,11 @@ function distinct(words: readonly (string | null | undefined)[]): string[] {
 
 /**
  * Lay a briefed template and band out as a DAW plan: one track per part, the
- * form as a timeline, one sample slot per part x section label, and a
- * placement per part x occurrence that loops the slot's sample to fill the
- * occurrence's bars. Pure; the same inputs always yield the same plan.
+ * form as a timeline, and for each occurrence a placement per part that
+ * plays in it (`songLineup`), looping the part's sample slot for that
+ * section label to fill the occurrence's bars. A slot exists only for a
+ * part x label that is played somewhere; the rest is silence. Pure; the
+ * same inputs always yield the same plan.
  */
 export function layoutSong(template: Template, band: Band, brief: SongBrief): SongPlan {
   const timeSignature = brief.timeSignature;
@@ -73,11 +76,13 @@ export function layoutSong(template: Template, band: Band, brief: SongBrief): So
   const slots: SampleSlot[] = [];
   const slotIds = new Set<string>();
   const placements: Placement[] = [];
+  const lineup = songLineup(template, band, brief);
 
   for (const part of band.parts) {
     const note = partNotes.get(part.id);
     const preferred = note?.loopBars ?? DEFAULT_LOOP_BARS;
     for (const occurrence of timeline) {
+      if (!lineup[occurrence.index]!.has(part.id)) continue;
       const id = sampleSlotId(part.id, occurrence.label);
       if (!slotIds.has(id)) {
         slotIds.add(id);

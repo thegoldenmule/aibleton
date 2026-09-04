@@ -46,6 +46,15 @@ export function normalizeBrief(raw: unknown, template: Template, band: Band): un
         }))
     : raw.sections;
 
+  out.arrangement = Array.isArray(raw.arrangement)
+    ? raw.arrangement
+        .filter((a): a is Record<string, unknown> => isRecord(a) && typeof a.label === "string")
+        .map((a) => ({
+          label: a.label,
+          parts: Array.isArray(a.parts) ? a.parts.filter((id): id is string => typeof id === "string" && partIds.has(id)) : [],
+        }))
+    : [];
+
   out.templateFeedback = isRecord(raw.templateFeedback)
     ? { form: optionalText(raw.templateFeedback.form), notes: text(raw.templateFeedback.notes) }
     : { form: null, notes: "" };

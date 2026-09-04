@@ -38,6 +38,7 @@ function brief(overrides: Partial<SongBrief> = {}): SongBrief {
     swing: null,
     parts: band.parts.map((p) => ({ partId: p.id, keep: true, brief: null, soundHints: [], loopBars: 4 as const })),
     sections: [],
+    arrangement: [],
     templateFeedback: { form: null, notes: "" },
     bandFeedback: { addParts: [], notes: "" },
     ...overrides,

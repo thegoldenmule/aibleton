@@ -1,9 +1,11 @@
-import type { Band, Song, Template } from "@aibleton/protocol";
+import type { Band, BriefLineup, Song, Template } from "@aibleton/protocol";
+import { parseForm } from "@aibleton/protocol";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { RecipeBook, RecipeStore } from "../../src/core/recipes.ts";
-import { ScriptedBriefer } from "../../src/songwriting/briefer/scripted.ts";
+import { ScriptedBriefer, defaultBrief } from "../../src/songwriting/briefer/scripted.ts";
+import type { BriefInput } from "../../src/songwriting/briefer/types.ts";
 import { ScriptedRecipeWriter } from "../../src/songwriting/recipe-writer/scripted.ts";
 import { composeSong } from "../../src/songwriting/compose.ts";
 
@@ -38,8 +40,19 @@ export function fixtureBand(over: Partial<Band> = {}): Band {
   };
 }
 
-/** A fully composed song via the scripted briefer, for store and state tests. */
-export async function fixtureSong(over: Partial<Song> = {}, briefer: ScriptedBriefer = new ScriptedBriefer()): Promise<Song> {
+/** Every part in every occurrence, for tests that want the full grid rather than the lineup rule. */
+export function denseArrangement(input: BriefInput): BriefLineup[] {
+  const parts = input.band.parts.map((p) => p.id);
+  return parseForm(input.template.form).map((e) => ({ label: e.label, parts }));
+}
+
+/** A scripted briefer whose arrangement is dense, so a test's plan is the full grid. */
+export function denseBriefer(): ScriptedBriefer {
+  return new ScriptedBriefer((input) => ({ ...defaultBrief(input), arrangement: denseArrangement(input) }));
+}
+
+/** A fully composed song via the scripted briefer, for store and state tests. Dense: every part plays everywhere. */
+export async function fixtureSong(over: Partial<Song> = {}, briefer: ScriptedBriefer = denseBriefer()): Promise<Song> {
   const song = await composeSong({
     text: "something funky and upbeat",
     seed: 7,

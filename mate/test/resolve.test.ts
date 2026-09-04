@@ -19,7 +19,7 @@ import {
   soundBars,
 } from "../src/songwriting/resolve.ts";
 import { FakeSplice } from "./helpers/fakes.ts";
-import { fixtureSong } from "./helpers/song.ts";
+import { denseArrangement, fixtureSong } from "./helpers/song.ts";
 
 /** The fixture song briefed to C minor around 110 bpm, so scores are predictable. */
 const cMinorSong = () =>
@@ -27,6 +27,7 @@ const cMinorSong = () =>
     {},
     new ScriptedBriefer((input) => ({
       ...defaultBrief(input),
+      arrangement: denseArrangement(input),
       key: { root: "C", mode: "minor" },
       bpm: { min: 100, max: 120, target: 110 },
       descriptors: ["upbeat", "tight"],
