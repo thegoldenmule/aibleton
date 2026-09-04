@@ -32,6 +32,7 @@ Env vars are documented in `.env.example`. Modes per dependency: `MATE_ABLETON`/
 
 - Strict TS, ESM, explicit `.ts` extensions on relative imports (`verbatimModuleSyntax`), `import type` for types.
 - Validate at boundaries with zod (env in `config.ts`, API bodies, MCP payloads). Inside mate, plain TS types.
+- **UI verification is manual.** Do not drive a browser or screenshot the app yourself. Start mate and the app dev server, then ask the user to look and give them the link (normally http://localhost:3000). Typecheck, lint and build still run automatically.
 - Tests live in `mate/test/*.test.ts` and run with `bun test`. Add a test when you add a machine transition.
 - Anthropic: `@anthropic-ai/sdk`, model from `MATE_MODEL` (default `claude-opus-5`), adaptive thinking (omit `thinking`), check `stop_reason === "refusal"` before reading content. Credentials resolve from `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, or an `ant auth login` profile; don't hardcode keys.
 
