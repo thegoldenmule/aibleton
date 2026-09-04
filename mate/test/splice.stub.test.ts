@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
+import fixtures from "../src/ports/splice/fixtures/sounds.json";
 import { createSplicePort } from "../src/ports/splice/index.ts";
+import { parseSearchResults } from "../src/ports/splice/markdown.ts";
 import { FixtureSpliceAdapter } from "../src/ports/splice/stub.ts";
 import { silentLogger } from "../src/log.ts";
 
@@ -15,6 +17,21 @@ describe("FixtureSpliceAdapter", () => {
     for (const s of sounds) expect(s.bpm).toBeLessThanOrEqual(112);
     expect(sounds[0]?.tags).toContain("funk");
     expect(splice.calls[0]?.method).toBe("searchSounds");
+  });
+
+  test("the catalog carries the captured keyed bass loops verbatim", async () => {
+    const keyed = parseSearchResults(await Bun.file(new URL("../src/ports/splice/fixtures/search_response_keys.md", import.meta.url)).text());
+    expect(keyed.length).toBe(10);
+    expect(fixtures).toEqual(expect.arrayContaining(keyed));
+    expect(new Set(fixtures.map((s) => s.uuid)).size).toBe(fixtures.length);
+  });
+
+  test("search finds pitched material by instrument word", async () => {
+    const splice = new FixtureSpliceAdapter();
+    const sounds = await splice.searchSounds("bass loop, indie rock", { bpmMin: 105, bpmMax: 125 });
+    expect(sounds.length).toBeGreaterThanOrEqual(3);
+    expect(sounds[0]?.key).not.toBeNull();
+    expect(sounds[0]?.tags.some((t) => t.includes("bass"))).toBe(true);
   });
 
   test("search always returns something", async () => {

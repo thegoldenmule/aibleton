@@ -181,5 +181,200 @@
       "pop"
     ],
     "url": "https://splice.com/sounds/sample/e6e0313f1e7325c422adc4c9fcf736b94cb556e399cb0f0cc828b6490abd72f4/ts-organic-vol1-124-drum-loop-grooves-motown-3-wav"
+  },
+  {
+    "uuid": "c3c6bb92-a2df-4199-a437-70351aac246e",
+    "fileName": "CO_IF_110_bass_guitar_linden_Cmin.wav",
+    "bpm": 110,
+    "key": {
+      "root": "C",
+      "mode": "minor"
+    },
+    "durationSec": 17.5,
+    "type": "loop",
+    "pack": "Splice Country",
+    "tags": [
+      "folk",
+      "electric bass",
+      "indie",
+      "indie rock"
+    ],
+    "url": "https://splice.com/sounds/sample/3a3ee886e9b3c3c32172e0dc2261f58c04d4b4c7d3ec0743a678828f530bc709/co-if-110-bass-guitar-linden-cmin-wav"
+  },
+  {
+    "uuid": "20827bbc-aa28-447d-9f6a-053974257b91",
+    "fileName": "CO_IF_118_bass_guitar_obion_A.wav",
+    "bpm": 118,
+    "key": {
+      "root": "A",
+      "mode": null
+    },
+    "durationSec": 16.3,
+    "type": "loop",
+    "pack": "Splice Country",
+    "tags": [
+      "folk",
+      "electric bass",
+      "indie",
+      "indie rock"
+    ],
+    "url": "https://splice.com/sounds/sample/61db6767e4ac364d98d901fb590dc563aae1220341714eeb5f33be9438c0def3/co-if-118-bass-guitar-obion-a-wav"
+  },
+  {
+    "uuid": "843cb777-2605-428e-9825-81b456066674",
+    "fileName": "NH_ESG_120_bass_electric_ash_Cmaj.wav",
+    "bpm": 120,
+    "key": {
+      "root": "C",
+      "mode": "major"
+    },
+    "durationSec": 16,
+    "type": "loop",
+    "pack": "Noise Honey",
+    "tags": [
+      "bass",
+      "electric bass",
+      "indie",
+      "shoegaze",
+      "indie rock"
+    ],
+    "url": "https://splice.com/sounds/sample/97a9bf82990d73f5a3e3fe900bb49c3e7c0d731109702ae22d12aea53aafcadc/nh-esg-120-bass-electric-ash-cmaj-wav"
+  },
+  {
+    "uuid": "594aa19a-3f96-4123-bfab-1ad0a5896efc",
+    "fileName": "FL_ILS_130_Bass_Electric_Dark_Fast_G#min.wav",
+    "bpm": 130,
+    "key": {
+      "root": "G#",
+      "mode": "minor"
+    },
+    "durationSec": 14.8,
+    "type": "loop",
+    "pack": "Function Loops",
+    "tags": [
+      "bass",
+      "electric bass",
+      "indie",
+      "shoegaze",
+      "indie rock"
+    ],
+    "url": "https://splice.com/sounds/sample/86de5566e6bc3dd1dc4991eb04b1bc5070e6c38da7cac47f4227748c07c7b255/fl-ils-130-bass-electric-dark-fast-g-min-wav"
+  },
+  {
+    "uuid": "56e998fa-4a07-4eed-a8e2-bcb802b7386a",
+    "fileName": "FL_TML2_130_Electric_Bass_Dove_Cm.wav",
+    "bpm": 130,
+    "key": {
+      "root": "C",
+      "mode": "minor"
+    },
+    "durationSec": 14.8,
+    "type": "loop",
+    "pack": "Function Loops",
+    "tags": [
+      "bass",
+      "electric bass",
+      "indie",
+      "shoegaze",
+      "indie rock"
+    ],
+    "url": "https://splice.com/sounds/sample/e6d6cc65d1eabb023c5a3241da432dcb7786ec9a4e5bf648a33faa40b4f3a4f3/fl-tml2-130-electric-bass-dove-cm-wav"
+  },
+  {
+    "uuid": "6bd4c962-33dc-49cd-92b8-a6257e77c44e",
+    "fileName": "CO_IF_110_bass_guitar_monteagle_6-8_Amaj.wav",
+    "bpm": 110,
+    "key": {
+      "root": "A",
+      "mode": "major"
+    },
+    "durationSec": 26.2,
+    "type": "loop",
+    "pack": "Splice Country",
+    "tags": [
+      "folk",
+      "electric bass",
+      "indie",
+      "indie rock"
+    ],
+    "url": "https://splice.com/sounds/sample/9a4b42bc03d60d25ac5f652f48f31ad9e510fc72e3877d609c9e0800fd08ad92/co-if-110-bass-guitar-monteagle-6-8-amaj-wav"
+  },
+  {
+    "uuid": "1787d2bc-c2c0-4601-b76a-62d8c38b8898",
+    "fileName": "NH_ESG_120_bass_electric_sixer_Emin.wav",
+    "bpm": 120,
+    "key": {
+      "root": "E",
+      "mode": "minor"
+    },
+    "durationSec": 8,
+    "type": "loop",
+    "pack": "Noise Honey",
+    "tags": [
+      "bass",
+      "electric bass",
+      "indie",
+      "shoegaze",
+      "indie rock"
+    ],
+    "url": "https://splice.com/sounds/sample/322a8446fe46ca44b7c76041d67144ee8d1c9c215028c2413fce6ea2a9c1e351/nh-esg-120-bass-electric-sixer-emin-wav"
+  },
+  {
+    "uuid": "b4ac05dd-6103-460a-95b6-15ce7a90481e",
+    "fileName": "CO_IF_122_bass_guitar_smyrna_Bmaj.wav",
+    "bpm": 122,
+    "key": {
+      "root": "B",
+      "mode": "major"
+    },
+    "durationSec": 15.7,
+    "type": "loop",
+    "pack": "Splice Country",
+    "tags": [
+      "folk",
+      "electric bass",
+      "indie",
+      "indie rock"
+    ],
+    "url": "https://splice.com/sounds/sample/d1569b7be5ae8930c8f7147e82dd3c5ee6d1aac575bdcebcfaf942a9d51e451c/co-if-122-bass-guitar-smyrna-bmaj-wav"
+  },
+  {
+    "uuid": "bce81b2d-d5ea-4a67-a667-9ebbe00bc440",
+    "fileName": "CO_IF_115_bass_guitar_athens_A.wav",
+    "bpm": 115,
+    "key": {
+      "root": "A",
+      "mode": null
+    },
+    "durationSec": 16.7,
+    "type": "loop",
+    "pack": "Splice Country",
+    "tags": [
+      "folk",
+      "electric bass",
+      "indie",
+      "indie rock"
+    ],
+    "url": "https://splice.com/sounds/sample/577df0c402892f099c3e7f4f8ebb4463dd7222c3a045a887beaca51e5b409725/co-if-115-bass-guitar-athens-a-wav"
+  },
+  {
+    "uuid": "c79ea4a1-8ef1-40f3-a909-a07af3da320b",
+    "fileName": "FL_ILS_130_Bass_Electric_Dark_Slow_G#min.wav",
+    "bpm": 130,
+    "key": {
+      "root": "G#",
+      "mode": "minor"
+    },
+    "durationSec": 14.8,
+    "type": "loop",
+    "pack": "Function Loops",
+    "tags": [
+      "bass",
+      "electric bass",
+      "indie",
+      "shoegaze",
+      "indie rock"
+    ],
+    "url": "https://splice.com/sounds/sample/d9b74d125f92bad1a571b37cad3e6c692dba07fd2343910888d2a3273fb10a06/fl-ils-130-bass-electric-dark-slow-g-min-wav"
   }
 ]
