@@ -24,6 +24,8 @@ const PendingSchema = z.object({ codeVerifier: z.string().min(1), state: z.strin
 const FileSchema = z.object({
   version: z.literal(1),
   client: ClientSchema.optional(),
+  /** The redirect URL `client` was registered with; a registration for another port cannot be reused. */
+  clientRedirectUrl: z.string().optional(),
   tokens: TokensSchema.optional(),
   pending: PendingSchema.optional(),
 });
@@ -78,18 +80,19 @@ export class FileOAuthProvider implements OAuthClientProvider {
   }
 
   async clientInformation(): Promise<OAuthClientInformationMixed | undefined> {
-    const client = (await this.load()).client;
-    if (!client) return undefined;
+    const data = await this.load();
+    if (!data.client) return undefined;
     // A registration made for another callback port cannot be reused: the auth server would
-    // reject the redirect_uri. Pretend it is gone so the SDK registers again.
-    const uris = (client as { redirect_uris?: unknown }).redirect_uris;
-    if (Array.isArray(uris) && !uris.includes(this.opts.redirectUrl)) return undefined;
-    return client as OAuthClientInformationMixed;
+    // reject the redirect_uri. Pretend it is gone so the SDK registers again. Compared against
+    // the URL we registered with, not the server's echo, which it may normalise.
+    if (data.clientRedirectUrl !== undefined && data.clientRedirectUrl !== this.opts.redirectUrl) return undefined;
+    return data.client as OAuthClientInformationMixed;
   }
 
   async saveClientInformation(info: OAuthClientInformationMixed): Promise<void> {
     const data = await this.load();
     data.client = info as OAuthFile["client"];
+    data.clientRedirectUrl = this.opts.redirectUrl;
     await this.save(data);
   }
 
@@ -132,7 +135,10 @@ export class FileOAuthProvider implements OAuthClientProvider {
 
   async invalidateCredentials(scope: "all" | "client" | "tokens" | "verifier" | "discovery"): Promise<void> {
     const data = await this.load();
-    if (scope === "all" || scope === "client") delete data.client;
+    if (scope === "all" || scope === "client") {
+      delete data.client;
+      delete data.clientRedirectUrl;
+    }
     if (scope === "all" || scope === "tokens") delete data.tokens;
     if (scope === "all" || scope === "verifier") delete data.pending;
     await this.save(data);

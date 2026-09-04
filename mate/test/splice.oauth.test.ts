@@ -72,11 +72,16 @@ describe("FileOAuthProvider", () => {
     expect(await q.tokens()).toBeUndefined();
   });
 
-  test("a registration for another callback port is treated as missing", async () => {
-    const p = new FileOAuthProvider({ file, redirectUrl });
-    await p.saveClientInformation({ client_id: "abc", redirect_uris: ["http://localhost:9999/callback"] });
+  test("a registration made for another callback port is treated as missing", async () => {
+    const other = "http://localhost:9999/callback";
+    // Registered while listening on 9999; the server's echo of the URI is not what we compare.
+    await new FileOAuthProvider({ file, redirectUrl: other }).saveClientInformation({ client_id: "abc", redirect_uris: ["http://localhost:9999/callback/"] });
+    expect(await new FileOAuthProvider({ file, redirectUrl: other }).clientInformation()).toEqual({
+      client_id: "abc",
+      redirect_uris: ["http://localhost:9999/callback/"],
+    });
     expect(await new FileOAuthProvider({ file, redirectUrl }).clientInformation()).toBeUndefined();
-    expect(await new FileOAuthProvider({ file, redirectUrl: "http://localhost:9999/callback" }).clientInformation()).toBeDefined();
+    expect(JSON.parse(await readFile(file, "utf8")).clientRedirectUrl).toBe(other);
   });
 
   test("invalidateCredentials drops the requested scope only", async () => {
