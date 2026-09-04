@@ -6,7 +6,6 @@ import { ScriptedBriefer } from "./scripted.ts";
 import type { Briefer } from "./types.ts";
 
 export type { BriefInput, Briefer } from "./types.ts";
-export { BriefRefusedError } from "./types.ts";
 export { ScriptedBriefer } from "./scripted.ts";
 export { AnthropicBriefer } from "./anthropic.ts";
 

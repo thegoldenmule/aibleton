@@ -16,11 +16,3 @@ export interface Briefer {
   readonly kind: "anthropic" | "scripted";
   brief(input: BriefInput, signal: AbortSignal): Promise<SongBrief>;
 }
-
-/** The model declined the request outright. Routes map this to a 422. */
-export class BriefRefusedError extends Error {
-  constructor(readonly category: string | null, readonly explanation: string | null) {
-    super(`the model declined to brief this song${explanation ? `: ${explanation}` : ""}`);
-    this.name = "BriefRefusedError";
-  }
-}

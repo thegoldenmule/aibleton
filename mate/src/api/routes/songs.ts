@@ -11,7 +11,8 @@ import { isValidSongId, type SongStore } from "../../core/songs.ts";
 import type { StateStore } from "../../core/state.ts";
 import type { TemplateStore } from "../../core/templates.ts";
 import type { Logger } from "../../log.ts";
-import { BriefRefusedError, type Briefer } from "../../songwriting/briefer/index.ts";
+import { ModelRefusedError } from "../../core/anthropic.ts";
+import type { Briefer } from "../../songwriting/briefer/index.ts";
 import { composeSong } from "../../songwriting/compose.ts";
 import { EmptyLibraryError } from "../../songwriting/pick.ts";
 
@@ -74,7 +75,7 @@ export function songRoutes(deps: SongRouteDeps): Hono {
       if (err instanceof EmptyLibraryError) {
         return c.json({ error: `${err.message} (see /templates and /bands)`, library: err.library }, 409);
       }
-      if (err instanceof BriefRefusedError) {
+      if (err instanceof ModelRefusedError) {
         return c.json({ error: err.message, category: err.category }, 422);
       }
       const message = err instanceof Error ? err.message : String(err);

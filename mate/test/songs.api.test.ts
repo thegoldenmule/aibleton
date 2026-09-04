@@ -13,7 +13,8 @@ import { TemplateStore } from "../src/core/templates.ts";
 import { loadConfig } from "../src/config.ts";
 import type { Intelligence } from "../src/intelligence/types.ts";
 import { silentLogger } from "../src/log.ts";
-import { BriefRefusedError, ScriptedBriefer } from "../src/songwriting/briefer/index.ts";
+import { ModelRefusedError } from "../src/core/anthropic.ts";
+import { ScriptedBriefer } from "../src/songwriting/briefer/index.ts";
 import { fixtureBand, fixtureTemplate } from "./helpers/song.ts";
 
 const idleIntelligence: Intelligence = {
@@ -128,7 +129,7 @@ describe("POST /songs/compose", () => {
 
   test("a refusal is a 422", async () => {
     const briefer = new ScriptedBriefer();
-    briefer.rejectNext(new BriefRefusedError("policy", "not this"));
+    briefer.rejectNext(new ModelRefusedError("brief this song", "policy", "not this"));
     const h = await build({ briefer });
     const res = await post(h.app, "/songs/compose", { text: "funky" });
     expect(res.status).toBe(422);
