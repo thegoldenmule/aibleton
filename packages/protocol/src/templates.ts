@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SectionLabelSchema } from "./form.ts";
+import { FormStringSchema, SectionLabelSchema, formLabels, parseForm } from "./form.ts";
 
 /**
  * What one letter in a form means musically. `brief` is the prompt handed to
@@ -13,15 +13,46 @@ export const SectionSchema = z.object({
 });
 export type Section = z.infer<typeof SectionSchema>;
 
-/** A song roadmap: a form string plus the meaning of each letter in it. */
-export const TemplateSchema = z.object({
+const TemplateShape = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   /** Form string, e.g. `"a8 b8 a8 b8 b8 c4 c4 b8 b8"`. */
-  form: z.string().min(1),
+  form: FormStringSchema,
   sections: z.record(z.string(), SectionSchema),
   bpm: z.number().positive().optional(),
   createdAt: z.number(),
+});
+
+/**
+ * A song roadmap: a form string plus the meaning of each letter in it.
+ * Every label used by the form must have a section, and each section must be
+ * filed under its own label.
+ */
+export const TemplateSchema = TemplateShape.superRefine((template, ctx) => {
+  for (const [key, section] of Object.entries(template.sections)) {
+    if (section.label !== key) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["sections", key, "label"],
+        message: `section filed under ${JSON.stringify(key)} is labelled ${JSON.stringify(section.label)}`,
+      });
+    }
+  }
+  let labels: string[];
+  try {
+    labels = formLabels(parseForm(template.form));
+  } catch {
+    return;
+  }
+  for (const label of labels) {
+    if (!template.sections[label]) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["sections"],
+        message: `form uses section ${JSON.stringify(label)} but no section defines it`,
+      });
+    }
+  }
 });
 export type Template = z.infer<typeof TemplateSchema>;
 

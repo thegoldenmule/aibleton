@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { CommandSummary } from "@aibleton/protocol";
 
 interface Props {
@@ -6,7 +7,11 @@ interface Props {
   now: number;
 }
 
-const SOURCE_CLASS: Record<CommandSummary["source"], string> = {
+type Source = CommandSummary["source"];
+
+const SOURCES: Source[] = ["api", "timer", "midi", "loop", "ableton", "test"];
+
+const SOURCE_CLASS: Record<Source, string> = {
   api: "text-accent-2",
   timer: "text-muted",
   midi: "text-audio",
@@ -15,7 +20,45 @@ const SOURCE_CLASS: Record<CommandSummary["source"], string> = {
   test: "text-muted",
 };
 
+/** Chatty, low-signal sources; hidden by default so the mailbox reads as events worth noticing. */
+const HIDDEN_BY_DEFAULT: readonly Source[] = ["timer", "loop"];
+const STORAGE_KEY = "mailbox.hiddenSources";
+
+function loadHidden(): Set<Source> {
+  if (typeof window === "undefined") return new Set(HIDDEN_BY_DEFAULT);
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return new Set(HIDDEN_BY_DEFAULT);
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set(HIDDEN_BY_DEFAULT);
+    return new Set(parsed.filter((s): s is Source => SOURCES.includes(s as Source)));
+  } catch {
+    return new Set(HIDDEN_BY_DEFAULT);
+  }
+}
+
 export function MailboxPanel({ commands, lastMessage, now }: Props) {
+  const [hidden, setHidden] = useState<Set<Source>>(() => loadHidden());
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...hidden]));
+    } catch {
+      // best-effort; a private window or blocked storage just skips persistence
+    }
+  }, [hidden]);
+
+  const toggle = (source: Source) => {
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(source)) next.delete(source);
+      else next.add(source);
+      return next;
+    });
+  };
+
+  const visible = commands.filter((c) => !hidden.has(c.source));
+
   return (
     <aside className="flex min-h-0 flex-col gap-3 rounded-md border border-line bg-panel p-3">
       <section>
@@ -26,14 +69,37 @@ export function MailboxPanel({ commands, lastMessage, now }: Props) {
       </section>
 
       <section className="flex min-h-0 flex-1 flex-col">
-        <h2 className="mb-1 text-[10px] uppercase tracking-wider text-muted">
-          mailbox <span className="text-muted/60">({commands.length})</span>
-        </h2>
+        <div className="mb-1 flex items-baseline justify-between">
+          <h2 className="text-[10px] uppercase tracking-wider text-muted">
+            mailbox <span className="text-muted/60">({visible.length}/{commands.length})</span>
+          </h2>
+        </div>
+        <div className="mb-1.5 flex flex-wrap gap-1">
+          {SOURCES.map((source) => {
+            const on = !hidden.has(source);
+            return (
+              <button
+                key={source}
+                type="button"
+                onClick={() => toggle(source)}
+                aria-pressed={on}
+                className={`rounded-sm px-1.5 py-0.5 font-mono text-[10px] transition-opacity ${
+                  on ? `${SOURCE_CLASS[source]} bg-panel-2` : "text-muted/50 bg-panel-2/40 opacity-60"
+                }`}
+                title={on ? `Hide ${source} events` : `Show ${source} events`}
+              >
+                {source}
+              </button>
+            );
+          })}
+        </div>
         {commands.length === 0 ? (
           <p className="text-xs text-muted">No commands yet.</p>
+        ) : visible.length === 0 ? (
+          <p className="text-xs text-muted">All sources filtered out.</p>
         ) : (
           <ul className="flex flex-col gap-1 overflow-y-auto pr-1 text-xs">
-            {commands.map((c) => (
+            {visible.map((c) => (
               <li key={c.id} className="grid grid-cols-[52px_1fr_auto] items-baseline gap-2 border-b border-line/60 pb-1">
                 <span className={`font-mono text-[10px] ${SOURCE_CLASS[c.source]}`}>{c.source}</span>
                 <span className="min-w-0">
