@@ -39,13 +39,13 @@ export function fixtureBand(over: Partial<Band> = {}): Band {
 }
 
 /** A fully composed song via the scripted briefer, for store and state tests. */
-export async function fixtureSong(over: Partial<Song> = {}): Promise<Song> {
+export async function fixtureSong(over: Partial<Song> = {}, briefer: ScriptedBriefer = new ScriptedBriefer()): Promise<Song> {
   const song = await composeSong({
     text: "something funky and upbeat",
     seed: 7,
     templates: [fixtureTemplate()],
     bands: [fixtureBand()],
-    briefer: new ScriptedBriefer(),
+    briefer,
     recipes: new RecipeBook({ store: new RecipeStore({ dir: mkdtempSync(join(tmpdir(), "mate-fixture-recipes-")) }), writer: new ScriptedRecipeWriter(), now: () => 1_000 }),
     saveBand: async (band) => band,
     now: () => 1_000,
