@@ -21,6 +21,7 @@ import type { SplicePort } from "../../ports/splice/types.ts";
 import type { Briefer } from "../../songwriting/briefer/index.ts";
 import { composeSong } from "../../songwriting/compose.ts";
 import { downloadPicks, downloadPlan, reuseDownloaded } from "../../songwriting/download.ts";
+import { LastTrackError, TrackNotFoundError, removeTrack } from "../../songwriting/edit.ts";
 import { EmptyLibraryError } from "../../songwriting/pick.ts";
 import { NotACandidateError, SlotNotFoundError, pickCandidate, resolveSong } from "../../songwriting/resolve.ts";
 
@@ -208,6 +209,22 @@ export function songRoutes(deps: SongRouteDeps): Hono {
     }
     const body: DownloadSongResponse = { song: outcome.song, downloaded: outcome.downloaded, failed: outcome.failed };
     return c.json(body);
+  });
+
+  /** Drop a part from the song: its track, its slots and placements. The last track cannot go. */
+  r.delete("/songs/:id/tracks/:partId", async (c) => {
+    const loaded = await load(c);
+    if ("error" in loaded) return loaded.error;
+    try {
+      const saved = await deps.songs.save(removeTrack(loaded.song, c.req.param("partId")));
+      publish(saved);
+      const body: SongResponse = { song: saved };
+      return c.json(body);
+    } catch (err) {
+      if (err instanceof TrackNotFoundError) return c.json({ error: err.message }, 404);
+      if (err instanceof LastTrackError) return c.json({ error: err.message }, 409);
+      throw err;
+    }
   });
 
   r.delete("/songs/:id", async (c) => {

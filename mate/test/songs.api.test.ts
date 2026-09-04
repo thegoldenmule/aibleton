@@ -470,3 +470,21 @@ describe("POST /songs/:id/resolve, /pick and /download", () => {
     expect(pendingDownloadUuids(body.song.plan)).toEqual([pending[0]!]);
   });
 });
+
+describe("DELETE /songs/:id/tracks/:partId", () => {
+  test("removes the part everywhere, saves, and publishes the active song", async () => {
+    const h = await build();
+    const song = SongResponseSchema.parse(await (await post(h.app, "/songs/compose", { text: "funk" })).json()).song;
+    const res = await h.app.request(`/songs/${song.id}/tracks/drums-kit`, { method: "DELETE" });
+    expect(res.status).toBe(200);
+    const out = SongResponseSchema.parse(await res.json()).song;
+    expect(out.plan.tracks.map((t) => t.partId)).toEqual(["bass-p", "guitar-strat"]);
+    expect(out.plan.slots.some((s) => s.partId === "drums-kit")).toBe(false);
+    expect(await h.songs.get(song.id)).toEqual(out);
+    expect(h.store.getSong()).toEqual(out);
+    expect((await h.app.request(`/songs/${song.id}/tracks/nope`, { method: "DELETE" })).status).toBe(404);
+    expect((await h.app.request(`/songs/nope/tracks/bass-p`, { method: "DELETE" })).status).toBe(404);
+    await h.app.request(`/songs/${song.id}/tracks/bass-p`, { method: "DELETE" });
+    expect((await h.app.request(`/songs/${song.id}/tracks/guitar-strat`, { method: "DELETE" })).status).toBe(409);
+  });
+});
