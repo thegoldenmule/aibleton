@@ -1,0 +1,175 @@
+[
+  {
+    "uuid": "368ee8d9-036b-4f66-8d7b-433f517d9ca9",
+    "fileName": "TS_ORGANIC_VOL1_124_drum_loop_grooves_motown_crash_fill_1.wav",
+    "bpm": 124,
+    "durationSec": 7.7,
+    "type": "loop",
+    "pack": "That Sound",
+    "tags": [
+      "drums",
+      "live sounds",
+      "acoustic",
+      "rock",
+      "fills",
+      "pop"
+    ],
+    "url": "https://splice.com/sounds/sample/a11a964e3927194516c2333911e66deecbe556a317308f0573a86c754d45e427/ts-organic-vol1-124-drum-loop-grooves-motown-crash-fill-1-wav"
+  },
+  {
+    "uuid": "bdcc7a4c-1189-405b-8f80-e7c6899355b8",
+    "fileName": "TS_ORGANIC_VOL1_124_drum_loop_grooves_motown_crash_fill_3.wav",
+    "bpm": 124,
+    "durationSec": 7.7,
+    "type": "loop",
+    "pack": "That Sound",
+    "tags": [
+      "drums",
+      "live sounds",
+      "acoustic",
+      "rock",
+      "fills",
+      "pop"
+    ],
+    "url": "https://splice.com/sounds/sample/b0cfb51980ca73cef9caefdedf48b8dc20b70a24b2cc103df1f2c55606cb8f70/ts-organic-vol1-124-drum-loop-grooves-motown-crash-fill-3-wav"
+  },
+  {
+    "uuid": "78f7be17-5694-431e-b513-ccaa3905e724",
+    "fileName": "TS_ORGANIC_VOL1_124_drum_loop_grooves_motown_skip_fill.wav",
+    "bpm": 124,
+    "durationSec": 7.7,
+    "type": "loop",
+    "pack": "That Sound",
+    "tags": [
+      "drums",
+      "live sounds",
+      "acoustic",
+      "rock",
+      "fills",
+      "pop"
+    ],
+    "url": "https://splice.com/sounds/sample/9925692f606e8943bcd322b95f96c4f80b494ff9f539f3fbd21a6174b34d2034/ts-organic-vol1-124-drum-loop-grooves-motown-skip-fill-wav"
+  },
+  {
+    "uuid": "35a92c87-71ce-4930-983c-f2531ae3f6eb",
+    "fileName": "TS_ORGANIC_VOL1_124_drum_loop_grooves_motown_crash_fill_2.wav",
+    "bpm": 124,
+    "durationSec": 7.7,
+    "type": "loop",
+    "pack": "That Sound",
+    "tags": [
+      "drums",
+      "live sounds",
+      "acoustic",
+      "rock",
+      "fills",
+      "pop"
+    ],
+    "url": "https://splice.com/sounds/sample/70c9564c76f03cd8a8c7b80f27669453c555e310055da75ac43dc39ffa3e5bba/ts-organic-vol1-124-drum-loop-grooves-motown-crash-fill-2-wav"
+  },
+  {
+    "uuid": "83eba392-3fd5-4228-bbcc-f79ae33a222d",
+    "fileName": "DRUMDROPS_IAR_101_DRUMS_FUNK_BRUSH_FILL_HITS.wav",
+    "bpm": 101,
+    "durationSec": 9.5,
+    "type": "loop",
+    "pack": "Drumdrops",
+    "tags": [
+      "drums",
+      "rock",
+      "grooves",
+      "funk",
+      "indie",
+      "indie rock"
+    ],
+    "url": "https://splice.com/sounds/sample/e83f358acddca242cb2f0fabb9315881eb9b6be555d32203b797c9ec65d2fdb5/drumdrops-iar-101-drums-funk-brush-fill-hits-wav"
+  },
+  {
+    "uuid": "d7975d7f-66d6-4b8c-914a-8e94557050cc",
+    "fileName": "TESSA_DG_90_drums_dream_inn_chorus_room.wav",
+    "bpm": 90,
+    "durationSec": 10.7,
+    "type": "loop",
+    "pack": "Tessatura",
+    "tags": [
+      "drums",
+      "grooves",
+      "chorus",
+      "roomy",
+      "indie",
+      "shoegaze",
+      "dream pop"
+    ],
+    "url": "https://splice.com/sounds/sample/ef90ffcf23a71623814dc96433a1693bd75b8af845cac3596229d2e33756b598/tessa-dg-90-drums-dream-inn-chorus-room-wav"
+  },
+  {
+    "uuid": "03afbd89-f06f-487b-8a87-bd4bea7614a3",
+    "fileName": "TESSA_DG_110_drums_vapor_room.wav",
+    "bpm": 110,
+    "durationSec": 8.7,
+    "type": "loop",
+    "pack": "Tessatura",
+    "tags": [
+      "drums",
+      "grooves",
+      "roomy",
+      "indie",
+      "shoegaze",
+      "dream pop"
+    ],
+    "url": "https://splice.com/sounds/sample/38204a40bd8d6212a0369c9019b20bc262dc0cdca961f5338e9879650027dcec/tessa-dg-110-drums-vapor-room-wav"
+  },
+  {
+    "uuid": "a58ba922-ccc6-4117-85cb-c1e4e30eaecb",
+    "fileName": "TESSA_DG_90_drums_dream_inn_chorus_overhead.wav",
+    "bpm": 90,
+    "durationSec": 10.7,
+    "type": "loop",
+    "pack": "Tessatura",
+    "tags": [
+      "drums",
+      "grooves",
+      "high",
+      "chorus",
+      "indie",
+      "shoegaze",
+      "dream pop"
+    ],
+    "url": "https://splice.com/sounds/sample/cfaea52db4af71231a79c97d914532ebc79c4b9f9f8b2e9c49b50dab8a3f8b84/tessa-dg-90-drums-dream-inn-chorus-overhead-wav"
+  },
+  {
+    "uuid": "b56bbbbd-fa1a-4f0d-9dd2-f53be56bffc9",
+    "fileName": "SC_RS_110_drum_loop_slim_boy.wav",
+    "bpm": 110,
+    "durationSec": 8.7,
+    "type": "loop",
+    "pack": "Sonic Collective",
+    "tags": [
+      "drums",
+      "acoustic",
+      "soul",
+      "grooves",
+      "funk",
+      "rnb"
+    ],
+    "url": "https://splice.com/sounds/sample/d7f7d869d66da0825c366ec53fe615187cc893c694c2fd307803646c0fa2e856/sc-rs-110-drum-loop-slim-boy-wav"
+  },
+  {
+    "uuid": "90ad05fe-9e22-4256-ad0c-71eb60d6c103",
+    "fileName": "TS_ORGANIC_VOL1_124_drum_loop_grooves_motown_3.wav",
+    "bpm": 124,
+    "durationSec": 7.7,
+    "type": "loop",
+    "pack": "That Sound",
+    "tags": [
+      "drums",
+      "live sounds",
+      "breaks",
+      "acoustic",
+      "rock",
+      "grooves",
+      "pop"
+    ],
+    "url": "https://splice.com/sounds/sample/e6e0313f1e7325c422adc4c9fcf736b94cb556e399cb0f0cc828b6490abd72f4/ts-organic-vol1-124-drum-loop-grooves-motown-3-wav"
+  }
+]
