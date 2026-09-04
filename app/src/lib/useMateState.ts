@@ -6,10 +6,11 @@ import {
   StateResponseSchema,
   type ExternalCommand,
   type MateEvent,
+  type Song,
   type StateResponse,
 } from "@aibleton/protocol";
 import { getState, mateUrl, postCommand } from "./mate";
-import { clearActiveSong, composeSong } from "./songs";
+import { clearActiveSong, composeSong, downloadSong, pickSlot, resolveSong } from "./songs";
 
 export type Connection = "connecting" | "open" | "error";
 
@@ -19,11 +20,21 @@ export interface MateView {
   lastError: string | null;
   /** True while a compose request from this page is waiting on the model. */
   composing: boolean;
+  /** True while Splice is being searched for the song's slots. Free. */
+  resolving: boolean;
+  /** True while picked sounds are being downloaded. Spends credits. */
+  downloading: boolean;
   send: (command: ExternalCommand) => Promise<void>;
-  /** Runs the song flow for a request; the active song lands in `state.song`. */
+  /** Runs the song flow for a request, then fetches Splice candidates; the active song lands in `state.song`. */
   compose: (text: string) => Promise<void>;
   /** Clears the active song so the next request composes a new one. */
   clearSong: () => Promise<void>;
+  /** Searches Splice for every slot of a song. */
+  resolveSounds: (songId: string) => Promise<void>;
+  /** Chooses which candidate a slot downloads. */
+  pickSound: (songId: string, slotId: string, soundUuid: string) => Promise<void>;
+  /** Downloads every pending pick. The caller confirms the credit spend first. */
+  downloadSounds: (songId: string) => Promise<void>;
 }
 
 const EVENT_TYPES: MateEvent["type"][] = [
@@ -81,6 +92,8 @@ export function useMateState(): MateView {
   const [connection, setConnection] = useState<Connection>("connecting");
   const [lastError, setLastError] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const retryRef = useRef(0);
 
   useEffect(() => {
@@ -156,20 +169,85 @@ export function useMateState(): MateView {
     }
   }, []);
 
-  const compose = useCallback(async (text: string) => {
-    setComposing(true);
-    try {
-      const song = await composeSong({ text });
-      // The SSE event normally lands first; this covers a dropped stream.
-      setState((prev) => (prev ? { ...prev, song } : prev));
-      setLastError(null);
-    } catch (err) {
-      setLastError(err instanceof Error ? err.message : String(err));
-      throw err;
-    } finally {
-      setComposing(false);
-    }
+  /** Replaces the active song from a response; the SSE event normally lands first, this covers a dropped stream. */
+  const replaceSong = useCallback((song: Song) => {
+    setState((prev) => (prev && (prev.song === null || prev.song.id === song.id) ? { ...prev, song } : prev));
   }, []);
+
+  const resolveSounds = useCallback(
+    async (songId: string) => {
+      setResolving(true);
+      try {
+        const { song, failedSlotIds } = await resolveSong(songId);
+        replaceSong(song);
+        setLastError(failedSlotIds.length ? `Splice returned nothing for ${failedSlotIds.length} slot${failedSlotIds.length === 1 ? "" : "s"}` : null);
+      } catch (err) {
+        setLastError(err instanceof Error ? err.message : String(err));
+        throw err;
+      } finally {
+        setResolving(false);
+      }
+    },
+    [replaceSong],
+  );
+
+  const compose = useCallback(
+    async (text: string) => {
+      setComposing(true);
+      let song: Song;
+      try {
+        song = await composeSong({ text });
+        replaceSong(song);
+        setLastError(null);
+      } catch (err) {
+        setLastError(err instanceof Error ? err.message : String(err));
+        throw err;
+      } finally {
+        setComposing(false);
+      }
+      // Candidates are free, so fetch them right away; the song is already on screen while this runs.
+      try {
+        await resolveSounds(song.id);
+      } catch {
+        // Surfaced through lastError; the song stays.
+      }
+    },
+    [replaceSong, resolveSounds],
+  );
+
+  const pickSound = useCallback(
+    async (songId: string, slotId: string, soundUuid: string) => {
+      try {
+        replaceSong(await pickSlot(songId, { slotId, soundUuid }));
+        setLastError(null);
+      } catch (err) {
+        setLastError(err instanceof Error ? err.message : String(err));
+        throw err;
+      }
+    },
+    [replaceSong],
+  );
+
+  const downloadSounds = useCallback(
+    async (songId: string) => {
+      setDownloading(true);
+      try {
+        const { song, failed } = await downloadSong(songId);
+        replaceSong(song);
+        setLastError(
+          failed.length
+            ? `${failed.length} download${failed.length === 1 ? "" : "s"} failed: ${failed.map((f) => `${f.uuid.slice(0, 8)} (${f.error})`).join("; ")}`
+            : null,
+        );
+      } catch (err) {
+        setLastError(err instanceof Error ? err.message : String(err));
+        throw err;
+      } finally {
+        setDownloading(false);
+      }
+    },
+    [replaceSong],
+  );
 
   const clearSong = useCallback(async () => {
     try {
@@ -182,5 +260,5 @@ export function useMateState(): MateView {
     }
   }, []);
 
-  return { state, connection, lastError, composing, send, compose, clearSong };
+  return { state, connection, lastError, composing, resolving, downloading, send, compose, clearSong, resolveSounds, pickSound, downloadSounds };
 }

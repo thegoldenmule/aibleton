@@ -1,4 +1,4 @@
-import type { Placement, SampleSlot, Song } from "@aibleton/protocol";
+import { slotDownloaded, type Placement, type SampleSlot, type Song } from "@aibleton/protocol";
 import { letterClass } from "./FormStrip";
 import { roleClass } from "./BandRoster";
 
@@ -102,7 +102,7 @@ function Clip({ slot, placement, repeat, label }: { slot: SampleSlot; placement:
       <span className="font-mono text-[10px] opacity-80">
         {placement.loopBars} bar{placement.loopBars === 1 ? "" : "s"}
         {placement.repeats > 1 ? ` · ${repeat + 1}/${placement.repeats}` : ""}
-        {slot.resolved ? "" : " · ?"}
+        {slotDownloaded(slot) ? " · ✓" : slot.pickedUuid ? " · ○" : " · ?"}
       </span>
     </div>
   );

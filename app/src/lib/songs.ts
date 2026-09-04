@@ -1,9 +1,14 @@
 import {
   ActiveSongResponseSchema,
   DeleteSongResponseSchema,
+  DownloadSongResponseSchema,
+  ResolveSongResponseSchema,
   SongListResponseSchema,
   SongResponseSchema,
   type ComposeSongRequest,
+  type DownloadSongResponse,
+  type PickSlotRequest,
+  type ResolveSongResponse,
   type Song,
 } from "@aibleton/protocol";
 import { request } from "./mate";
@@ -42,4 +47,20 @@ export async function clearActiveSong(): Promise<Song | null> {
 export async function deleteSong(id: string): Promise<boolean> {
   const { deleted } = await request(`/songs/${encodeURIComponent(id)}`, DeleteSongResponseSchema, { method: "DELETE" });
   return deleted;
+}
+
+/** Searches Splice for every slot and stores ranked candidates on the song. Free. */
+export function resolveSong(id: string): Promise<ResolveSongResponse> {
+  return request(`/songs/${encodeURIComponent(id)}/resolve`, ResolveSongResponseSchema, { method: "POST" });
+}
+
+/** Chooses which candidate a slot downloads. */
+export async function pickSlot(id: string, body: PickSlotRequest): Promise<Song> {
+  const { song } = await request(`/songs/${encodeURIComponent(id)}/pick`, SongResponseSchema, { method: "POST", body: JSON.stringify(body) });
+  return song;
+}
+
+/** Spends Splice credits: downloads every pending pick. Partial failure comes back as `failed`. */
+export function downloadSong(id: string): Promise<DownloadSongResponse> {
+  return request(`/songs/${encodeURIComponent(id)}/download`, DownloadSongResponseSchema, { method: "POST" });
 }

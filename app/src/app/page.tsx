@@ -23,7 +23,7 @@ function useNow(intervalMs: number): number {
 const FALLBACK_ADAPTERS = { ableton: "stub", splice: "stub", brain: "scripted" } as const;
 
 export default function Home() {
-  const { state, connection, lastError, composing, send, compose, clearSong } = useMateState();
+  const { state, connection, lastError, composing, resolving, downloading, send, compose, clearSong, resolveSounds, pickSound, downloadSounds } = useMateState();
   // Relative timestamps in the mailbox; ticks once a minute, not per frame.
   const now = useNow(15_000);
 
@@ -57,7 +57,16 @@ export default function Home() {
           ) : composing ? (
             <ComposingState />
           ) : song ? (
-            <SongView song={song} />
+            <SongView
+              key={song.id}
+              song={song}
+              spliceStub={(state.adapters ?? FALLBACK_ADAPTERS).splice === "stub"}
+              resolving={resolving}
+              downloading={downloading}
+              onResolve={() => resolveSounds(song.id)}
+              onPick={(slotId, soundUuid) => pickSound(song.id, slotId, soundUuid)}
+              onDownload={() => downloadSounds(song.id)}
+            />
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center text-xs text-muted">
               <p>No song yet.</p>
