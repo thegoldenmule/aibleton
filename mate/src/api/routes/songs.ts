@@ -20,7 +20,7 @@ import { ModelRefusedError } from "../../core/anthropic.ts";
 import type { SplicePort } from "../../ports/splice/types.ts";
 import type { Briefer } from "../../songwriting/briefer/index.ts";
 import { composeSong } from "../../songwriting/compose.ts";
-import { downloadPicks, downloadPlan } from "../../songwriting/download.ts";
+import { downloadPicks, downloadPlan, reuseDownloaded } from "../../songwriting/download.ts";
 import { EmptyLibraryError } from "../../songwriting/pick.ts";
 import { NotACandidateError, SlotNotFoundError, pickCandidate, resolveSong } from "../../songwriting/resolve.ts";
 
@@ -149,7 +149,8 @@ export function songRoutes(deps: SongRouteDeps): Hono {
     if ("error" in loaded) return loaded.error;
     try {
       const result = await resolveSong(loaded.song, { splice: deps.splice, log: deps.log, signal: c.req.raw.signal });
-      const saved = await deps.songs.save(result.song);
+      // A pick that another slot already has on disk is reused for free.
+      const saved = await deps.songs.save(reuseDownloaded(result.song));
       publish(saved);
       const body: ResolveSongResponse = { song: saved, failedSlotIds: result.failedSlotIds };
       return c.json(body);
@@ -173,7 +174,7 @@ export function songRoutes(deps: SongRouteDeps): Hono {
     const parsed = PickSlotRequestSchema.safeParse(raw);
     if (!parsed.success) return c.json({ error: "invalid request", issues: parsed.error.issues }, 400);
     try {
-      const saved = await deps.songs.save(pickCandidate(loaded.song, parsed.data.slotId, parsed.data.soundUuid));
+      const saved = await deps.songs.save(reuseDownloaded(pickCandidate(loaded.song, parsed.data.slotId, parsed.data.soundUuid)));
       publish(saved);
       const body: SongResponse = { song: saved };
       return c.json(body);

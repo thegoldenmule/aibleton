@@ -434,6 +434,25 @@ describe("POST /songs/:id/resolve, /pick and /download", () => {
     expect((await post(h.app, `/songs/${active.id}/download`)).status).toBe(409);
   });
 
+  test("picking a sound another slot already downloaded reuses the file for free", async () => {
+    const h = await build();
+    const { active } = await twoSongs(h);
+    await post(h.app, `/songs/${active.id}/resolve`);
+    const done = DownloadSongResponseSchema.parse(await (await post(h.app, `/songs/${active.id}/download`)).json()).song;
+    const drumsA = done.plan.slots.find((s) => s.id === "drums-kit:a")!;
+    const drumsB = done.plan.slots.find((s) => s.id === "drums-kit:b")!;
+    const other = drumsB.candidates.find((c) => c.uuid !== drumsA.pickedUuid);
+    if (!other) return; // the fixture catalog gave both slots one candidate; nothing to swap
+    // Make drums:b want something new, then swap it back to what drums:a already has on disk.
+    await post(h.app, `/songs/${active.id}/pick`, { slotId: "drums-kit:b", soundUuid: other.uuid });
+    const calls = h.splice.calls.filter((c) => c.method === "downloadAsset").length;
+    const res = await post(h.app, `/songs/${active.id}/pick`, { slotId: "drums-kit:b", soundUuid: drumsA.pickedUuid! });
+    const song = SongResponseSchema.parse(await res.json()).song;
+    expect(song.plan.slots.find((s) => s.id === "drums-kit:b")?.resolved).toEqual(drumsA.resolved);
+    expect(pendingDownloadUuids(song.plan)).toEqual([]);
+    expect(h.splice.calls.filter((c) => c.method === "downloadAsset").length).toBe(calls);
+  });
+
   test("download reports a failed asset and keeps the rest", async () => {
     const catalog = new FixtureSpliceAdapter();
     const flaky = new FakeSplice();
