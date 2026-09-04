@@ -131,6 +131,25 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
       </div>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-2 border-t border-line px-3 py-2">
+        <div className="flex items-stretch gap-2">
+          <textarea
+            rows={2}
+            className="min-w-0 flex-1 resize-none rounded-sm border border-line bg-panel-2 px-2.5 py-1.5 text-sm outline-none placeholder:text-muted/70 focus:border-accent"
+            placeholder={song ? "e.g. “give me a 4-bar rock groove at 110”" : "e.g. “something funky and upbeat”"}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                e.currentTarget.form?.requestSubmit();
+              }
+            }}
+            disabled={locked}
+          />
+          <button type="submit" disabled={locked || !text.trim()} className={btn("h-full bg-accent text-black")}>
+            {composing ? "composing…" : "send"}
+          </button>
+        </div>
         <div className="flex flex-wrap gap-1.5">
           {song ? (
             <button type="button" disabled={locked} onClick={newSong} className={btn()} title="Clear the active song and compose another">
@@ -156,25 +175,6 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
           </button>
           <button type="button" disabled={locked} onClick={() => fire({ type: "abletonChanged" })} className={btn()}>
             refresh
-          </button>
-        </div>
-        <div className="flex items-end gap-2">
-          <textarea
-            rows={2}
-            className="min-w-0 flex-1 resize-none rounded-sm border border-line bg-panel-2 px-2.5 py-1.5 text-sm outline-none placeholder:text-muted/70 focus:border-accent"
-            placeholder={song ? "e.g. “give me a 4-bar rock groove at 110”" : "e.g. “something funky and upbeat”"}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                e.currentTarget.form?.requestSubmit();
-              }
-            }}
-            disabled={locked}
-          />
-          <button type="submit" disabled={locked || !text.trim()} className={btn("bg-accent text-black")}>
-            {composing ? "composing…" : song ? "send" : "compose"}
           </button>
         </div>
       </form>
