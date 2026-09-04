@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import { CommandBar } from "../components/CommandBar";
 import { EmptyState } from "../components/EmptyState";
 import { MailboxPanel } from "../components/MailboxPanel";
-import { TrackLane } from "../components/TrackLane";
+import { SongView } from "../components/SongView";
 import { TransportBar } from "../components/TransportBar";
 import { useMateState } from "../lib/useMateState";
 
@@ -28,6 +28,7 @@ export default function Home() {
   const now = useNow(15_000);
 
   const session = state?.session ?? null;
+  const song = state?.song ?? null;
 
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-3 p-4">
@@ -42,27 +43,23 @@ export default function Home() {
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[1fr_320px]">
         <section className="flex min-h-0 flex-col gap-2 rounded-md border border-line bg-panel p-3">
+          {/* Mate's picture of the session: the active song. Ableton shows Ableton's. */}
           <div className="flex items-baseline justify-between">
             <h2 className="text-[10px] uppercase tracking-wider text-muted">session</h2>
-            {session ? (
+            {song ? (
               <span className="font-mono text-[10px] text-muted/70">
-                {session.tracks.length} tracks · captured {new Date(session.capturedAt).toLocaleTimeString()}
+                {song.plan.tracks.length} tracks · composed {new Date(song.createdAt).toLocaleTimeString()}
               </span>
             ) : null}
           </div>
           {!state ? (
             <EmptyState error={lastError} />
-          ) : !session ? (
-            <div className="flex flex-1 items-center justify-center text-xs text-muted">
-              Connected. No session snapshot yet.
-            </div>
-          ) : session.tracks.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center text-xs text-muted">No tracks in the set.</div>
+          ) : song ? (
+            <SongView song={song} />
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-auto">
-              {session.tracks.map((track) => (
-                <TrackLane key={track.index} track={track} />
-              ))}
+            <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center text-xs text-muted">
+              <p>No song yet.</p>
+              <p>Tell mate what you want to play and it will pick a template and a band and lay out a song.</p>
             </div>
           )}
         </section>
