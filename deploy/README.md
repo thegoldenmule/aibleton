@@ -39,5 +39,17 @@ restart both services, `docker compose up -d` and reload nginx, then check healt
 - `*.service.template` -> `/etc/systemd/system/`.
 - `docker-compose.yml` -> nginx (host networking) and a certbot renew loop.
 
+## Splice
+
+Either put `SPLICE_MCP_TOKEN=...` in `/srv/aibleton/secrets.env`, or log in locally with
+`bun run --cwd mate splice:login` and copy the result to the box:
+
+```bash
+scp -i ~/.ssh/key.pem .mate/splice-oauth.json ubuntu@host:/srv/aibleton/data/splice-oauth.json
+```
+
+Then `sudo systemctl restart aibleton-mate`. The file must stay owned by the service user (mate
+rewrites it on token refresh). `GET /mate/adapters` reports whether Splice is live.
+
 Logs: `journalctl -u aibleton-mate -f`, `journalctl -u aibleton-app -f`,
 `docker logs aibleton-nginx`. Saved bands/songs live in `/srv/aibleton/data`.
