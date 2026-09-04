@@ -1,8 +1,13 @@
 {
   "name": "aibleton",
   "private": true,
-  "workspaces": ["mate", "app", "packages/*"],
+  "workspaces": [
+    "mate",
+    "app",
+    "packages/*"
+  ],
   "scripts": {
+    "dev": "bun run --filter mate --filter app dev",
     "dev:mate": "bun run --cwd mate dev",
     "dev:app": "bun run --cwd app dev",
     "test": "bun run --cwd mate test",
