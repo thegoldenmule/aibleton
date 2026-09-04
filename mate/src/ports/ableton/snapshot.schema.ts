@@ -17,6 +17,8 @@ const RawClipSchema = z
     name: z.string().default(""),
     length: z.number().default(0),
     is_playing: z.boolean().optional(),
+    is_audio_clip: z.boolean().optional(),
+    file_path: z.string().optional(),
     notes: z.array(RawNoteSchema).optional(),
   })
   .passthrough();
@@ -36,6 +38,8 @@ const RawArrangementClipSchema = z
     end_time: z.number().default(0),
     length: z.number().default(0),
     type: z.string().default("unknown"),
+    is_audio_clip: z.boolean().optional(),
+    file_path: z.string().optional(),
   })
   .passthrough();
 
@@ -72,6 +76,7 @@ export const SnapshotV2Schema = z
     tracks: z.array(RawTrackSchema),
     scenes: z.array(z.object({ index: z.number().int(), name: z.string().default("") }).passthrough()).optional(),
     return_tracks: z.array(z.object({ index: z.number().int(), name: z.string().default("") }).passthrough()).optional(),
+    cue_points: z.array(z.object({ name: z.string().default(""), time: z.number().default(0) }).passthrough()).optional(),
   })
   .passthrough();
 
@@ -88,6 +93,8 @@ function toNote(n: z.infer<typeof RawNoteSchema>): MidiNote {
 function toClip(c: z.infer<typeof RawClipSchema>): Clip {
   const clip: Clip = { name: c.name, length: c.length };
   if (c.is_playing !== undefined) clip.isPlaying = c.is_playing;
+  if (c.is_audio_clip !== undefined) clip.isAudio = c.is_audio_clip;
+  if (c.file_path) clip.filePath = c.file_path;
   if (c.notes) clip.notes = c.notes.map(toNote);
   return clip;
 }
@@ -111,7 +118,8 @@ function toTrack(t: z.infer<typeof RawTrackSchema>): Track {
       startTime: c.start_time,
       endTime: c.end_time,
       length: c.length,
-      type: c.type,
+      type: c.is_audio_clip === undefined ? c.type : c.is_audio_clip ? "audio" : "midi",
+      ...(c.file_path ? { filePath: c.file_path } : {}),
     })),
   };
 }
@@ -128,6 +136,7 @@ export function toSessionState(raw: SnapshotV2, capturedAt: number): SessionStat
       songLength: raw.session.song_length,
     },
     tracks: raw.tracks.map(toTrack),
+    ...(raw.cue_points ? { locators: raw.cue_points.map((c) => ({ name: c.name, time: c.time })) } : {}),
     capturedAt,
   };
 }

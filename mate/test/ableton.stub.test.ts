@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { InMemoryAbletonAdapter } from "../src/ports/ableton/stub.ts";
+import { assertNotError } from "../src/ports/ableton/mcp.ts";
 import { parseToolJson } from "../src/ports/ableton/snapshot.schema.ts";
 import { createAbletonPort } from "../src/ports/ableton/index.ts";
 import { silentLogger } from "../src/log.ts";
@@ -82,5 +83,62 @@ describe("parseToolJson", () => {
 
   test("throws on non-JSON", () => {
     expect(() => parseToolJson(JSON.stringify({ result: "Tempo set to 120" }))).toThrow(/not JSON/);
+  });
+});
+
+describe("InMemoryAbletonAdapter audio and arrangement", () => {
+  test("creates a named audio track, imports a clip, copies it to the arrangement and cuts overlaps", async () => {
+    const a = new InMemoryAbletonAdapter({ now: () => 1, clipBeats: (p) => (p.endsWith("long.wav") ? 32 : 16) });
+    const idx = await a.createAudioTrack("Bass [mate]");
+    expect(idx).toBe(4);
+    let s = await a.getSnapshot();
+    expect(s.tracks[4]).toMatchObject({ index: 4, name: "Bass [mate]", kind: "audio" });
+
+    const { lengthBeats } = await a.createAudioClip(4, 0, "/x/a.wav");
+    expect(lengthBeats).toBe(16);
+    await a.setClipName(4, 0, "a · thing");
+    await a.createAudioClip(4, 1, "/x/long.wav");
+    s = await a.getSnapshot();
+    expect(s.tracks[4]!.clipSlots[0]!.clip).toMatchObject({ name: "a · thing", length: 16, filePath: "/x/a.wav", isAudio: true });
+
+    await a.duplicateToArrangement(4, 0, 0);
+    await a.duplicateToArrangement(4, 0, 16);
+    await a.duplicateToArrangement(4, 1, 8); // lands across both copies: first is cut short, second loses its head
+    s = await a.getSnapshot();
+    expect(s.tracks[4]!.arrangementClips.map((c) => [c.name, c.startTime, c.endTime])).toEqual([
+      ["a · thing", 0, 8],
+      ["long", 8, 40],
+    ]);
+    expect(s.tracks[4]!.arrangementClips[1]!.filePath).toBe("/x/long.wav");
+
+    await a.createLocator("a1", 0);
+    await a.createLocator("intro", 0);
+    await a.createLocator("b1", 32);
+    expect((await a.getSnapshot()).locators).toEqual([
+      { name: "intro", time: 0 },
+      { name: "b1", time: 32 },
+    ]);
+
+    await a.deleteClip(4, 0);
+    expect((await a.getSnapshot()).tracks[4]!.clipSlots[0]!.clip).toBeNull();
+  });
+
+  test("refuses audio clips on MIDI tracks, relative paths and occupied slots", async () => {
+    const a = new InMemoryAbletonAdapter();
+    await expect(a.createAudioClip(0, 0, "/x/a.wav")).rejects.toThrow(/not an audio/);
+    await expect(a.createAudioClip(2, 0, "a.wav")).rejects.toThrow(/absolute/);
+    await a.createAudioClip(2, 0, "/x/a.wav");
+    await expect(a.createAudioClip(2, 0, "/x/b.wav")).rejects.toThrow(/already has/);
+  });
+});
+
+describe("assertNotError", () => {
+  test("throws on the server's prose errors, wrapped or bare, and passes everything else through", () => {
+    expect(() => assertNotError(JSON.stringify({ result: "Error creating audio clip: Track 1 is not an audio track" }), "create_audio_clip")).toThrow(
+      /create_audio_clip: Error creating audio clip: Track 1/,
+    );
+    expect(() => assertNotError("Error getting session info: not connected", "get_session_info")).toThrow(/not connected/);
+    expect(assertNotError(JSON.stringify({ result: "Created audio clip 'x' at track 4, slot 0 (length 16.0 beats)" }), "t")).toContain("length 16.0");
+    expect(assertNotError('{"result":"{\\"tempo\\":120}"}', "t")).toBe('{"tempo":120}');
   });
 });

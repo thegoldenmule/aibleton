@@ -47,3 +47,29 @@ describe("ableton snapshot v2", () => {
     });
   });
 });
+
+describe("ableton snapshot v2 audio clips and cue points", () => {
+  test("keeps the sample path on session and arrangement clips, and the cue points", () => {
+    const raw = structuredClone(fixture) as typeof fixture;
+    raw.tracks[2]!.clip_slots[0] = {
+      index: 0,
+      has_clip: true,
+      clip: { name: "a · loop", length: 16, is_playing: false, is_audio_clip: true, file_path: "/dl/loop.wav", warping: true, looping: true },
+    } as never;
+    (raw.tracks[2] as { arrangement_clips: unknown[] }).arrangement_clips = [
+      { name: "a · loop", start_time: 0, end_time: 16, length: 16, is_audio_clip: true, file_path: "/dl/loop.wav" },
+      { name: "midi thing", start_time: 16, end_time: 20, length: 4, is_midi_clip: true },
+    ];
+    (raw as { cue_points: unknown[] }).cue_points = [{ name: "a1", time: 0 }, { name: "b1", time: 32 }];
+    const state = toSessionState(parseSnapshotV2(raw), 0);
+    expect(state.tracks[2]!.clipSlots[0]!.clip).toEqual({ name: "a · loop", length: 16, isPlaying: false, isAudio: true, filePath: "/dl/loop.wav" });
+    expect(state.tracks[2]!.arrangementClips).toEqual([
+      { name: "a · loop", startTime: 0, endTime: 16, length: 16, type: "audio", filePath: "/dl/loop.wav" },
+      { name: "midi thing", startTime: 16, endTime: 20, length: 4, type: "unknown" },
+    ]);
+    expect(state.locators).toEqual([
+      { name: "a1", time: 0 },
+      { name: "b1", time: 32 },
+    ]);
+  });
+});

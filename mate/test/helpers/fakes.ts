@@ -40,8 +40,31 @@ export class FakeAbleton implements AbletonPort {
     this.rec("createMidiTrack", [index], ctx);
     return this.session.tracks.length;
   }
+  async createAudioTrack(name: string, ctx?: CallContext): Promise<number> {
+    this.rec("createAudioTrack", [name], ctx);
+    return this.session.tracks.length;
+  }
+  async setTrackName(track: number, name: string, ctx?: CallContext) {
+    this.rec("setTrackName", [track, name], ctx);
+  }
   async createClip(track: number, slot: number, lengthBeats: number, ctx?: CallContext) {
     this.rec("createClip", [track, slot, lengthBeats], ctx);
+  }
+  async createAudioClip(track: number, slot: number, path: string, ctx?: CallContext) {
+    this.rec("createAudioClip", [track, slot, path], ctx);
+    return { lengthBeats: 16 };
+  }
+  async setClipName(track: number, slot: number, name: string, ctx?: CallContext) {
+    this.rec("setClipName", [track, slot, name], ctx);
+  }
+  async deleteClip(track: number, slot: number, ctx?: CallContext) {
+    this.rec("deleteClip", [track, slot], ctx);
+  }
+  async duplicateToArrangement(track: number, slot: number, atBeat: number, ctx?: CallContext) {
+    this.rec("duplicateToArrangement", [track, slot, atBeat], ctx);
+  }
+  async createLocator(name: string, atBeat: number, ctx?: CallContext) {
+    this.rec("createLocator", [name, atBeat], ctx);
   }
   async addNotes(track: number, slot: number, notes: MidiNote[], ctx?: CallContext) {
     this.rec("addNotes", [track, slot, notes], ctx);
