@@ -140,8 +140,10 @@ sudo chown -R "$REMOTE_USER":"$REMOTE_USER" "$ROOT/src" "$ROOT/data" "$ROOT/prox
 sudo chown "$REMOTE_USER":"$REMOTE_USER" "$ROOT"
 
 # --- basic auth
+# World-readable: nginx's worker runs as an unprivileged user in the container and only opens
+# this file when credentials are presented, so a stricter mode turns every login into a 500.
 printf '%s:%s\n' "$BASIC_AUTH_USER" "$(openssl passwd -apr1 "$BASIC_AUTH_PASSWORD")" > "$ROOT/proxy/htpasswd"
-chmod 640 "$ROOT/proxy/htpasswd"
+chmod 644 "$ROOT/proxy/htpasswd"
 
 # --- secrets (never rewritten by deploy). Sources, first wins: explicit key, existing file, ~/.env.
 if [ -n "$API_KEY" ]; then
@@ -186,6 +188,10 @@ rsync -az --delete --stats \
 log "install, build, render config, restart services"
 {
   preamble
+  cat <<EOF
+BASIC_AUTH_USER=$(printf %q "${BASIC_AUTH_USER:-}")
+BASIC_AUTH_PASSWORD=$(printf %q "${BASIC_AUTH_PASSWORD:-}")
+EOF
   cat <<'EOF'
 cd "$ROOT/src"
 BUN="$(command -v bun)"
@@ -195,6 +201,7 @@ NODE="$(command -v node)"
 render() { sed -e "s|__DOMAIN__|$DOMAIN|g" -e "s|__ROOT__|$ROOT|g" -e "s|__USER__|$REMOTE_USER|g" -e "s|__BUN__|$BUN|g" -e "s|__NODE__|$NODE|g" "$1"; }
 render deploy/server.env.template > "$ROOT/app.env"
 render deploy/nginx.conf.template > "$ROOT/proxy/default.conf"
+chmod 644 "$ROOT/proxy/default.conf" "$ROOT/proxy/htpasswd"
 render deploy/aibleton-mate.service.template | sudo tee /etc/systemd/system/aibleton-mate.service >/dev/null
 render deploy/aibleton-app.service.template  | sudo tee /etc/systemd/system/aibleton-app.service  >/dev/null
 sudo systemctl daemon-reload
@@ -221,6 +228,11 @@ for i in $(seq 1 30); do
 done
 code="$(curl -s -o /dev/null -w '%{http_code}' "https://$DOMAIN/mate/health")"
 [ "$code" = 401 ] || { echo "expected 401 from https://$DOMAIN/mate/health, got $code" >&2; exit 1; }
+# With credentials in the environment, prove a login actually works end to end.
+if [ -n "$BASIC_AUTH_USER" ] && [ -n "$BASIC_AUTH_PASSWORD" ]; then
+  code="$(curl -s -o /dev/null -w '%{http_code}' -u "$BASIC_AUTH_USER:$BASIC_AUTH_PASSWORD" "https://$DOMAIN/")"
+  [ "$code" = 200 ] || { echo "expected 200 from https://$DOMAIN/ with credentials, got $code" >&2; sudo docker logs --tail 20 aibleton-nginx >&2; exit 1; }
+fi
 echo "deployed: https://$DOMAIN"
 EOF
 } | remote
