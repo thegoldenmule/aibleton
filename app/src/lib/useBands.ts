@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { Band, GenerateBandRequest } from "@aibleton/protocol";
-import { deleteBand, generateBand, listBands, saveBand } from "./bands";
+import type { Band, GenerateBandRequest, RecipeSummary } from "@aibleton/protocol";
+import { deleteBand, generateBand, listBands, listRecipes, saveBand } from "./bands";
 
 export interface BandsView {
   bands: Band[];
+  /** Genres the generator can staff; grows when a new genre is generated. */
+  recipes: RecipeSummary[];
   /** True until the first list load settles. */
   loading: boolean;
   /** True while a generate/save/delete request is in flight. */
@@ -28,6 +30,7 @@ function message(err: unknown): string {
  */
 export function useBands(): BandsView {
   const [bands, setBands] = useState<Band[]>([]);
+  const [recipes, setRecipes] = useState<RecipeSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -52,9 +55,10 @@ export function useBands(): BandsView {
     let disposed = false;
     const load = async () => {
       try {
-        const next = await listBands();
+        const [next, known] = await Promise.all([listBands(), listRecipes()]);
         if (disposed) return;
         setBands(next);
+        setRecipes(known);
         setLastError(null);
       } catch (err) {
         if (!disposed) setLastError(message(err));
@@ -73,6 +77,12 @@ export function useBands(): BandsView {
     try {
       const band = await generateBand(opts);
       setLastError(null);
+      // A new genre means a new recipe; refresh the datalist so it shows up.
+      if (opts.genre) {
+        listRecipes().then(setRecipes, () => {
+          /* the list is a convenience; a failed refresh is not an error */
+        });
+      }
       return band;
     } catch (err) {
       setLastError(message(err));
@@ -118,5 +128,5 @@ export function useBands(): BandsView {
     [refresh],
   );
 
-  return { bands, loading, busy, lastError, refresh, generate, save, remove };
+  return { bands, recipes, loading, busy, lastError, refresh, generate, save, remove };
 }

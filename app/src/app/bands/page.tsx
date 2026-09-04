@@ -4,10 +4,9 @@ import Link from "next/link";
 import { useState } from "react";
 import {
   BandSchema,
-  GENRES,
-  GenreSchema,
   ROLES,
   bandGenre,
+  genreKey,
   type Band,
   type BandPart,
   type GenerateBandRequest,
@@ -66,12 +65,10 @@ function intField(raw: string, label: string, min?: number, max?: number): numbe
 /** Blank fields are left off so the server picks its own default. @throws with a readable message. */
 function buildOptions(options: Options): GenerateBandRequest {
   const name = options.name.trim();
-  const genreText = options.genre.trim();
-  const genre = genreText ? GenreSchema.safeParse(genreText) : null;
-  if (genre && !genre.success) throw new Error(`genre must be one of ${GENRES.join(", ")}`);
+  const genre = options.genre.trim();
   return {
     seed: intField(options.seed, "seed"),
-    genre: genre?.data,
+    genre: genre || undefined,
     size: intField(options.size, "size", 1, 16),
     name: name || undefined,
   };
@@ -128,7 +125,7 @@ function genreBuckets(bands: Band[]): { genre: string; count: number }[] {
 }
 
 export default function BandsPage() {
-  const { bands, loading, busy, lastError, generate, save, remove } = useBands();
+  const { bands, recipes, loading, busy, lastError, generate, save, remove } = useBands();
   const [options, setOptions] = useState<Options>(EMPTY_OPTIONS);
   const [optionError, setOptionError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Band | null>(null);
@@ -141,6 +138,7 @@ export default function BandsPage() {
   const set = (key: keyof Options) => (value: string) => setOptions((prev) => ({ ...prev, [key]: value }));
 
   const buckets = genreBuckets(bands);
+  const knownGenre = recipes.some((r) => r.id === genreKey(options.genre));
   // A genre can disappear when its last band is deleted; fall back to "all"
   // rather than stranding the list on an empty view.
   const activeFilter = filter && buckets.some((b) => b.genre === filter) ? filter : null;
@@ -281,20 +279,25 @@ export default function BandsPage() {
           <div className="flex flex-col gap-1">
             <label htmlFor="gen-genre" className="text-[10px] uppercase tracking-wider text-muted">
               genre
+              <span className="ml-1 normal-case text-muted/60">
+                {knownGenre ? "has a recipe" : options.genre.trim() ? "new · the model writes a recipe first" : "any"}
+              </span>
             </label>
-            <select
+            <input
               id="gen-genre"
+              list="gen-genre-options"
               value={options.genre}
               onChange={(e) => set("genre")(e.target.value)}
+              placeholder="surprise me"
               className="w-full rounded-sm border border-line bg-panel-2 px-2 py-1 font-mono text-xs outline-none focus:border-accent"
-            >
-              <option value="">surprise me</option>
-              {GENRES.map((genre) => (
-                <option key={genre} value={genre}>
-                  {genre}
+            />
+            <datalist id="gen-genre-options">
+              {recipes.map((recipe) => (
+                <option key={recipe.id} value={recipe.genre}>
+                  {recipe.source === "generated" ? "written by the model" : "built in"}
                 </option>
               ))}
-            </select>
+            </datalist>
           </div>
           <TextField
             id="gen-size"
@@ -313,7 +316,7 @@ export default function BandsPage() {
             onClick={() => void roll()}
             className="rounded-sm bg-accent px-4 py-1.5 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40"
           >
-            generate
+            {busy && options.genre.trim() && !knownGenre ? "writing a recipe…" : "generate"}
           </button>
           <button
             type="button"

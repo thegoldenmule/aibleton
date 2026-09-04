@@ -2,8 +2,10 @@ import {
   BandListResponseSchema,
   BandResponseSchema,
   DeleteBandResponseSchema,
+  RecipeListResponseSchema,
   type Band,
   type GenerateBandRequest,
+  type RecipeSummary,
 } from "@aibleton/protocol";
 import { request } from "./mate";
 
@@ -13,7 +15,17 @@ export async function listBands(): Promise<Band[]> {
   return bands;
 }
 
-/** Generates a band server-side. The result is NOT saved — POST it back with `saveBand`. */
+/** Every genre the generator can staff, built-ins first. */
+export async function listRecipes(): Promise<RecipeSummary[]> {
+  const { recipes } = await request("/recipes", RecipeListResponseSchema);
+  return recipes;
+}
+
+/**
+ * Generates a band server-side. The result is NOT saved — POST it back with
+ * `saveBand`. A genre with no recipe yet has one written by the model first,
+ * which takes a while.
+ */
 export async function generateBand(opts: GenerateBandRequest = {}): Promise<Band> {
   const { band } = await request("/bands/generate", BandResponseSchema, {
     method: "POST",
