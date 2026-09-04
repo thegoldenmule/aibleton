@@ -1,5 +1,6 @@
 import { GENRES } from "@aibleton/protocol";
 import type { BandPart, Genre, Role } from "@aibleton/protocol";
+import { mulberry32 } from "./rng.ts";
 
 /**
  * How one genre staffs a band.
@@ -39,18 +40,6 @@ export interface GenerateBandOptions {
 /** Part ids are slugs: `/^[a-z0-9][a-z0-9-]{0,31}$/`, so at most this many characters. */
 const MAX_ID_LENGTH = 32;
 
-/** mulberry32: tiny, fast, good enough for band shapes. Pure — no `Math.random()`. */
-function mulberry32(seed: number): () => number {
-  let a = (seed | 0) >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 function requireInt(value: number, name: string, min: number, max?: number): void {
   if (!Number.isInteger(value)) throw new Error(`${name} must be a whole number, got ${value}`);
   if (value < min) throw new Error(`${name} must be at least ${min}, got ${value}`);
@@ -76,7 +65,7 @@ function clip(slug: string, length: number): string {
  * role and name slug the same way) take a numeric suffix, and the base is cut
  * short enough that the suffixed id still fits the 32-character shape.
  */
-function partId(role: string, name: string, taken: Set<string>): string {
+export function partId(role: string, name: string, taken: Set<string>): string {
   const base = slugify(`${role}-${name}`) || slugify(role) || "part";
   let id = clip(base, MAX_ID_LENGTH);
   for (let n = 2; taken.has(id); n++) {

@@ -1,5 +1,6 @@
 import { DEFAULT_SECTION_BARS, stringifyForm } from "@aibleton/protocol";
 import type { FormEntry, Section } from "@aibleton/protocol";
+import { mulberry32 } from "./rng.ts";
 
 /** Letters a form may use, in the order they are allowed to appear. */
 const ALPHABET = ["a", "b", "c", "d", "e", "f"] as const;
@@ -27,18 +28,6 @@ export interface GenerateFormOptions {
   maxRun?: number;
   /** Bars per occurrence. default DEFAULT_SECTION_BARS. */
   bars?: number;
-}
-
-/** mulberry32: tiny, fast, good enough for song shapes. Pure — no `Math.random()`. */
-function mulberry32(seed: number): () => number {
-  let a = (seed | 0) >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 function requireInt(value: number, name: string, min: number, max?: number): void {
