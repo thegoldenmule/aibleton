@@ -11,6 +11,7 @@ import { createApp } from "../src/api/server.ts";
 import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
 import { TemplateStore } from "../src/core/templates.ts";
+import { BandStore } from "../src/core/bands.ts";
 import { ManualClock } from "../src/core/clock.ts";
 import { loadConfig } from "../src/config.ts";
 import { silentLogger } from "../src/log.ts";
@@ -33,6 +34,7 @@ function build(now = 1_000) {
   const app = createApp({
     store: new StateStore(events),
     templates: new TemplateStore({ dir }),
+    bands: new BandStore({ dir: join(dir, "bands") }),
     intelligence: idleIntelligence,
     config: loadConfig({}),
     log: silentLogger,

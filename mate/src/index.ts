@@ -4,6 +4,7 @@ import { SystemClock } from "./core/clock.ts";
 import { EventBus } from "./core/events.ts";
 import { Mailbox } from "./core/mailbox.ts";
 import { StateStore } from "./core/state.ts";
+import { BandStore } from "./core/bands.ts";
 import { TemplateStore } from "./core/templates.ts";
 import { createAbletonPort } from "./ports/ableton/index.ts";
 import { createSplicePort } from "./ports/splice/index.ts";
@@ -23,6 +24,7 @@ async function main(): Promise<void> {
   const store = new StateStore(events);
   const mailbox = new Mailbox();
   const templates = new TemplateStore({ dir: config.templatesDir });
+  const bands = new BandStore({ dir: config.bandsDir });
 
   const abletonResult = await createAbletonPort(config.ableton, {
     command: config.abletonMcpCommand,
@@ -72,6 +74,7 @@ async function main(): Promise<void> {
   const app = createApp({
     store,
     templates,
+    bands,
     intelligence,
     config,
     log: createLogger("api"),

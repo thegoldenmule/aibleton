@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Config } from "../config.ts";
 import type { StateStore } from "../core/state.ts";
+import type { BandStore } from "../core/bands.ts";
 import type { TemplateStore } from "../core/templates.ts";
 import type { Intelligence } from "../intelligence/types.ts";
 import type { Logger } from "../log.ts";
@@ -10,11 +11,13 @@ import { commandRoutes } from "./routes/commands.ts";
 import { eventRoutes } from "./routes/events.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { stateRoutes } from "./routes/state.ts";
+import { bandRoutes } from "./routes/bands.ts";
 import { templateRoutes } from "./routes/templates.ts";
 
 export interface AppDeps {
   store: StateStore;
   templates: TemplateStore;
+  bands: BandStore;
   intelligence: Intelligence;
   config: Config;
   log: Logger;
@@ -53,7 +56,9 @@ export function createApp(deps: AppDeps): Hono {
       mailboxSize: deps.mailboxSize ?? (() => 0),
     }),
   );
-  app.route("/", templateRoutes({ templates: deps.templates, now: deps.now ?? (() => Date.now()) }));
+  const now = deps.now ?? (() => Date.now());
+  app.route("/", templateRoutes({ templates: deps.templates, now }));
+  app.route("/", bandRoutes({ bands: deps.bands, now }));
   app.route("/", eventRoutes(deps.store, deps.log));
 
   app.notFound((c) => c.json({ error: `no route for ${c.req.method} ${c.req.path}` }, 404));
