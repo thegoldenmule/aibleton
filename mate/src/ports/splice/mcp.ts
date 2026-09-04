@@ -14,10 +14,39 @@ export interface McpSpliceOptions {
   authProvider?: OAuthClientProvider;
   log: Logger;
   /** Fetches the presigned download URL; injectable for tests. Defaults to the global fetch. */
-  fetch?: typeof fetch;
+  fetch?: FetchLike;
 }
 
-const DOWNLOAD_TIMEOUT_MS = 120_000;
+export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
+
+/**
+ * Splice's presigned URLs live 119 s. A fetch that stalls is given this long,
+ * enforced by a wall clock as well as the abort signal (a stalled connect has
+ * been seen to ignore the signal), then retried once: re-fetching the same URL
+ * is free, unlike asking Splice for a new one.
+ */
+const DOWNLOAD_TIMEOUT_MS = 30_000;
+const DOWNLOAD_ATTEMPTS = 2;
+
+/** Rejects after `ms` and aborts `controller`; the timer is always cleared so nothing outlives the call. */
+function withDeadline<T>(p: Promise<T>, ms: number, label: string, controller?: AbortController): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => {
+      controller?.abort();
+      reject(new Error(`${label} stalled for ${ms}ms`));
+    }, ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}
 
 /**
  * Splice port over the remote Splice MCP server (streamable HTTP).
@@ -75,10 +104,22 @@ export class McpSpliceAdapter implements SplicePort {
     const localPath = localPathFor(dir, uuid, fileName);
     await mkdir(dir, { recursive: true });
     const doFetch = this.opts.fetch ?? fetch;
-    const res = await doFetch(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
-    if (!res.ok || !res.body) throw new Error(`fetching asset ${uuid} failed: HTTP ${res.status}`);
-    await Bun.write(localPath, res);
-    return { uuid, fileName, url, localPath };
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= DOWNLOAD_ATTEMPTS; attempt++) {
+      try {
+        const controller = new AbortController();
+        const res = await withDeadline(doFetch(url, { signal: controller.signal }), DOWNLOAD_TIMEOUT_MS, `fetch of ${fileName}`, controller);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        // Read fully, then write bytes: `Bun.write(path, response)` has been seen to never resolve.
+        const bytes = await withDeadline(res.arrayBuffer(), DOWNLOAD_TIMEOUT_MS, `body of ${fileName}`, controller);
+        await Bun.write(localPath, bytes);
+        return { uuid, fileName, url, localPath };
+      } catch (err) {
+        lastError = err;
+        this.opts.log.warn(`fetching asset ${uuid} failed (attempt ${attempt}/${DOWNLOAD_ATTEMPTS}): ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    throw new Error(`fetching asset ${uuid} (${fileName}) failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
   }
 
   async close(): Promise<void> {
