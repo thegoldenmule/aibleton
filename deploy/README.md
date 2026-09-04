@@ -41,15 +41,11 @@ restart both services, `docker compose up -d` and reload nginx, then check healt
 
 ## Splice
 
-Either put `SPLICE_MCP_TOKEN=...` in `/srv/aibleton/secrets.env`, or log in locally with
-`bun run --cwd mate splice:login` and copy the result to the box:
-
-```bash
-scp -i ~/.ssh/key.pem .mate/splice-oauth.json ubuntu@host:/srv/aibleton/data/splice-oauth.json
-```
-
-Then `sudo systemctl restart aibleton-mate`. The file must stay owned by the service user (mate
-rewrites it on token refresh). `GET /mate/adapters` reports whether Splice is live.
+Log in locally once with `bun run --cwd mate splice:login`. Every deploy then copies
+`mate/.mate/splice-oauth.json` (or `$SPLICE_OAUTH_FILE`) to `/srv/aibleton/data/` when the local
+file is newer than the box's copy; mate rewrites the server copy on token refresh, so a stale
+local file never overwrites a rotated refresh token. Alternatively put `SPLICE_MCP_TOKEN=...` in
+`/srv/aibleton/secrets.env`, which takes precedence. `GET /mate/adapters` reports whether Splice is live.
 
 Logs: `journalctl -u aibleton-mate -f`, `journalctl -u aibleton-app -f`,
 `docker logs aibleton-nginx`. Saved bands/songs live in `/srv/aibleton/data`.

@@ -185,6 +185,17 @@ rsync -az --delete --stats \
   -e "$SSH_CMD" \
   "$HERE/" "$TARGET:$ROOT/src/"
 
+# Splice OAuth login, written locally by `bun run --cwd mate splice:login`. Copied only when the
+# local file is newer (-u): mate rewrites the server copy on token refresh, and an older local
+# file must not overwrite a rotated refresh token.
+OAUTH_LOCAL="${SPLICE_OAUTH_FILE:-$HERE/mate/.mate/splice-oauth.json}"
+if [ -f "$OAUTH_LOCAL" ]; then
+  log "copy Splice OAuth file -> $TARGET:$ROOT/data/splice-oauth.json"
+  rsync -au -e "$SSH_CMD" "$OAUTH_LOCAL" "$TARGET:$ROOT/data/splice-oauth.json"
+else
+  echo "no local Splice OAuth file at $OAUTH_LOCAL; leaving the box as is"
+fi
+
 log "install, build, render config, restart services"
 {
   preamble
@@ -202,6 +213,7 @@ render() { sed -e "s|__DOMAIN__|$DOMAIN|g" -e "s|__ROOT__|$ROOT|g" -e "s|__USER_
 render deploy/server.env.template > "$ROOT/app.env"
 render deploy/nginx.conf.template > "$ROOT/proxy/default.conf"
 chmod 644 "$ROOT/proxy/default.conf" "$ROOT/proxy/htpasswd"
+[ -f "$ROOT/data/splice-oauth.json" ] && chmod 600 "$ROOT/data/splice-oauth.json" || true
 render deploy/aibleton-mate.service.template | sudo tee /etc/systemd/system/aibleton-mate.service >/dev/null
 render deploy/aibleton-app.service.template  | sudo tee /etc/systemd/system/aibleton-app.service  >/dev/null
 sudo systemctl daemon-reload
