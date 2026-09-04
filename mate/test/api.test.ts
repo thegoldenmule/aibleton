@@ -3,10 +3,14 @@ import { StateResponseSchema, HealthResponseSchema, AdapterStatusSchema } from "
 import { createApp } from "../src/api/server.ts";
 import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
+import { TemplateStore } from "../src/core/templates.ts";
 import { envelope, type Command, type CommandBody, type CommandSource } from "../src/core/commands.ts";
 import { loadConfig } from "../src/config.ts";
 import { silentLogger } from "../src/log.ts";
 import type { Intelligence } from "../src/intelligence/types.ts";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 function fakeIntelligence() {
   const submitted: { body: CommandBody; source: CommandSource }[] = [];
@@ -32,8 +36,10 @@ function build() {
   const events = new EventBus();
   const store = new StateStore(events);
   const fake = fakeIntelligence();
+  const templates = new TemplateStore({ dir: mkdtempSync(join(tmpdir(), "mate-api-")) });
   const app = createApp({
     store,
+    templates,
     intelligence: fake.intelligence,
     config: loadConfig({}),
     log: silentLogger,
