@@ -41,7 +41,7 @@ export type PutTemplateRequest = z.infer<typeof PutTemplateRequestSchema>;
 
 /**
  * Body of `POST /templates/generate`. Every field is optional; `seed` is chosen
- * for you when omitted and always reported back on the generated template's id.
+ * from the clock when omitted and surfaces in the default template name.
  */
 export const GenerateTemplateRequestSchema = z.object({
   seed: z.number().int().optional(),
