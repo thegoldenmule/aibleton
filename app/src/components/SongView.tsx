@@ -90,7 +90,13 @@ export function SongView({ song, spliceStub, resolving, downloading, downloadPro
                 disabled={busy || !hasCandidates || credits === 0}
                 onClick={() => setConfirmDownload(true)}
                 className="rounded-sm bg-accent px-2.5 py-1 text-xs font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40"
-                title={credits === 0 ? "Every pick is already on disk" : "Download every picked sound. One Splice credit per new sound."}
+                title={
+                  !hasCandidates
+                    ? "Find sounds first"
+                    : credits === 0
+                      ? "Every pick is already on disk"
+                      : "Download every picked sound. One Splice credit per new sound."
+                }
               >
                 {downloading ? "getting…" : `get sounds (${credits} credit${credits === 1 ? "" : "s"})`}
               </button>
