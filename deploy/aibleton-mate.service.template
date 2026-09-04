@@ -1,0 +1,15 @@
+[Unit]
+Description=aibleton mate service
+After=network.target
+
+[Service]
+User=__USER__
+WorkingDirectory=__ROOT__/src/mate
+EnvironmentFile=__ROOT__/app.env
+EnvironmentFile=-__ROOT__/secrets.env
+ExecStart=__BUN__ src/index.ts
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
