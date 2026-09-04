@@ -4,6 +4,30 @@ Captured 2026-09-04 against the live Splice MCP server (`https://mcp.splice.com/
 Claude Code's authenticated session. Real responses are saved under
 `mate/src/ports/splice/fixtures/` (`stack_response.md`, `search_response_keys.md`).
 
+## Logging in
+
+The Splice MCP server only serves authenticated clients (OAuth 2.1 with PKCE and dynamic client
+registration). mate holds its own login, separate from Claude Code's:
+
+```bash
+bun run --cwd mate splice:login
+```
+
+The command connects, receives the 401, prints the authorization URL and opens it (macOS `open`;
+paste it otherwise). It listens on `http://localhost:4546/callback` (`SPLICE_OAUTH_CALLBACK_PORT`)
+for the redirect, checks the `state`, exchanges the code, reconnects and prints
+`logged in, N tools`. Nothing it calls spends credits.
+
+The client registration, tokens and pending PKCE verifier live in one file,
+`.mate/splice-oauth.json` (`SPLICE_OAUTH_FILE`), written with mode 0600 and gitignored. At
+startup `MATE_SPLICE=auto|mcp` reads it (`ports/mcp/oauth.ts`); the MCP SDK sends the access
+token on every request and, on a 401, swaps the refresh token for a new pair and writes it back
+to the file, so a login normally lasts as long as the refresh token does. When the file is
+missing or the refresh is rejected, `auto` falls back to fixtures with the reason
+``not logged in to Splice: run `bun run --cwd mate splice:login` `` (`GET /adapters` shows it);
+`mcp` refuses to start. Delete the file to log out. `SPLICE_MCP_TOKEN`, when set, is sent as a
+plain bearer token instead and the file is ignored.
+
 ## The three questions
 
 ### Can we pack many requests into one MCP call?
