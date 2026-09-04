@@ -14,6 +14,7 @@ bun run --cwd mate test             # offline unit tests (bun test)
 bun run typecheck                   # protocol + mate + app
 MATE_ABLETON=stub MATE_SPLICE=stub MATE_BRAIN=scripted bun run --cwd mate dev   # all-stub mate on :4545
 bun run --cwd app dev               # UI on :3000 (NEXT_PUBLIC_MATE_URL defaults to http://localhost:4545)
+./deploy.sh -i key.pem [--setup] user@host   # demo box; see deploy/README.md
 ```
 
 Env vars are documented in `.env.example`. Modes per dependency: `MATE_ABLETON`/`MATE_SPLICE` = `auto | mcp | stub`, `MATE_BRAIN` = `auto | anthropic | scripted`. `auto` tries the real thing at startup and falls back to the stub with a logged reason; `GET /adapters` reports what is live.
