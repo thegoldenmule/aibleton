@@ -1,8 +1,18 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ActiveSongResponseSchema, SongListResponseSchema, SongResponseSchema, StateResponseSchema } from "@aibleton/protocol";
+import {
+  ActiveSongResponseSchema,
+  DownloadSongResponseSchema,
+  ResolveSongResponseSchema,
+  SongListResponseSchema,
+  SongResponseSchema,
+  StateResponseSchema,
+  pendingDownloadUuids,
+} from "@aibleton/protocol";
+import type { Song } from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
 import { BandStore } from "../src/core/bands.ts";
 import { ManualClock } from "../src/core/clock.ts";
@@ -13,11 +23,13 @@ import { TemplateStore } from "../src/core/templates.ts";
 import { loadConfig } from "../src/config.ts";
 import type { Intelligence } from "../src/intelligence/types.ts";
 import { silentLogger } from "../src/log.ts";
+import { FixtureSpliceAdapter } from "../src/ports/splice/stub.ts";
 import { ModelRefusedError } from "../src/core/anthropic.ts";
 import { ScriptedBriefer } from "../src/songwriting/briefer/index.ts";
 import { defaultBrief } from "../src/songwriting/briefer/scripted.ts";
 import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
+import { FakeSplice } from "./helpers/fakes.ts";
 import { fixtureBand, fixtureTemplate } from "./helpers/song.ts";
 
 const idleIntelligence: Intelligence = {
@@ -39,7 +51,7 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-async function build(opts: { seedLibrary?: boolean; briefer?: ScriptedBriefer; writer?: ScriptedRecipeWriter; now?: number } = {}) {
+async function build(opts: { seedLibrary?: boolean; briefer?: ScriptedBriefer; writer?: ScriptedRecipeWriter; now?: number; splice?: FixtureSpliceAdapter | FakeSplice } = {}) {
   const clock = new ManualClock(opts.now ?? 1_000);
   const events = new EventBus();
   const store = new StateStore(events);
@@ -49,6 +61,7 @@ async function build(opts: { seedLibrary?: boolean; briefer?: ScriptedBriefer; w
   const briefer = opts.briefer ?? new ScriptedBriefer();
   const writer = opts.writer ?? new ScriptedRecipeWriter();
   const recipes = new RecipeBook({ store: new RecipeStore({ dir: join(dir, "recipes") }), writer, now: () => clock.now() });
+  const splice = opts.splice ?? new FixtureSpliceAdapter();
   if (opts.seedLibrary !== false) {
     await templates.save(fixtureTemplate());
     await bands.save(fixtureBand());
@@ -61,12 +74,13 @@ async function build(opts: { seedLibrary?: boolean; briefer?: ScriptedBriefer; w
     recipes,
     briefer,
     intelligence: idleIntelligence,
-    config: loadConfig({}),
+    splice,
+    config: loadConfig({ MATE_DOWNLOADS_DIR: join(dir, "downloads") }),
     log: silentLogger,
     startedAt: 0,
     now: () => clock.now(),
   });
-  return { app, store, events, songs, bands, briefer, writer, recipes, clock };
+  return { app, store, events, songs, bands, briefer, writer, recipes, clock, splice, downloadsDir: join(dir, "downloads") };
 }
 
 type App = Awaited<ReturnType<typeof build>>["app"];
@@ -316,5 +330,124 @@ describe("StateStore.setSong", () => {
     expect(events.ofType("song.changed")).toEqual([{ type: "song.changed", song }]);
     store.setSong(null);
     expect(store.snapshot().song).toBeNull();
+  });
+});
+
+describe("POST /songs/:id/resolve, /pick and /download", () => {
+  type H = Awaited<ReturnType<typeof build>>;
+
+  /** Compose one active song and one library song, both unresolved. */
+  async function twoSongs(h: H): Promise<{ active: Song; library: Song }> {
+    const library = SongResponseSchema.parse(await (await post(h.app, "/songs/compose", { text: "library funk" })).json()).song;
+    h.clock.advance(10);
+    const active = SongResponseSchema.parse(await (await post(h.app, "/songs/compose", { text: "active funk" })).json()).song;
+    expect(h.store.getSong()?.id).toBe(active.id);
+    return { active, library };
+  }
+
+  test("resolve fills candidates, saves, and publishes only the active song", async () => {
+    const h = await build();
+    const { active, library } = await twoSongs(h);
+    const before = h.events.ofType("song.changed").length;
+
+    const res = await post(h.app, `/songs/${active.id}/resolve`);
+    expect(res.status).toBe(200);
+    const body = ResolveSongResponseSchema.parse(await res.json());
+    expect(body.failedSlotIds).toEqual([]);
+    for (const slot of body.song.plan.slots) {
+      expect(slot.candidates.length).toBeGreaterThan(0);
+      expect(slot.pickedUuid).toBe(slot.candidates[0]!.uuid);
+    }
+    expect(await h.songs.get(active.id)).toEqual(body.song);
+    expect(h.store.getSong()).toEqual(body.song);
+    expect(h.events.ofType("song.changed").length).toBe(before + 1);
+    expect(StateResponseSchema.safeParse(h.store.snapshot()).success).toBe(true);
+
+    const lib = await post(h.app, `/songs/${library.id}/resolve`);
+    expect(lib.status).toBe(200);
+    expect((await h.songs.get(library.id))!.plan.slots[0]!.candidates.length).toBeGreaterThan(0);
+    expect(h.store.getSong()?.id).toBe(active.id);
+    expect(h.events.ofType("song.changed").length).toBe(before + 1);
+  });
+
+  test("resolve answers 400, 404 and 502", async () => {
+    const dead = new FakeSplice();
+    dead.search = () => {
+      throw new Error("splice down");
+    };
+    const h = await build({ splice: dead });
+    const { active } = await twoSongs(h);
+    expect((await post(h.app, "/songs/../x/resolve")).status).toBe(404);
+    expect((await post(h.app, "/songs/a.b/resolve")).status).toBe(400);
+    expect((await post(h.app, "/songs/nope/resolve")).status).toBe(404);
+    // Every query failing is not a transport error: the song comes back untouched with every slot reported.
+    const res = await post(h.app, `/songs/${active.id}/resolve`);
+    expect(res.status).toBe(200);
+    expect(ResolveSongResponseSchema.parse(await res.json()).failedSlotIds).toHaveLength(active.plan.slots.length);
+  });
+
+  test("pick changes the slot's pick and validates slot and uuid", async () => {
+    const h = await build();
+    const { active } = await twoSongs(h);
+    const resolved = ResolveSongResponseSchema.parse(await (await post(h.app, `/songs/${active.id}/resolve`)).json()).song;
+    const slot = resolved.plan.slots.find((s) => s.id === "bass-p:a")!;
+    const uuid = slot.candidates[1]!.uuid;
+
+    const ok = await post(h.app, `/songs/${active.id}/pick`, { slotId: slot.id, soundUuid: uuid });
+    expect(ok.status).toBe(200);
+    const song = SongResponseSchema.parse(await ok.json()).song;
+    expect(song.plan.slots.find((s) => s.id === slot.id)?.pickedUuid).toBe(uuid);
+    expect(h.store.getSong()?.plan.slots.find((s) => s.id === slot.id)?.pickedUuid).toBe(uuid);
+    expect((await h.songs.get(active.id))?.plan.slots.find((s) => s.id === slot.id)?.pickedUuid).toBe(uuid);
+
+    expect((await post(h.app, `/songs/${active.id}/pick`, { slotId: "nope:a", soundUuid: uuid })).status).toBe(404);
+    expect((await post(h.app, `/songs/${active.id}/pick`, { slotId: slot.id, soundUuid: "not-a-candidate" })).status).toBe(400);
+    expect((await post(h.app, `/songs/${active.id}/pick`, { slotId: slot.id })).status).toBe(400);
+    expect((await h.app.request(`/songs/${active.id}/pick`, { method: "POST", headers: { "content-type": "application/json" }, body: "{nope" })).status).toBe(400);
+  });
+
+  test("download writes every distinct pick to disk and publishes progress", async () => {
+    const h = await build();
+    const { active } = await twoSongs(h);
+    expect((await post(h.app, `/songs/${active.id}/download`)).status).toBe(409);
+    const resolved = ResolveSongResponseSchema.parse(await (await post(h.app, `/songs/${active.id}/resolve`)).json()).song;
+    const pending = pendingDownloadUuids(resolved.plan);
+    expect(pending.length).toBeGreaterThan(0);
+    const before = h.events.ofType("song.changed").length;
+
+    const res = await post(h.app, `/songs/${active.id}/download`);
+    expect(res.status).toBe(200);
+    const body = DownloadSongResponseSchema.parse(await res.json());
+    expect(body.failed).toEqual([]);
+    expect(body.downloaded.map((d) => d.uuid)).toEqual(pending);
+    expect(h.splice.calls.filter((c) => c.method === "downloadAsset").map((c) => c.args[0])).toEqual(pending);
+    for (const slot of body.song.plan.slots) {
+      expect(slot.resolved?.soundUuid).toBe(slot.pickedUuid!);
+      expect(slot.resolved?.localPath?.startsWith(h.downloadsDir)).toBe(true);
+      expect(existsSync(slot.resolved!.localPath!)).toBe(true);
+    }
+    expect(pendingDownloadUuids(body.song.plan)).toEqual([]);
+    expect(h.events.ofType("song.changed").length).toBe(before + pending.length);
+    expect(await h.songs.get(active.id)).toEqual(body.song);
+    expect(h.store.snapshot().lastMessage).toMatch(/^got \d+ sounds? from Splice$/);
+    // Everything is on disk now, so there is nothing left to spend on.
+    expect((await post(h.app, `/songs/${active.id}/download`)).status).toBe(409);
+  });
+
+  test("download reports a failed asset and keeps the rest", async () => {
+    const catalog = new FixtureSpliceAdapter();
+    const flaky = new FakeSplice();
+    flaky.search = (q, o) => catalog.searchSounds(q, o);
+    const h = await build({ splice: flaky });
+    const { active } = await twoSongs(h);
+    const resolved = ResolveSongResponseSchema.parse(await (await post(h.app, `/songs/${active.id}/resolve`)).json()).song;
+    const pending = pendingDownloadUuids(resolved.plan);
+    flaky.failDownloads.add(pending[0]!);
+
+    const body = DownloadSongResponseSchema.parse(await (await post(h.app, `/songs/${active.id}/download`)).json());
+    expect(body.failed.map((f) => f.uuid)).toEqual([pending[0]!]);
+    expect(body.downloaded.map((d) => d.uuid)).toEqual(pending.slice(1));
+    expect(flaky.calls.filter((c) => c.method === "downloadAsset")).toHaveLength(pending.length);
+    expect(pendingDownloadUuids(body.song.plan)).toEqual([pending[0]!]);
   });
 });

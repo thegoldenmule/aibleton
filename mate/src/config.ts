@@ -22,6 +22,8 @@ const ConfigSchema = z.object({
   bandsDir: z.string().min(1).default(".mate/bands"),
   songsDir: z.string().min(1).default(".mate/songs"),
   recipesDir: z.string().min(1).default(".mate/recipes"),
+  /** Where downloaded Splice files land. Resolved to an absolute path per file, which is what Ableton gets. */
+  downloadsDir: z.string().min(1).default(".mate/downloads"),
 });
 export type Config = z.infer<typeof ConfigSchema>;
 
@@ -43,5 +45,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     bandsDir: env.MATE_BANDS_DIR,
     songsDir: env.MATE_SONGS_DIR,
     recipesDir: env.MATE_RECIPES_DIR,
+    downloadsDir: env.MATE_DOWNLOADS_DIR,
   });
 }

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { FixtureSpliceAdapter } from "../src/ports/splice/stub.ts";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -41,6 +42,7 @@ function build(now = 1_000) {
     recipes,
     briefer: new ScriptedBriefer(),
     intelligence: idleIntelligence,
+    splice: new FixtureSpliceAdapter(),
     config: loadConfig({}),
     log: silentLogger,
     startedAt: 0,

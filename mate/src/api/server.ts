@@ -8,6 +8,7 @@ import type { SongStore } from "../core/songs.ts";
 import type { TemplateStore } from "../core/templates.ts";
 import type { Intelligence } from "../intelligence/types.ts";
 import type { Logger } from "../log.ts";
+import type { SplicePort } from "../ports/splice/types.ts";
 import type { Briefer } from "../songwriting/briefer/index.ts";
 import { adaptersRoutes } from "./routes/adapters.ts";
 import { commandRoutes } from "./routes/commands.ts";
@@ -29,6 +30,8 @@ export interface AppDeps {
   /** Writes the brief for POST /songs/compose. */
   briefer: Briefer;
   intelligence: Intelligence;
+  /** Searches and downloads for the song routes. Downloads spend credits. */
+  splice: SplicePort;
   config: Config;
   log: Logger;
   startedAt: number;
@@ -79,6 +82,8 @@ export function createApp(deps: AppDeps): Hono {
       briefer: deps.briefer,
       recipes: deps.recipes,
       store: deps.store,
+      splice: deps.splice,
+      downloadsDir: deps.config.downloadsDir,
       log: deps.log,
       now,
     }),

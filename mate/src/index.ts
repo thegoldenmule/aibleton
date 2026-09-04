@@ -116,6 +116,7 @@ async function main(): Promise<void> {
     recipes,
     briefer: brieferResult.briefer,
     intelligence,
+    splice: spliceResult.port,
     config,
     log: createLogger("api"),
     startedAt,

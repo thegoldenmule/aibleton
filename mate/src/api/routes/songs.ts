@@ -1,8 +1,12 @@
 import { Hono } from "hono";
 import {
   ComposeSongRequestSchema,
+  PickSlotRequestSchema,
   type ActiveSongResponse,
   type DeleteSongResponse,
+  type DownloadSongResponse,
+  type ResolveSongResponse,
+  type Song,
   type SongListResponse,
   type SongResponse,
 } from "@aibleton/protocol";
@@ -13,9 +17,12 @@ import type { StateStore } from "../../core/state.ts";
 import type { TemplateStore } from "../../core/templates.ts";
 import type { Logger } from "../../log.ts";
 import { ModelRefusedError } from "../../core/anthropic.ts";
+import type { SplicePort } from "../../ports/splice/types.ts";
 import type { Briefer } from "../../songwriting/briefer/index.ts";
 import { composeSong } from "../../songwriting/compose.ts";
+import { downloadPicks, downloadPlan } from "../../songwriting/download.ts";
 import { EmptyLibraryError } from "../../songwriting/pick.ts";
+import { NotACandidateError, SlotNotFoundError, pickCandidate, resolveSong } from "../../songwriting/resolve.ts";
 
 export interface SongRouteDeps {
   songs: SongStore;
@@ -25,6 +32,10 @@ export interface SongRouteDeps {
   recipes: RecipeBook;
   /** Holds the active song, which is what the app's session view renders. */
   store: StateStore;
+  /** Searches are free; `downloadAsset` spends credits and is only reached from POST /songs/:id/download. */
+  splice: SplicePort;
+  /** Where downloaded files land. */
+  downloadsDir: string;
   log: Logger;
   /** Injected so tests can drive createdAt and the default seed from a ManualClock. */
   now: () => number;
@@ -32,6 +43,20 @@ export interface SongRouteDeps {
 
 export function songRoutes(deps: SongRouteDeps): Hono {
   const r = new Hono();
+
+  /** Push an updated song to the app, but only if it is the active one: never activate a library song by side effect. */
+  const publish = (song: Song) => {
+    if (deps.store.getSong()?.id === song.id) deps.store.setSong(song);
+  };
+
+  /** Loads the song for an `/songs/:id/...` route, or answers 400/404. */
+  const load = async (c: { req: { param(name: "id"): string }; json: (body: unknown, status: 400 | 404) => Response }) => {
+    const id = c.req.param("id");
+    if (!isValidSongId(id)) return { error: c.json({ error: `invalid song id ${JSON.stringify(id)}` }, 400) };
+    const song = await deps.songs.get(id);
+    if (!song) return { error: c.json({ error: `no song ${id}` }, 404) };
+    return { song };
+  };
 
   r.get("/songs", async (c) => {
     const body: SongListResponse = { songs: await deps.songs.list() };
@@ -111,6 +136,76 @@ export function songRoutes(deps: SongRouteDeps): Hono {
     if (!song) return c.json({ error: `no song ${id}` }, 404);
     deps.store.setSong(song);
     const body: SongResponse = { song };
+    return c.json(body);
+  });
+
+  /**
+   * Search Splice for every slot and store ranked candidates. Free. Reads no
+   * body. Slow-ish: a few queries per slot, fanned out; a client disconnect
+   * stops further searches.
+   */
+  r.post("/songs/:id/resolve", async (c) => {
+    const loaded = await load(c);
+    if ("error" in loaded) return loaded.error;
+    try {
+      const result = await resolveSong(loaded.song, { splice: deps.splice, log: deps.log, signal: c.req.raw.signal });
+      const saved = await deps.songs.save(result.song);
+      publish(saved);
+      const body: ResolveSongResponse = { song: saved, failedSlotIds: result.failedSlotIds };
+      return c.json(body);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      deps.log.warn(`resolve failed for ${loaded.song.id}: ${message}`);
+      return c.json({ error: `could not search Splice: ${message}` }, 502);
+    }
+  });
+
+  /** Choose which candidate a slot downloads. */
+  r.post("/songs/:id/pick", async (c) => {
+    const loaded = await load(c);
+    if ("error" in loaded) return loaded.error;
+    let raw: unknown;
+    try {
+      raw = await c.req.json();
+    } catch {
+      return c.json({ error: "invalid JSON body" }, 400);
+    }
+    const parsed = PickSlotRequestSchema.safeParse(raw);
+    if (!parsed.success) return c.json({ error: "invalid request", issues: parsed.error.issues }, 400);
+    try {
+      const saved = await deps.songs.save(pickCandidate(loaded.song, parsed.data.slotId, parsed.data.soundUuid));
+      publish(saved);
+      const body: SongResponse = { song: saved };
+      return c.json(body);
+    } catch (err) {
+      if (err instanceof SlotNotFoundError) return c.json({ error: err.message }, 404);
+      if (err instanceof NotACandidateError) return c.json({ error: err.message }, 400);
+      throw err;
+    }
+  });
+
+  /**
+   * The paid step: download every pending pick, one credit per distinct new
+   * asset. Reads no body; the app confirms with the user first. Each file that
+   * lands is saved and published before the next one starts, so a dropped
+   * connection loses nothing already paid for. Partial failure is a 200.
+   */
+  r.post("/songs/:id/download", async (c) => {
+    const loaded = await load(c);
+    if ("error" in loaded) return loaded.error;
+    if (downloadPlan(loaded.song).length === 0) return c.json({ error: "nothing picked that is not already downloaded" }, 409);
+    const outcome = await downloadPicks(loaded.song, {
+      splice: deps.splice,
+      dir: deps.downloadsDir,
+      log: deps.log,
+      signal: c.req.raw.signal,
+      onProgress: async (song) => publish(await deps.songs.save(song)),
+    });
+    if (outcome.downloaded.length > 0) {
+      const n = outcome.downloaded.length;
+      deps.store.setLastMessage(`got ${n} sound${n === 1 ? "" : "s"} from Splice${outcome.failed.length ? `, ${outcome.failed.length} failed` : ""}`, deps.now());
+    }
+    const body: DownloadSongResponse = { song: outcome.song, downloaded: outcome.downloaded, failed: outcome.failed };
     return c.json(body);
   });
 

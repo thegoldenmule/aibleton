@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { FixtureSpliceAdapter } from "../src/ports/splice/stub.ts";
 import { StateResponseSchema, HealthResponseSchema, AdapterStatusSchema } from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
 import { EventBus } from "../src/core/events.ts";
@@ -53,6 +54,7 @@ function build() {
     recipes,
     briefer: new ScriptedBriefer(),
     intelligence: fake.intelligence,
+    splice: new FixtureSpliceAdapter(),
     config: loadConfig({}),
     log: silentLogger,
     startedAt: Date.now() - 1000,
