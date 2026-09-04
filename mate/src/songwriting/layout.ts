@@ -93,6 +93,8 @@ export function layoutSong(template: Template, band: Band, brief: SongBrief): So
           tags,
           loopBars: preferred,
           resolved: null,
+          candidates: [],
+          pickedUuid: null,
         });
       }
       const loopBars = fitLoop(occurrence.bars, preferred);

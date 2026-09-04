@@ -53,6 +53,22 @@ describe("SongStore", () => {
     expect(await store.get("invalid")).toBeNull();
   });
 
+  test("songs saved before Splice candidates existed still load", async () => {
+    const song = await fixtureSong({ id: "old" });
+    const legacy = {
+      ...song,
+      plan: { ...song.plan, slots: song.plan.slots.map(({ candidates: _c, pickedUuid: _p, ...rest }) => rest) },
+    };
+    await Bun.write(join(dir, "old.json"), JSON.stringify(legacy));
+    const loaded = await store.get("old");
+    expect(loaded).not.toBeNull();
+    for (const slot of loaded!.plan.slots) {
+      expect(slot.candidates).toEqual([]);
+      expect(slot.pickedUuid).toBeNull();
+    }
+    expect((await store.list()).map((s) => s.id)).toContain("old");
+  });
+
   test("delete returns true then false", async () => {
     await store.save(await fixtureSong({ id: "s1" }));
     expect(await store.delete("s1")).toBe(true);

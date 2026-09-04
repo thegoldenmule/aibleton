@@ -119,3 +119,19 @@ export type DeleteSongResponse = z.infer<typeof DeleteSongResponseSchema>;
 /** Response of `DELETE /songs/active`: the song that was active, or null. */
 export const ActiveSongResponseSchema = z.object({ song: SongSchema.nullable() });
 export type ActiveSongResponse = z.infer<typeof ActiveSongResponseSchema>;
+
+/** Body of `POST /songs/:id/pick`. `soundUuid` must be one of the slot's candidates. */
+export const PickSlotRequestSchema = z.object({ slotId: z.string().min(1), soundUuid: z.string().min(1) });
+export type PickSlotRequest = z.infer<typeof PickSlotRequestSchema>;
+
+/** Response of `POST /songs/:id/resolve`. `failedSlotIds`: slots whose every search failed; their old candidates are kept. */
+export const ResolveSongResponseSchema = z.object({ song: SongSchema, failedSlotIds: z.array(z.string()) });
+export type ResolveSongResponse = z.infer<typeof ResolveSongResponseSchema>;
+
+/** Response of `POST /songs/:id/download`. Partial failure is still a 200: read `failed`. */
+export const DownloadSongResponseSchema = z.object({
+  song: SongSchema,
+  downloaded: z.array(z.object({ uuid: z.string(), fileName: z.string(), localPath: z.string(), slotIds: z.array(z.string()) })),
+  failed: z.array(z.object({ uuid: z.string(), slotIds: z.array(z.string()), error: z.string() })),
+});
+export type DownloadSongResponse = z.infer<typeof DownloadSongResponseSchema>;

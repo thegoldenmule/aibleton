@@ -1,14 +1,7 @@
-import type { KeyRoot } from "@aibleton/protocol";
+import type { SoundKey } from "@aibleton/protocol";
 
-/**
- * A key as Splice tags it. Roots are normalised to the protocol's sharp
- * spelling ("A#", never "Bb"); the mode is null when Splice only gives a root
- * ("Key: a"), which it does for some packs.
- */
-export interface SoundKey {
-  root: KeyRoot;
-  mode: "major" | "minor" | null;
-}
+/** Re-exported so port code keeps one definition: the protocol's, which the app shares. */
+export type { SoundKey };
 
 export interface Sound {
   uuid: string;

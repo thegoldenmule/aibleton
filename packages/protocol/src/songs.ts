@@ -145,6 +145,28 @@ export const ResolvedSampleSchema = z.object({
 });
 export type ResolvedSample = z.infer<typeof ResolvedSampleSchema>;
 
+/** A key as Splice tags a sound: a root, and a mode only when the tag has one ("Key: a"). */
+export const SoundKeySchema = z.object({ root: KeyRootSchema, mode: z.enum(["major", "minor"]).nullable() });
+export type SoundKey = z.infer<typeof SoundKeySchema>;
+
+/** One Splice search hit kept on a slot, scored against the slot. Stored best first. */
+export const SpliceCandidateSchema = z.object({
+  uuid: z.string().min(1),
+  fileName: z.string(),
+  /** The sample's splice.com page; the app links to it for preview. */
+  url: z.string(),
+  bpm: z.number().nullable(),
+  key: SoundKeySchema.nullable(),
+  durationSec: z.number().nullable(),
+  pack: z.string(),
+  tags: z.array(z.string()),
+  /** Whole bars at the sound's own bpm in the song's time signature; null when not derivable. */
+  bars: z.number().int().positive().nullable(),
+  /** Resolver score, higher is better. */
+  score: z.number(),
+});
+export type SpliceCandidate = z.infer<typeof SpliceCandidateSchema>;
+
 /** Id of the slot for a part in a section: `"<partId>:<label>"`. */
 export function sampleSlotId(partId: string, label: string): string {
   return `${partId}:${label}`;
@@ -164,7 +186,12 @@ export const SampleSlotSchema = z.object({
   key: MusicalKeySchema,
   tags: z.array(z.string()),
   loopBars: LoopBarsSchema,
+  /** The sample on disk, once downloaded. Null until then. */
   resolved: ResolvedSampleSchema.nullable(),
+  /** Best search hits, best first. Empty until the song is resolved on Splice. */
+  candidates: z.array(SpliceCandidateSchema).default([]),
+  /** The candidate to download: auto-picked on resolve, overridable per slot. */
+  pickedUuid: z.string().nullable().default(null),
 });
 export type SampleSlot = z.infer<typeof SampleSlotSchema>;
 
@@ -244,6 +271,26 @@ export type Song = z.infer<typeof SongSchema>;
 /** Beats in one bar for a time signature, in quarter-note beats as Ableton counts them. */
 export function beatsPerBar(sig: TimeSignature): number {
   return (sig.numerator * 4) / sig.denominator;
+}
+
+/** True when the slot's pick is on disk. */
+export function slotDownloaded(slot: Pick<SampleSlot, "pickedUuid" | "resolved">): boolean {
+  return slot.pickedUuid !== null && slot.resolved?.soundUuid === slot.pickedUuid && slot.resolved.localPath !== null;
+}
+
+/**
+ * Distinct picked uuids no slot has on disk yet, in first-seen order. One
+ * Splice credit each; a uuid another slot already downloaded is reused for free.
+ */
+export function pendingDownloadUuids(plan: Pick<SongPlan, "slots">): string[] {
+  const onDisk = new Set<string>();
+  for (const slot of plan.slots) if (slot.resolved?.localPath) onDisk.add(slot.resolved.soundUuid);
+  const out: string[] = [];
+  for (const slot of plan.slots) {
+    const uuid = slot.pickedUuid;
+    if (uuid && !onDisk.has(uuid) && !out.includes(uuid)) out.push(uuid);
+  }
+  return out;
 }
 
 /**
