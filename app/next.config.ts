@@ -2,10 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@aibleton/protocol"],
-  // Default bottom-left sits on top of the command bar; move it out of the way.
-  devIndicators: {
-    position: "top-right",
-  },
+  // The dev tools indicator sat on top of the command bar even after repositioning; drop it.
+  devIndicators: false,
 };
 
 export default nextConfig;
