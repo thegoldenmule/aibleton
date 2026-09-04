@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { formTotalBars, keyName, parseForm, pendingDownloadUuids, slotDownloaded, type Song } from "@aibleton/protocol";
+import { formTotalBars, keyName, parseForm, pendingDownloadUuids, slotDownloaded, type DownloadProgress, type Song } from "@aibleton/protocol";
+import { shortName } from "../lib/format";
 import { CandidateList } from "./CandidateList";
 import { FormStrip } from "./FormStrip";
 import { SongArrangement } from "./SongArrangement";
@@ -10,6 +11,7 @@ interface Props {
   spliceStub: boolean;
   resolving: boolean;
   downloading: boolean;
+  downloadProgress: DownloadProgress | null;
   onResolve: () => Promise<void>;
   onPick: (slotId: string, soundUuid: string) => Promise<void>;
   onDownload: () => Promise<void>;
@@ -22,7 +24,7 @@ interface Props {
  * along the form with its looped clips in each occurrence. Clicking a clip
  * opens that slot's Splice candidates below. This is mate's state, not Ableton's.
  */
-export function SongView({ song, spliceStub, resolving, downloading, onResolve, onPick, onDownload, onRemoveTrack }: Props) {
+export function SongView({ song, spliceStub, resolving, downloading, downloadProgress, onResolve, onPick, onDownload, onRemoveTrack }: Props) {
   const { brief, plan } = song;
   const totalBars = formTotalBars(parseForm(song.template.form));
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
@@ -37,6 +39,12 @@ export function SongView({ song, spliceStub, resolving, downloading, onResolve, 
   const selectedTrack = selected ? plan.tracks.find((t) => t.partId === selected.partId) ?? null : null;
 
   const swallow = (p: Promise<void>) => p.catch(() => undefined);
+  const progress = downloading && downloadProgress?.songId === song.id ? downloadProgress : null;
+  const progressText = progress
+    ? progress.current
+      ? `getting ${progress.done + progress.failed + 1} of ${progress.total} · ${shortName(progress.current.fileName)}`
+      : `${progress.done} of ${progress.total} done${progress.failed ? `, ${progress.failed} failed` : ""}`
+    : null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
@@ -89,6 +97,17 @@ export function SongView({ song, spliceStub, resolving, downloading, onResolve, 
             )}
           </span>
         </div>
+        {downloading ? (
+          <div className="flex items-center gap-2 font-mono text-[10px] text-muted" role="status" aria-live="polite">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+            <span className="truncate">{progressText ?? "asking Splice…"}</span>
+            {progress?.lastError ? (
+              <span className="truncate text-audio" title={progress.lastError}>
+                failed: {progress.lastError}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center gap-1.5">
           <Chip tone="accent">{plan.bpm} bpm</Chip>
           <Chip tone="accent-2">{keyName(plan.key)}</Chip>

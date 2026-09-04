@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   MateEventSchema,
   StateResponseSchema,
+  type DownloadProgress,
   type ExternalCommand,
   type MateEvent,
   type Song,
@@ -24,6 +25,8 @@ export interface MateView {
   resolving: boolean;
   /** True while picked sounds are being downloaded. Spends credits. */
   downloading: boolean;
+  /** Where the current download stands, from mate's progress events; null when none is running. */
+  downloadProgress: DownloadProgress | null;
   send: (command: ExternalCommand) => Promise<void>;
   /** Runs the song flow for a request, then fetches Splice candidates; the active song lands in `state.song`. */
   compose: (text: string) => Promise<void>;
@@ -50,6 +53,7 @@ const EVENT_TYPES: MateEvent["type"][] = [
   "goal.changed",
   "song.changed",
   "transcript.appended",
+  "download.progress",
 ];
 
 const RECENT_LIMIT = 50;
@@ -81,6 +85,7 @@ function applyEvent(prev: StateResponse | null, event: MateEvent): StateResponse
       return prev.transcript.some((t) => t.id === event.entry.id) ? prev : { ...prev, transcript: [...prev.transcript, event.entry] };
     case "cancelled":
     case "action.applied":
+    case "download.progress":
       return prev;
   }
 }
@@ -96,6 +101,7 @@ export function useMateState(): MateView {
   const [composing, setComposing] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
   const retryRef = useRef(0);
 
   useEffect(() => {
@@ -148,7 +154,9 @@ export function useMateState(): MateView {
       for (const type of EVENT_TYPES) {
         source.addEventListener(type, (e: MessageEvent<string>) => {
           const parsed = MateEventSchema.safeParse(JSON.parse(e.data));
-          if (parsed.success) setState((prev) => applyEvent(prev, parsed.data));
+          if (!parsed.success) return;
+          if (parsed.data.type === "download.progress") setDownloadProgress(parsed.data.progress);
+          else setState((prev) => applyEvent(prev, parsed.data));
         });
       }
     };
@@ -246,6 +254,7 @@ export function useMateState(): MateView {
         throw err;
       } finally {
         setDownloading(false);
+        setDownloadProgress(null);
       }
     },
     [replaceSong],
@@ -275,5 +284,20 @@ export function useMateState(): MateView {
     [replaceSong],
   );
 
-  return { state, connection, lastError, composing, resolving, downloading, send, compose, clearSong, resolveSounds, pickSound, downloadSounds, removeTrack };
+  return {
+    state,
+    connection,
+    lastError,
+    composing,
+    resolving,
+    downloading,
+    downloadProgress,
+    send,
+    compose,
+    clearSong,
+    resolveSounds,
+    pickSound,
+    downloadSounds,
+    removeTrack,
+  };
 }

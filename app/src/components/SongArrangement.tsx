@@ -167,6 +167,7 @@ function Clip({
   const first = repeat === 0;
   const pick = slot.candidates.find((c) => c.uuid === slot.pickedUuid) ?? null;
   const previewUrl = first && pick && pick.url ? pick.url : null;
+  const onDisk = slotDownloaded(slot);
   const title = [
     slot.id,
     pick ? pick.fileName : "no pick yet",
@@ -175,8 +176,8 @@ function Clip({
   ].join("\n");
   return (
     <div
-      className={`relative flex h-14 min-w-0 flex-1 overflow-hidden rounded-sm border ${letterClass(label)}${selected ? " ring-1 ring-accent" : ""}`}
-      title={title}
+      className={`relative flex h-14 min-w-0 flex-1 overflow-hidden rounded-sm border ${letterClass(label)}${onDisk ? " border-b-4 border-b-accent-2" : ""}${selected ? " ring-1 ring-accent" : ""}`}
+      title={onDisk ? `${title}\non disk: ${slot.resolved?.localPath ?? ""}` : title}
     >
       <button
         type="button"
@@ -190,9 +191,14 @@ function Clip({
         <span className="font-mono text-[10px] opacity-80">
           {placement.loopBars} bar{placement.loopBars === 1 ? "" : "s"}
           {placement.repeats > 1 ? ` · ${repeat + 1}/${placement.repeats}` : ""}
-          {slotDownloaded(slot) ? " · ✓" : slot.pickedUuid ? " · ○" : " · ?"}
+          {onDisk ? " · ✓" : slot.pickedUuid ? " · ○" : " · ?"}
         </span>
       </button>
+      {onDisk && first ? (
+        <span className="absolute bottom-1 right-1 rounded-sm bg-accent-2 px-1 text-[9px] font-semibold leading-tight text-black" title="Downloaded from Splice">
+          ✓ on disk
+        </span>
+      ) : null}
       {previewUrl ? (
         <a
           href={previewUrl}
