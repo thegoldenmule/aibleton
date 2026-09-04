@@ -132,16 +132,16 @@ export function generateForm(opts: GenerateFormOptions): string {
   return stringifyForm(entries);
 }
 
-function briefFor(label: string, index: number): string {
+function briefFor(index: number): string {
   switch (index) {
     case 0:
-      return "main groove: the core beat and bassline the song keeps returning from";
+      return "main groove: the core beat and bassline, the song's foundation";
     case 1:
       return "lift: chorus energy, brighter and busier than the groove";
     case 2:
       return "breakdown: stripped back and darker, space where the groove was";
     default:
-      return `variation ${index - 2} on the groove (${label}): same feel, new texture`;
+      return `variation ${index - 2} on the groove: same feel, new texture`;
   }
 }
 
@@ -155,7 +155,7 @@ export function defaultSections(labels: readonly string[]): Record<string, Secti
   let index = 0;
   for (const label of labels) {
     if (sections[label]) continue;
-    sections[label] = { label, brief: briefFor(label, index) };
+    sections[label] = { label, brief: briefFor(index) };
     index++;
   }
   return sections;
