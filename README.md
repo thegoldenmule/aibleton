@@ -39,7 +39,7 @@ Requirements: [Bun](https://bun.sh) 1.3+. For live Ableton: Ableton Live 12 with
 
 ```bash
 bun install
-cp .env.example .env    # optional; every variable has a default
+cp .env.example .env    # optional; every variable has a default. Mate reads the root .env and mate/.env (the latter wins).
 ```
 
 ### All-stub run (no Ableton, no Splice, no API key)
