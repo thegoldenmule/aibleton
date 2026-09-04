@@ -159,12 +159,20 @@ export default function TemplatesPage() {
         <span className="font-mono text-[10px] text-muted/70">
           {loading ? "loading…" : `${templates.length} saved`}
         </span>
-        <Link
-          href="/"
-          className="ml-auto rounded-sm border border-line bg-panel-2 px-2.5 py-1 text-xs font-medium text-muted hover:text-foreground"
-        >
-          ← session
-        </Link>
+        <span className="ml-auto flex items-center gap-1.5">
+          <Link
+            href="/bands"
+            className="rounded-sm border border-line bg-panel-2 px-2.5 py-1 text-xs font-medium text-muted hover:text-foreground"
+          >
+            bands →
+          </Link>
+          <Link
+            href="/"
+            className="rounded-sm border border-line bg-panel-2 px-2.5 py-1 text-xs font-medium text-muted hover:text-foreground"
+          >
+            ← session
+          </Link>
+        </span>
       </header>
 
       {lastError ? (

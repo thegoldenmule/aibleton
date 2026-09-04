@@ -67,6 +67,12 @@ export function TransportBar({ transport, phase, error, adapters, connection, go
         >
           templates →
         </Link>
+        <Link
+          href="/bands"
+          className="rounded-sm border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-foreground"
+        >
+          bands →
+        </Link>
       </div>
 
       {goal ? (
