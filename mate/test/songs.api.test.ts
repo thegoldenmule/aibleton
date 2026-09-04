@@ -96,6 +96,11 @@ describe("POST /songs/compose", () => {
     expect(h.store.getSong()).toEqual(song);
     expect(h.events.ofType("song.changed").map((e) => e.song?.id)).toEqual([song.id]);
     expect(h.events.ofType("message").map((e) => e.text)).toEqual([song.brief.summary]);
+    expect(h.store.getTranscript().map((t) => [t.role, t.kind, t.text])).toEqual([
+      ["user", "compose", "something funky and upbeat"],
+      ["mate", "reply", song.brief.summary],
+    ]);
+    expect(h.events.ofType("transcript.appended")).toHaveLength(2);
     expect(h.briefer.calls[0]!.text).toBe("something funky and upbeat");
 
     const state = StateResponseSchema.parse(await (await h.app.request("/state")).json());
@@ -223,6 +228,30 @@ describe("song library and active song", () => {
     expect((await (await h.app.request(`/songs/${second.id}`, { method: "DELETE" })).json()) as unknown).toEqual({ deleted: true });
     expect(h.store.getSong()).toBeNull();
     expect((await (await h.app.request(`/songs/${second.id}`, { method: "DELETE" })).json()) as unknown).toEqual({ deleted: false });
+  });
+});
+
+describe("StateStore transcript", () => {
+  test("user requests from the api and mate messages land in the transcript; loop follow-ups do not", () => {
+    const events = new EventBus();
+    const store = new StateStore(events);
+    store.recordCommand({ id: "c1", at: 5, source: "api", type: "userRequest", text: "hi" });
+    store.recordCommand({ id: "c2", at: 6, source: "loop", type: "userRequest", text: "check in" });
+    store.recordCommand({ id: "c3", at: 7, source: "api", type: "goalSet", text: "practice" });
+    store.setLastMessage("hello back", 8, "c1");
+    expect(store.getTranscript().map((t) => [t.role, t.kind, t.text, t.at])).toEqual([
+      ["user", "request", "hi", 5],
+      ["mate", "reply", "hello back", 8],
+    ]);
+    expect(store.snapshot().transcript).toHaveLength(2);
+    expect(StateResponseSchema.safeParse(store.snapshot()).success).toBe(true);
+    expect(events.ofType("transcript.appended").map((e) => e.entry.text)).toEqual(["hi", "hello back"]);
+  });
+
+  test("the transcript is capped, oldest first out", () => {
+    const store = new StateStore(new EventBus(), 50, 3);
+    for (let i = 0; i < 5; i++) store.appendTranscript({ role: "user", kind: "request", text: `m${i}`, at: i });
+    expect(store.getTranscript().map((t) => t.text)).toEqual(["m2", "m3", "m4"]);
   });
 });
 

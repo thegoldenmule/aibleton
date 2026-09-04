@@ -75,3 +75,14 @@ export const AdapterStatusSchema = z.object({
   brain: z.enum(["anthropic", "scripted"]),
 });
 export type AdapterStatus = z.infer<typeof AdapterStatusSchema>;
+
+/** One line of the conversation between the drummer and mate, as the app shows it. */
+export const TranscriptEntrySchema = z.object({
+  id: z.string(),
+  at: z.number(),
+  role: z.enum(["user", "mate"]),
+  text: z.string(),
+  /** What produced it: a request to compose a song, a request to the bandmate, or a bandmate reply. */
+  kind: z.enum(["compose", "request", "reply"]),
+});
+export type TranscriptEntry = z.infer<typeof TranscriptEntrySchema>;

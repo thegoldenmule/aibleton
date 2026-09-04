@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AdapterStatusSchema, PhaseSchema, SessionStateSchema } from "./state.ts";
+import { AdapterStatusSchema, PhaseSchema, SessionStateSchema, TranscriptEntrySchema } from "./state.ts";
 import { CommandSummarySchema } from "./commands.ts";
 import { SongSchema } from "./songs.ts";
 
@@ -19,5 +19,6 @@ export const MateEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("adapters"), status: AdapterStatusSchema }),
   z.object({ type: z.literal("goal.changed"), goal: z.string().nullable() }),
   z.object({ type: z.literal("song.changed"), song: SongSchema.nullable() }),
+  z.object({ type: z.literal("transcript.appended"), entry: TranscriptEntrySchema }),
 ]);
 export type MateEvent = z.infer<typeof MateEventSchema>;

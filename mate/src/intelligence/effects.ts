@@ -88,7 +88,7 @@ export class EffectRunner {
         this.track(this.applyActions(effect.actions, effect.userPrompt));
         return;
       case "emitEvent":
-        if (effect.event.type === "message") deps.store.setLastMessage(effect.event.text, effect.event.requestId);
+        if (effect.event.type === "message") deps.store.setLastMessage(effect.event.text, deps.clock.now(), effect.event.requestId);
         else deps.store.events.emit(effect.event);
         return;
       case "enqueue":

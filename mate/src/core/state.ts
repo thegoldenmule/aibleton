@@ -1,6 +1,6 @@
-import type { AdapterStatus, CommandSummary, Phase, SessionState, Song, StateResponse } from "@aibleton/protocol";
+import type { AdapterStatus, CommandSummary, Phase, SessionState, Song, StateResponse, TranscriptEntry } from "@aibleton/protocol";
 import { EventBus } from "./events.ts";
-import { summarize, type Command } from "./commands.ts";
+import { newId, summarize, type Command } from "./commands.ts";
 
 /** Observable snapshot of everything the API exposes. Emits events on change. */
 export class StateStore {
@@ -12,10 +12,12 @@ export class StateStore {
   private recent: CommandSummary[] = [];
   private adapters: AdapterStatus = { ableton: "stub", splice: "stub", brain: "scripted" };
   private song: Song | null = null;
+  private transcript: TranscriptEntry[] = [];
 
   constructor(
     readonly events: EventBus,
     private readonly keepCommands = 50,
+    private readonly keepTranscript = 200,
   ) {}
 
   getSession(): SessionState | null {
@@ -44,9 +46,23 @@ export class StateStore {
     this.events.emit({ type: "goal.changed", goal });
   }
 
-  setLastMessage(text: string, requestId?: string): void {
+  /** A message from mate to the drummer, stamped `at`. Also lands in the transcript. */
+  setLastMessage(text: string, at: number, requestId?: string): void {
     this.lastMessage = text;
     this.events.emit(requestId ? { type: "message", text, requestId } : { type: "message", text });
+    this.appendTranscript({ role: "mate", kind: "reply", text, at });
+  }
+
+  /** Append a line to the conversation; capped at `keepTranscript`, oldest dropped first. */
+  appendTranscript(entry: Omit<TranscriptEntry, "id">): TranscriptEntry {
+    const full: TranscriptEntry = { id: newId("tx"), at: entry.at, role: entry.role, kind: entry.kind, text: entry.text };
+    this.transcript.push(full);
+    if (this.transcript.length > this.keepTranscript) this.transcript.shift();
+    this.events.emit({ type: "transcript.appended", entry: full });
+    return full;
+  }
+  getTranscript(): readonly TranscriptEntry[] {
+    return this.transcript;
   }
 
   getAdapters(): AdapterStatus {
@@ -71,6 +87,10 @@ export class StateStore {
     this.recent.push(summary);
     if (this.recent.length > this.keepCommands) this.recent.shift();
     this.events.emit({ type: "command.received", command: summary });
+    // Only what the drummer typed is conversation; loop follow-ups and goals are not.
+    if (cmd.type === "userRequest" && cmd.source === "api") {
+      this.appendTranscript({ role: "user", kind: "request", text: cmd.text, at: cmd.at });
+    }
   }
   recentCommands(): readonly CommandSummary[] {
     return this.recent;
@@ -86,6 +106,7 @@ export class StateStore {
       recentCommands: [...this.recent].reverse(),
       lastMessage: this.lastMessage,
       song: this.song,
+      transcript: [...this.transcript],
     };
   }
 }

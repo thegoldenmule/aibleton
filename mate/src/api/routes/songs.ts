@@ -52,6 +52,8 @@ export function songRoutes(deps: SongRouteDeps): Hono {
     const seed = opts.seed ?? deps.now();
 
     const [templates, bands] = await Promise.all([deps.templates.list(), deps.bands.list()]);
+    // The request goes into the conversation before the slow part, so the app shows it while composing.
+    deps.store.appendTranscript({ role: "user", kind: "compose", text: opts.text, at: deps.now() });
     try {
       const song = await composeSong({
         text: opts.text,
@@ -65,7 +67,7 @@ export function songRoutes(deps: SongRouteDeps): Hono {
       });
       await deps.songs.save(song);
       deps.store.setSong(song);
-      deps.store.setLastMessage(song.brief.summary);
+      deps.store.setLastMessage(song.brief.summary, deps.now());
       const body: SongResponse = { song };
       return c.json(body);
     } catch (err) {

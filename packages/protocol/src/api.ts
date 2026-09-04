@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AdapterStatusSchema, PhaseSchema, SessionStateSchema } from "./state.ts";
+import { AdapterStatusSchema, PhaseSchema, SessionStateSchema, TranscriptEntrySchema } from "./state.ts";
 import { CommandSummarySchema, ExternalCommandSchema } from "./commands.ts";
 import { TemplateSchema } from "./templates.ts";
 import { BandSchema, GenreSchema } from "./bands.ts";
@@ -18,6 +18,8 @@ export const StateResponseSchema = z.object({
   lastMessage: z.string().nullable(),
   /** The active song: mate's own picture of the session, or null before one is composed. */
   song: SongSchema.nullable(),
+  /** The conversation so far, oldest first. */
+  transcript: z.array(TranscriptEntrySchema),
 });
 export type StateResponse = z.infer<typeof StateResponseSchema>;
 
