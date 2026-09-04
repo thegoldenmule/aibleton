@@ -100,6 +100,8 @@ Other variables: `MATE_PORT` (4545), `MATE_CORS_ORIGIN` (http://localhost:3000),
 | POST | `/commands` | `{ command: ExternalCommand }` -> `{ id, queued }`; accepts `userRequest`, `goalSet`, `abletonChanged`, `midiNote`, `pause`, `resume`, `cancel` |
 | GET | `/commands/recent` | last commands seen by the mailbox, newest first |
 | GET | `/events` | server-sent events; first event is `snapshot`, then one event per bus event (`state.changed`, `phase.changed`, `command.received`, `message`, `action.applied`, ...) |
+| POST | `/songs/compose`, `/songs/:id/resolve`, `/songs/:id/pick`, `/songs/:id/download` | compose a song, search Splice for its slots (free), choose a candidate, download the picks (spends credits; each file is put into Live as it lands) |
+| POST | `/songs/:id/arrange` | build what the song has on disk into the Live set: its `[mate]` tracks, a session clip per section, copies along the arrangement, locators. Adds only; safe to repeat |
 
 Schemas live in `packages/protocol`.
 
@@ -114,7 +116,7 @@ Tests are fully offline: a scripted brain, in-memory ports, and a manual clock.
 
 ## Out of scope for the skeleton
 
-Real MIDI input (placeholder interface only), realtime playback or playhead, Splice asset downloads (spend credits) and Splice OAuth wiring for mate, persistence across restarts, and any actual drum-pattern generation logic.
+Real MIDI input (placeholder interface only), realtime playback or playhead, and any actual drum-pattern generation logic. Live's MCP server cannot delete tracks or arrangement clips, add scenes or set warp markers, so mate only adds to the set and the drummer tidies by hand.
 
 ## Known risks
 

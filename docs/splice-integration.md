@@ -117,7 +117,15 @@ percussion, key is irrelevant and only BPM matters.
 
 ## Code findings
 
-Status (2026-09-04): items 1–3 and 5 are done (`parseStack`, `Sound.key`, `songwriting/resolve.ts`, `songwriting/download.ts` behind `POST /songs/:id/download`). Item 4, Ableton audio tracks and clips, is the next step.
+Status (2026-09-04): all five are done. Item 4 landed as `AbletonPort.createAudioTrack` /
+`createAudioClip` / `duplicateToArrangement` (plus `setTrackName`, `setClipName`, `deleteClip`,
+`createLocator`), the pure `dawStatus` diff in `packages/protocol/src/daw.ts`, and
+`songwriting/arrange.ts` behind `POST /songs/:id/arrange`; the download route arranges each
+file as it lands. Two findings on the Ableton side: the MCP server answers failures with prose
+starting `Error` rather than an MCP error, and `create_audio_track` reports only the new name,
+so the adapter checks the prefix and reads the index back from a snapshot. Not yet checked
+against a real set: an audio clip through `duplicate_to_arrangement`, overlap when a copy lands
+on an existing arrangement clip, and the length Live assigns a short Splice loop on import.
 
 1. `parseStack` yields **zero layers** on the real response. `HEADING_RE` expects `### N. title`
    but the real format is `### Layer 1: Drums` with the filename on a `**Sample:**` line, and
