@@ -92,6 +92,8 @@ percussion, key is irrelevant and only BPM matters.
 
 ## Code findings
 
+Status (2026-09-04): items 1–3 and 5 are done (`parseStack`, `Sound.key`, `songwriting/resolve.ts`, `songwriting/download.ts` behind `POST /songs/:id/download`). Item 4, Ableton audio tracks and clips, is the next step.
+
 1. `parseStack` yields **zero layers** on the real response. `HEADING_RE` expects `### N. title`
    but the real format is `### Layer 1: Drums` with the filename on a `**Sample:**` line, and
    `**Stack UUID:**` / `**Permalink:**` trailers. UUID, BPM and permalink do parse.
