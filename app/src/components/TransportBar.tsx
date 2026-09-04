@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { AdapterStatus, Phase, Transport } from "@aibleton/protocol";
 import type { Connection } from "../lib/useMateState";
 
@@ -60,6 +61,12 @@ export function TransportBar({ transport, phase, error, adapters, connection, go
         <Badge label="ableton" value={adapters.ableton} live={adapters.ableton === "mcp"} />
         <Badge label="splice" value={adapters.splice} live={adapters.splice === "mcp"} />
         <Badge label="brain" value={adapters.brain} live={adapters.brain === "anthropic"} />
+        <Link
+          href="/templates"
+          className="ml-1.5 rounded-sm border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-foreground"
+        >
+          templates →
+        </Link>
       </div>
 
       {goal ? (

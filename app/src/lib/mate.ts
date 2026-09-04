@@ -15,7 +15,8 @@ export function mateUrl(path = ""): string {
   return `${base}${path}`;
 }
 
-async function request<T>(path: string, schema: ZodType<T, ZodTypeDef, unknown>, init?: RequestInit): Promise<T> {
+/** Fetch + zod-validate a mate endpoint. Throws with the status and body text on failure. */
+export async function request<T>(path: string, schema: ZodType<T, ZodTypeDef, unknown>, init?: RequestInit): Promise<T> {
   const res = await fetch(mateUrl(path), {
     ...init,
     headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
