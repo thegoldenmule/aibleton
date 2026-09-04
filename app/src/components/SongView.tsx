@@ -13,6 +13,7 @@ interface Props {
   onResolve: () => Promise<void>;
   onPick: (slotId: string, soundUuid: string) => Promise<void>;
   onDownload: () => Promise<void>;
+  onRemoveTrack: (partId: string) => Promise<void>;
 }
 
 /**
@@ -21,7 +22,7 @@ interface Props {
  * along the form with its looped clips in each occurrence. Clicking a clip
  * opens that slot's Splice candidates below. This is mate's state, not Ableton's.
  */
-export function SongView({ song, spliceStub, resolving, downloading, onResolve, onPick, onDownload }: Props) {
+export function SongView({ song, spliceStub, resolving, downloading, onResolve, onPick, onDownload, onRemoveTrack }: Props) {
   const { brief, plan } = song;
   const totalBars = formTotalBars(parseForm(song.template.form));
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
@@ -115,7 +116,13 @@ export function SongView({ song, spliceStub, resolving, downloading, onResolve, 
         </p>
       </div>
 
-      <SongArrangement song={song} selectedSlotId={selectedSlotId} onSelect={setSelectedSlotId} />
+      <SongArrangement
+        song={song}
+        selectedSlotId={selectedSlotId}
+        onSelect={setSelectedSlotId}
+        busy={busy}
+        onRemoveTrack={(partId) => swallow(onRemoveTrack(partId))}
+      />
 
       {selected ? (
         <CandidateList slot={selected} track={selectedTrack} busy={busy} onPick={(uuid) => swallow(onPick(selected.id, uuid))} />

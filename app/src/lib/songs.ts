@@ -64,3 +64,9 @@ export async function pickSlot(id: string, body: PickSlotRequest): Promise<Song>
 export function downloadSong(id: string): Promise<DownloadSongResponse> {
   return request(`/songs/${encodeURIComponent(id)}/download`, DownloadSongResponseSchema, { method: "POST" });
 }
+
+/** Drops a part from the song: its track, slots and placements. The last track cannot be removed. */
+export async function deleteTrack(id: string, partId: string): Promise<Song> {
+  const { song } = await request(`/songs/${encodeURIComponent(id)}/tracks/${encodeURIComponent(partId)}`, SongResponseSchema, { method: "DELETE" });
+  return song;
+}

@@ -10,7 +10,7 @@ import {
   type StateResponse,
 } from "@aibleton/protocol";
 import { getState, mateUrl, postCommand } from "./mate";
-import { clearActiveSong, composeSong, downloadSong, pickSlot, resolveSong } from "./songs";
+import { clearActiveSong, composeSong, deleteTrack, downloadSong, pickSlot, resolveSong } from "./songs";
 
 export type Connection = "connecting" | "open" | "error";
 
@@ -35,6 +35,8 @@ export interface MateView {
   pickSound: (songId: string, slotId: string, soundUuid: string) => Promise<void>;
   /** Downloads every pending pick. The caller confirms the credit spend first. */
   downloadSounds: (songId: string) => Promise<void>;
+  /** Drops a part and everything it plays from the song. */
+  removeTrack: (songId: string, partId: string) => Promise<void>;
 }
 
 const EVENT_TYPES: MateEvent["type"][] = [
@@ -260,5 +262,18 @@ export function useMateState(): MateView {
     }
   }, []);
 
-  return { state, connection, lastError, composing, resolving, downloading, send, compose, clearSong, resolveSounds, pickSound, downloadSounds };
+  const removeTrack = useCallback(
+    async (songId: string, partId: string) => {
+      try {
+        replaceSong(await deleteTrack(songId, partId));
+        setLastError(null);
+      } catch (err) {
+        setLastError(err instanceof Error ? err.message : String(err));
+        throw err;
+      }
+    },
+    [replaceSong],
+  );
+
+  return { state, connection, lastError, composing, resolving, downloading, send, compose, clearSong, resolveSounds, pickSound, downloadSounds, removeTrack };
 }

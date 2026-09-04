@@ -23,7 +23,7 @@ function useNow(intervalMs: number): number {
 const FALLBACK_ADAPTERS = { ableton: "stub", splice: "stub", brain: "scripted" } as const;
 
 export default function Home() {
-  const { state, connection, lastError, composing, resolving, downloading, send, compose, clearSong, resolveSounds, pickSound, downloadSounds } = useMateState();
+  const { state, connection, lastError, composing, resolving, downloading, send, compose, clearSong, resolveSounds, pickSound, downloadSounds, removeTrack } = useMateState();
   // Relative timestamps in the mailbox; ticks once a minute, not per frame.
   const now = useNow(15_000);
 
@@ -66,6 +66,7 @@ export default function Home() {
               onResolve={() => resolveSounds(song.id)}
               onPick={(slotId, soundUuid) => pickSound(song.id, slotId, soundUuid)}
               onDownload={() => downloadSounds(song.id)}
+              onRemoveTrack={(partId) => removeTrack(song.id, partId)}
             />
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center text-xs text-muted">

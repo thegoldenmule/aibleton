@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { slotDownloaded, type Placement, type SampleSlot, type Song } from "@aibleton/protocol";
 import { letterClass } from "./FormStrip";
 import { roleClass } from "./BandRoster";
@@ -23,12 +24,19 @@ export function SongArrangement({
   song,
   selectedSlotId,
   onSelect,
+  busy,
+  onRemoveTrack,
 }: {
   song: Song;
   selectedSlotId: string | null;
   onSelect: (slotId: string | null) => void;
+  busy: boolean;
+  /** Drops a part and all its clips, e.g. the drums when the drummer is the one playing. */
+  onRemoveTrack: (partId: string) => void;
 }) {
   const { plan } = song;
+  const [confirmPartId, setConfirmPartId] = useState<string | null>(null);
+  const canRemove = plan.tracks.length > 1;
   const slotById = new Map(plan.slots.map((s) => [s.id, s]));
   const byTrack = new Map<string, Map<number, Placement>>();
   for (const p of plan.placements) {
@@ -76,6 +84,36 @@ export function SongArrangement({
                 <div className="flex items-center gap-1.5">
                   <span className={`rounded-sm border px-1 text-[10px] font-semibold ${roleClass(track.role)}`}>{track.role}</span>
                   <span className="rounded-sm bg-audio/20 px-1 text-[10px] font-semibold tracking-wide text-audio">AUDIO</span>
+                  <span className="ml-auto flex items-center gap-1">
+                    {confirmPartId === track.partId ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            setConfirmPartId(null);
+                            onRemoveTrack(track.partId);
+                          }}
+                          className="rounded-sm border border-audio/60 px-1.5 text-[10px] font-medium text-audio disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          remove
+                        </button>
+                        <button type="button" onClick={() => setConfirmPartId(null)} className="rounded-sm border border-line px-1.5 text-[10px] text-muted">
+                          keep
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={busy || !canRemove}
+                        onClick={() => setConfirmPartId(track.partId)}
+                        className="rounded-sm border border-line px-1.5 text-[10px] text-muted hover:border-audio/60 hover:text-audio disabled:cursor-not-allowed disabled:opacity-40"
+                        title={canRemove ? "Remove this track and all its clips from the song" : "A song needs at least one track"}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </span>
                 </div>
               </div>
               <div className="flex gap-1">
