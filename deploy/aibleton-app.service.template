@@ -6,7 +6,7 @@ After=network.target aibleton-mate.service
 User=__USER__
 WorkingDirectory=__ROOT__/src/app
 EnvironmentFile=__ROOT__/app.env
-ExecStart=__BUN__ node_modules/.bin/next start -H 127.0.0.1 -p 3000
+ExecStart=__NODE__ node_modules/.bin/next start -H 127.0.0.1 -p 3000
 Restart=always
 RestartSec=2
 

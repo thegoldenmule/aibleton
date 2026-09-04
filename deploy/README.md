@@ -13,13 +13,13 @@ https://aibleton.thegoldenmule.com/mate/   -> mate         (127.0.0.1:4545, pref
 ## First time
 
 Prerequisites: DNS A record pointing at the box, security group open on 22/80/443,
-`ANTHROPIC_API_KEY` either exported locally, in a local `.env`, or in `~/.env` on the box.
+`ANTHROPIC_API_KEY` either exported locally, in a local `.env` or `mate/.env`, or in `~/.env` on the box.
 
 ```bash
 BASIC_AUTH_USER=... BASIC_AUTH_PASSWORD=... ./deploy.sh -i ~/.ssh/key.pem --setup ubuntu@host
 ```
 
-Installs docker/bun/rsync, creates `/srv/aibleton`, writes the htpasswd and `secrets.env`,
+Installs docker, bun (pinned to app/package.json), node 22 and rsync, creates `/srv/aibleton`, writes the htpasswd and `secrets.env`,
 issues the cert with certbot in standalone mode, then runs a normal deploy.
 
 ## Every deploy

@@ -4,11 +4,11 @@
 #
 #   ./deploy.sh [-i key.pem] [--setup] [--domain host] user@host
 #
-#   --setup   One-time: install docker, bun and rsync, create /srv/aibleton, write the
+#   --setup   One-time: install docker, bun, node and rsync, create /srv/aibleton, write the
 #             basic-auth file and secrets, issue the TLS cert. Then runs a normal deploy.
 #             Needs BASIC_AUTH_USER and BASIC_AUTH_PASSWORD in the environment (prompted
 #             if missing). ANTHROPIC_API_KEY is taken from the environment or from ./.env
-#             locally, or from ~/.env on the server; whichever is found first.
+#             or ./mate/.env locally, or from ~/.env on the server; first found wins.
 #             CERTBOT_EMAIL is optional (registers without an email when unset).
 #
 #   Every deploy: rsync the source, bun install, build the app, render config, restart
@@ -77,10 +77,14 @@ if [ "$SETUP" = 1 ]; then
   [ -n "$BASIC_AUTH_USER" ] && [ -n "$BASIC_AUTH_PASSWORD" ] || { echo "basic auth user and password are required" >&2; exit 1; }
 
   API_KEY="${ANTHROPIC_API_KEY:-}"
-  if [ -z "$API_KEY" ] && [ -f "$HERE/.env" ]; then
-    API_KEY="$(sed -n 's/^ANTHROPIC_API_KEY=//p' "$HERE/.env" | head -1 | tr -d '"'"'")"
-  fi
+  for envfile in "$HERE/.env" "$HERE/mate/.env"; do
+    [ -n "$API_KEY" ] && break
+    [ -f "$envfile" ] || continue
+    API_KEY="$(sed -n 's/^ANTHROPIC_API_KEY=//p' "$envfile" | head -1 | tr -d '"'"'")"
+  done
   CERTBOT_EMAIL="${CERTBOT_EMAIL:-}"
+  BUN_VERSION="$(sed -n 's/.*"packageManager": *"bun@\([^"]*\)".*/\1/p' "$HERE/app/package.json")"
+  [ -n "$BUN_VERSION" ] || { echo "could not read packageManager bun version from app/package.json" >&2; exit 1; }
 
   log "setup: packages, bun, directories, auth, secrets, cert on $TARGET"
   {
@@ -90,6 +94,7 @@ BASIC_AUTH_USER=$(printf %q "$BASIC_AUTH_USER")
 BASIC_AUTH_PASSWORD=$(printf %q "$BASIC_AUTH_PASSWORD")
 API_KEY=$(printf %q "$API_KEY")
 CERTBOT_EMAIL=$(printf %q "$CERTBOT_EMAIL")
+BUN_VERSION=$(printf %q "$BUN_VERSION")
 EOF
     cat <<'EOF'
 # --- packages
@@ -97,8 +102,13 @@ if command -v apt-get >/dev/null; then
   export DEBIAN_FRONTEND=noninteractive
   sudo apt-get update -qq
   sudo apt-get install -y -qq ca-certificates curl rsync unzip docker.io docker-compose-v2
+  if ! node --version 2>/dev/null | grep -q '^v2[2-9]'; then
+    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+    sudo apt-get install -y -qq nodejs
+  fi
 elif command -v dnf >/dev/null; then
-  sudo dnf install -y -q curl rsync unzip docker
+  # curl-minimal ships on AL2023 and conflicts with the curl package; do not install curl here.
+  sudo dnf install -y -q rsync unzip docker nodejs22
   if ! docker compose version >/dev/null 2>&1; then
     arch="$(uname -m)"
     sudo mkdir -p /usr/local/lib/docker/cli-plugins
@@ -113,11 +123,12 @@ sudo systemctl enable --now docker
 sudo usermod -aG docker "$REMOTE_USER" || true
 
 # --- bun (per-user install, symlinked for systemd)
-if ! command -v bun >/dev/null; then
-  curl -fsSL https://bun.sh/install | bash
+if [ "$(bun --version 2>/dev/null || true)" != "$BUN_VERSION" ]; then
+  curl -fsSL https://bun.sh/install | bash -s "bun-v$BUN_VERSION"
 fi
 sudo ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun
 bun --version
+node --version
 
 # --- layout
 sudo mkdir -p "$ROOT"/{src,data,proxy,letsencrypt,certbot-www}
@@ -169,9 +180,10 @@ log "install, build, render config, restart services"
   cat <<'EOF'
 cd "$ROOT/src"
 BUN="$(command -v bun)"
+NODE="$(command -v node)"
 
 # Rendered config: env, nginx, systemd units. Templates live in the repo.
-render() { sed -e "s|__DOMAIN__|$DOMAIN|g" -e "s|__ROOT__|$ROOT|g" -e "s|__USER__|$REMOTE_USER|g" -e "s|__BUN__|$BUN|g" "$1"; }
+render() { sed -e "s|__DOMAIN__|$DOMAIN|g" -e "s|__ROOT__|$ROOT|g" -e "s|__USER__|$REMOTE_USER|g" -e "s|__BUN__|$BUN|g" -e "s|__NODE__|$NODE|g" "$1"; }
 render deploy/server.env.template > "$ROOT/app.env"
 render deploy/nginx.conf.template > "$ROOT/proxy/default.conf"
 render deploy/aibleton-mate.service.template | sudo tee /etc/systemd/system/aibleton-mate.service >/dev/null
