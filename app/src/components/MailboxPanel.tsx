@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import type { CommandSummary } from "@aibleton/protocol";
 
 interface Props {
@@ -24,8 +24,15 @@ const SOURCE_CLASS: Record<Source, string> = {
 const HIDDEN_BY_DEFAULT: readonly Source[] = ["timer", "loop"];
 const STORAGE_KEY = "mailbox.hiddenSources";
 
-function loadHidden(): Set<Source> {
-  if (typeof window === "undefined") return new Set(HIDDEN_BY_DEFAULT);
+// A tiny external store for the hidden-source preference, read via useSyncExternalStore.
+// getServerSnapshot always returns the default, so the client's first (hydrating) render
+// matches the server exactly; the stored preference (if any) only takes effect once the
+// client reads localStorage for real, on the next, post-hydration render.
+const SERVER_SNAPSHOT = new Set<Source>(HIDDEN_BY_DEFAULT);
+let clientSnapshot: Set<Source> | null = null;
+const listeners = new Set<() => void>();
+
+function readStored(): Set<Source> {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return new Set(HIDDEN_BY_DEFAULT);
@@ -37,25 +44,35 @@ function loadHidden(): Set<Source> {
   }
 }
 
+function getSnapshot(): Set<Source> {
+  clientSnapshot ??= readStored();
+  return clientSnapshot;
+}
+
+function getServerSnapshot(): Set<Source> {
+  return SERVER_SNAPSHOT;
+}
+
+function subscribe(onChange: () => void): () => void {
+  listeners.add(onChange);
+  return () => listeners.delete(onChange);
+}
+
+function toggleSource(source: Source): void {
+  const next = new Set(getSnapshot());
+  if (next.has(source)) next.delete(source);
+  else next.add(source);
+  clientSnapshot = next;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...next]));
+  } catch {
+    // best-effort; a private window or blocked storage just skips persistence
+  }
+  for (const listener of listeners) listener();
+}
+
 export function MailboxPanel({ commands, lastMessage, now }: Props) {
-  const [hidden, setHidden] = useState<Set<Source>>(() => loadHidden());
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...hidden]));
-    } catch {
-      // best-effort; a private window or blocked storage just skips persistence
-    }
-  }, [hidden]);
-
-  const toggle = (source: Source) => {
-    setHidden((prev) => {
-      const next = new Set(prev);
-      if (next.has(source)) next.delete(source);
-      else next.add(source);
-      return next;
-    });
-  };
+  const hidden = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const visible = commands.filter((c) => !hidden.has(c.source));
 
@@ -81,7 +98,7 @@ export function MailboxPanel({ commands, lastMessage, now }: Props) {
               <button
                 key={source}
                 type="button"
-                onClick={() => toggle(source)}
+                onClick={() => toggleSource(source)}
                 aria-pressed={on}
                 className={`rounded-sm px-1.5 py-0.5 font-mono text-[10px] transition-opacity ${
                   on ? `${SOURCE_CLASS[source]} bg-panel-2` : "text-muted/50 bg-panel-2/40 opacity-60"
