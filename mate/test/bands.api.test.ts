@@ -8,6 +8,8 @@ import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
 import { TemplateStore } from "../src/core/templates.ts";
 import { BandStore } from "../src/core/bands.ts";
+import { SongStore } from "../src/core/songs.ts";
+import { ScriptedBriefer } from "../src/songwriting/briefer/index.ts";
 import { ManualClock } from "../src/core/clock.ts";
 import { loadConfig } from "../src/config.ts";
 import { silentLogger } from "../src/log.ts";
@@ -30,6 +32,8 @@ function build(now = 1_000) {
     store: new StateStore(new EventBus()),
     templates: new TemplateStore({ dir: join(dir, "templates") }),
     bands: new BandStore({ dir: join(dir, "bands") }),
+    songs: new SongStore({ dir: join(dir, "songs") }),
+    briefer: new ScriptedBriefer(),
     intelligence: idleIntelligence,
     config: loadConfig({}),
     log: silentLogger,

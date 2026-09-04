@@ -1,4 +1,4 @@
-import type { AdapterStatus, CommandSummary, Phase, SessionState, StateResponse } from "@aibleton/protocol";
+import type { AdapterStatus, CommandSummary, Phase, SessionState, Song, StateResponse } from "@aibleton/protocol";
 import { EventBus } from "./events.ts";
 import { summarize, type Command } from "./commands.ts";
 
@@ -11,6 +11,7 @@ export class StateStore {
   private lastMessage: string | null = null;
   private recent: CommandSummary[] = [];
   private adapters: AdapterStatus = { ableton: "stub", splice: "stub", brain: "scripted" };
+  private song: Song | null = null;
 
   constructor(
     readonly events: EventBus,
@@ -56,6 +57,15 @@ export class StateStore {
     this.events.emit({ type: "adapters", status });
   }
 
+  /** The active song: mate's own picture of the session, rendered by the app. */
+  getSong(): Song | null {
+    return this.song;
+  }
+  setSong(song: Song | null): void {
+    this.song = song;
+    this.events.emit({ type: "song.changed", song });
+  }
+
   recordCommand(cmd: Command): void {
     const summary = summarize(cmd);
     this.recent.push(summary);
@@ -75,6 +85,7 @@ export class StateStore {
       adapters: this.adapters,
       recentCommands: [...this.recent].reverse(),
       lastMessage: this.lastMessage,
+      song: this.song,
     };
   }
 }

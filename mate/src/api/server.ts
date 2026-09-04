@@ -3,21 +3,27 @@ import { cors } from "hono/cors";
 import type { Config } from "../config.ts";
 import type { StateStore } from "../core/state.ts";
 import type { BandStore } from "../core/bands.ts";
+import type { SongStore } from "../core/songs.ts";
 import type { TemplateStore } from "../core/templates.ts";
 import type { Intelligence } from "../intelligence/types.ts";
 import type { Logger } from "../log.ts";
+import type { Briefer } from "../songwriting/briefer/index.ts";
 import { adaptersRoutes } from "./routes/adapters.ts";
 import { commandRoutes } from "./routes/commands.ts";
 import { eventRoutes } from "./routes/events.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { stateRoutes } from "./routes/state.ts";
 import { bandRoutes } from "./routes/bands.ts";
+import { songRoutes } from "./routes/songs.ts";
 import { templateRoutes } from "./routes/templates.ts";
 
 export interface AppDeps {
   store: StateStore;
   templates: TemplateStore;
   bands: BandStore;
+  songs: SongStore;
+  /** Writes the brief for POST /songs/compose. */
+  briefer: Briefer;
   intelligence: Intelligence;
   config: Config;
   log: Logger;
@@ -59,6 +65,18 @@ export function createApp(deps: AppDeps): Hono {
   const now = deps.now ?? (() => Date.now());
   app.route("/", templateRoutes({ templates: deps.templates, now }));
   app.route("/", bandRoutes({ bands: deps.bands, now }));
+  app.route(
+    "/",
+    songRoutes({
+      songs: deps.songs,
+      templates: deps.templates,
+      bands: deps.bands,
+      briefer: deps.briefer,
+      store: deps.store,
+      log: deps.log,
+      now,
+    }),
+  );
   app.route("/", eventRoutes(deps.store, deps.log));
 
   app.notFound((c) => c.json({ error: `no route for ${c.req.method} ${c.req.path}` }, 404));

@@ -20,6 +20,7 @@ const ConfigSchema = z.object({
   maxBrainRetries: z.coerce.number().int().min(0).default(3),
   templatesDir: z.string().min(1).default(".mate/templates"),
   bandsDir: z.string().min(1).default(".mate/bands"),
+  songsDir: z.string().min(1).default(".mate/songs"),
 });
 export type Config = z.infer<typeof ConfigSchema>;
 
@@ -39,5 +40,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     maxBrainRetries: env.MATE_MAX_BRAIN_RETRIES,
     templatesDir: env.MATE_TEMPLATES_DIR,
     bandsDir: env.MATE_BANDS_DIR,
+    songsDir: env.MATE_SONGS_DIR,
   });
 }

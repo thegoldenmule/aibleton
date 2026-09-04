@@ -6,12 +6,14 @@ import { EventBus } from "./core/events.ts";
 import { Mailbox } from "./core/mailbox.ts";
 import { StateStore } from "./core/state.ts";
 import { BandStore } from "./core/bands.ts";
+import { SongStore } from "./core/songs.ts";
 import { TemplateStore } from "./core/templates.ts";
 import { createAbletonPort } from "./ports/ableton/index.ts";
 import { createSplicePort } from "./ports/splice/index.ts";
 import { createAnthropicClient } from "./core/anthropic.ts";
 import { createBrain } from "./intelligence/brain/index.ts";
 import { createIntelligence } from "./intelligence/index.ts";
+import { createBriefer } from "./songwriting/briefer/index.ts";
 import { TickSource } from "./inputs/timer.ts";
 import { NoopMidiSource } from "./inputs/midi.ts";
 import { createApp, startServer } from "./api/server.ts";
@@ -27,6 +29,7 @@ async function main(): Promise<void> {
   const mailbox = new Mailbox();
   const templates = new TemplateStore({ dir: config.templatesDir });
   const bands = new BandStore({ dir: config.bandsDir });
+  const songs = new SongStore({ dir: config.songsDir });
 
   const abletonResult = await createAbletonPort(config.ableton, {
     command: config.abletonMcpCommand,
@@ -62,6 +65,14 @@ async function main(): Promise<void> {
   });
   if (brainResult.fallbackReason) log.warn(`brain: using scripted (${brainResult.fallbackReason})`);
 
+  const brieferResult = createBriefer(config.brain, {
+    client: anthropic,
+    ...(anthropicError !== undefined ? { clientError: anthropicError } : {}),
+    model: config.model,
+    log: createLogger("briefer"),
+  });
+  if (brieferResult.fallbackReason) log.warn(`briefer: using scripted (${brieferResult.fallbackReason})`);
+
   store.setAdapters({
     ableton: abletonResult.port.kind,
     splice: spliceResult.port.kind,
@@ -89,6 +100,8 @@ async function main(): Promise<void> {
     store,
     templates,
     bands,
+    songs,
+    briefer: brieferResult.briefer,
     intelligence,
     config,
     log: createLogger("api"),

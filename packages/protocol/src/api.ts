@@ -16,6 +16,8 @@ export const StateResponseSchema = z.object({
   adapters: AdapterStatusSchema,
   recentCommands: z.array(CommandSummarySchema),
   lastMessage: z.string().nullable(),
+  /** The active song: mate's own picture of the session, or null before one is composed. */
+  song: SongSchema.nullable(),
 });
 export type StateResponse = z.infer<typeof StateResponseSchema>;
 
