@@ -9,6 +9,7 @@ import {
   type StateResponse,
 } from "@aibleton/protocol";
 import { getState, mateUrl, postCommand } from "./mate";
+import { clearActiveSong, composeSong } from "./songs";
 
 export type Connection = "connecting" | "open" | "error";
 
@@ -17,6 +18,10 @@ export interface MateView {
   connection: Connection;
   lastError: string | null;
   send: (command: ExternalCommand) => Promise<void>;
+  /** Runs the song flow for a request; the active song lands in `state.song`. */
+  compose: (text: string) => Promise<void>;
+  /** Clears the active song so the next request composes a new one. */
+  clearSong: () => Promise<void>;
 }
 
 const EVENT_TYPES: MateEvent["type"][] = [
@@ -28,6 +33,7 @@ const EVENT_TYPES: MateEvent["type"][] = [
   "action.applied",
   "adapters",
   "goal.changed",
+  "song.changed",
 ];
 
 const RECENT_LIMIT = 50;
@@ -53,6 +59,8 @@ function applyEvent(prev: StateResponse | null, event: MateEvent): StateResponse
       return { ...prev, adapters: event.status };
     case "goal.changed":
       return { ...prev, goal: event.goal };
+    case "song.changed":
+      return { ...prev, song: event.song };
     case "cancelled":
     case "action.applied":
       return prev;
@@ -142,5 +150,28 @@ export function useMateState(): MateView {
     }
   }, []);
 
-  return { state, connection, lastError, send };
+  const compose = useCallback(async (text: string) => {
+    try {
+      const song = await composeSong({ text });
+      // The SSE event normally lands first; this covers a dropped stream.
+      setState((prev) => (prev ? { ...prev, song } : prev));
+      setLastError(null);
+    } catch (err) {
+      setLastError(err instanceof Error ? err.message : String(err));
+      throw err;
+    }
+  }, []);
+
+  const clearSong = useCallback(async () => {
+    try {
+      await clearActiveSong();
+      setState((prev) => (prev ? { ...prev, song: null } : prev));
+      setLastError(null);
+    } catch (err) {
+      setLastError(err instanceof Error ? err.message : String(err));
+      throw err;
+    }
+  }, []);
+
+  return { state, connection, lastError, send, compose, clearSong };
 }

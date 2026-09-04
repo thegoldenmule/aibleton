@@ -23,7 +23,7 @@ function useNow(intervalMs: number): number {
 const FALLBACK_ADAPTERS = { ableton: "stub", splice: "stub", brain: "scripted" } as const;
 
 export default function Home() {
-  const { state, connection, lastError, send } = useMateState();
+  const { state, connection, lastError, send, compose, clearSong } = useMateState();
   // Relative timestamps in the mailbox; ticks once a minute, not per frame.
   const now = useNow(15_000);
 
@@ -70,7 +70,14 @@ export default function Home() {
         <MailboxPanel commands={state?.recentCommands ?? []} lastMessage={state?.lastMessage ?? null} now={now} />
       </div>
 
-      <CommandBar phase={state?.phase ?? "idle"} disabled={!state} send={send} />
+      <CommandBar
+        phase={state?.phase ?? "idle"}
+        disabled={!state}
+        song={state?.song ?? null}
+        send={send}
+        compose={compose}
+        clearSong={clearSong}
+      />
       {lastError && state ? (
         <p className="truncate font-mono text-[11px] text-audio" title={lastError}>
           {lastError}
