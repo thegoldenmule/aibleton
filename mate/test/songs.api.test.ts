@@ -473,6 +473,32 @@ describe("POST /songs/:id/resolve, /pick and /download", () => {
   });
 });
 
+describe("compose.progress", () => {
+  test("narrates the steps in order, ending with done", async () => {
+    const h = await build();
+    const res = await post(h.app, "/songs/compose", { text: "funk" });
+    expect(res.status).toBe(200);
+    const steps = h.events.ofType("compose.progress").map((e) => e.progress);
+    expect(steps.map((p) => p.stage)).toEqual(["picking", "briefing", "briefing", "layout", "done"]);
+    expect(steps.every((p) => p.request === "funk" && p.message.length > 0)).toBe(true);
+    expect(steps.map((p) => p.fraction)).toEqual([...steps.map((p) => p.fraction)].sort((a, b) => a - b));
+    expect(steps[0]!.message).toContain("Tuesday jam");
+    expect(steps.at(-2)!.message).toMatch(/3 tracks and \d+ sample slots/);
+  });
+
+  test("covers the new-genre detour and reports a failure", async () => {
+    const h = await build({ briefer: new ScriptedBriefer((input) => ({ ...defaultBrief(input), genres: ["gospel", "soul"] })) });
+    await post(h.app, "/songs/compose", { text: "gospel please" });
+    const stages = h.events.ofType("compose.progress").map((e) => e.progress.stage);
+    expect(stages).toEqual(["picking", "briefing", "briefing", "recipe", "bands", "bands", "bands", "rebriefing", "rebriefing", "layout", "done"]);
+
+    h.briefer.rejectNext(new Error("model down"));
+    expect((await post(h.app, "/songs/compose", { text: "again" })).status).toBe(502);
+    const last = h.events.ofType("compose.progress").at(-1)!.progress;
+    expect(last).toMatchObject({ stage: "failed", message: "model down", request: "again" });
+  });
+});
+
 describe("DELETE /songs/:id/tracks/:partId", () => {
   test("removes the part everywhere, saves, and publishes the active song", async () => {
     const h = await build();

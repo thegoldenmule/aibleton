@@ -18,6 +18,25 @@ export const DownloadProgressSchema = z.object({
 });
 export type DownloadProgress = z.infer<typeof DownloadProgressSchema>;
 
+export const COMPOSE_STAGES = ["picking", "briefing", "recipe", "bands", "rebriefing", "layout", "done", "failed"] as const;
+export const ComposeStageSchema = z.enum(COMPOSE_STAGES);
+export type ComposeStage = z.infer<typeof ComposeStageSchema>;
+
+/**
+ * One step of composing a song, in words: "asking the model for a brief",
+ * "rolled band 2 of 3 for hip hop". Sent as the compose runs so the app can
+ * narrate it; `fraction` is a coarse 0..1 for a bar.
+ */
+export const ComposeProgressSchema = z.object({
+  /** The request text, so the app can match events to the compose it started. */
+  request: z.string(),
+  stage: ComposeStageSchema,
+  message: z.string(),
+  fraction: z.number().min(0).max(1),
+  at: z.number(),
+});
+export type ComposeProgress = z.infer<typeof ComposeProgressSchema>;
+
 /** Events mate pushes to the app over SSE. */
 export const MateEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("state.changed"), session: SessionStateSchema }),
@@ -36,5 +55,6 @@ export const MateEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("song.changed"), song: SongSchema.nullable() }),
   z.object({ type: z.literal("transcript.appended"), entry: TranscriptEntrySchema }),
   z.object({ type: z.literal("download.progress"), progress: DownloadProgressSchema }),
+  z.object({ type: z.literal("compose.progress"), progress: ComposeProgressSchema }),
 ]);
 export type MateEvent = z.infer<typeof MateEventSchema>;

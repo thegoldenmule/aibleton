@@ -1,5 +1,5 @@
 import { BandSchema, SongSchema, genreKey } from "@aibleton/protocol";
-import type { Band, Song, SongBrief, Template } from "@aibleton/protocol";
+import type { Band, ComposeStage, Song, SongBrief, Template } from "@aibleton/protocol";
 import { generateBand } from "../core/band-generator.ts";
 import { newId } from "../core/commands.ts";
 import type { RecipeBook } from "../core/recipes.ts";
@@ -24,6 +24,8 @@ export interface ComposeOptions {
   saveBand: (band: Band) => Promise<Band>;
   now: () => number;
   signal: AbortSignal;
+  /** Narrates each step as it starts or finishes; wired to an SSE event by the route. */
+  onProgress?: (stage: ComposeStage, message: string) => void;
 }
 
 /**
@@ -37,12 +39,18 @@ export interface ComposeOptions {
  * @throws EmptyLibraryError, ModelRefusedError, or whatever the briefer or writer throws.
  */
 export async function composeSong(opts: ComposeOptions): Promise<Song> {
+  const progress = opts.onProgress ?? (() => {});
   const template = pickTemplate(opts.templates, opts.text, opts.seed);
   let band = pickBand(opts.bands, opts.text, opts.seed);
+  progress("picking", `picked the form “${template.name}” (${template.form}) and the band “${band.name}”`);
+  progress("briefing", "asking the model what this song should be…");
   let brief = await opts.briefer.brief({ text: opts.text, template, band }, opts.signal);
+  progress("briefing", `brief: ${brief.summary}`);
 
   if (!coversGenre(opts.bands, band, brief, opts.text)) {
     const genre = brief.genres[0]!;
+    const known = opts.recipes.get(genre);
+    progress("recipe", known ? `no saved band plays ${genre}; staffing one from its recipe` : `no saved band plays ${genre}; asking the model how to staff one…`);
     await opts.recipes.ensure(genre, opts.signal);
     const rolled: Band[] = [];
     for (let i = 1; i <= BANDS_PER_NEW_GENRE; i++) {
@@ -50,14 +58,18 @@ export async function composeSong(opts: ComposeOptions): Promise<Song> {
       const staffed = generateBand({ seed, genre }, opts.recipes);
       const at = opts.now();
       rolled.push(await opts.saveBand(BandSchema.parse({ id: newId("band"), name: `${staffed.metadata.genre} band ${seed}`, parts: staffed.parts, metadata: staffed.metadata, createdAt: at })));
+      progress("bands", `rolled ${genre} band ${i} of ${BANDS_PER_NEW_GENRE}: ${staffed.parts.map((p) => p.name).join(", ")}`);
     }
     band = pickBand(rolled, opts.text, opts.seed);
     // The first brief's part feedback keyed on the old band; brief again so nothing is lost.
+    progress("rebriefing", `briefing again with “${band.name}”…`);
     brief = await opts.briefer.brief({ text: opts.text, template, band }, opts.signal);
+    progress("rebriefing", `brief: ${brief.summary}`);
   }
 
   const revised = applyFeedback(template, band, brief);
   const plan = layoutSong(revised.template, revised.band, brief);
+  progress("layout", `laid out ${plan.tracks.length} tracks and ${plan.slots.length} sample slots over ${plan.timeline.length} sections`);
 
   return SongSchema.parse({
     id: newId("song"),

@@ -3,6 +3,7 @@ import {
   ComposeSongRequestSchema,
   PickSlotRequestSchema,
   type ActiveSongResponse,
+  type ComposeStage,
   type DeleteSongResponse,
   type DownloadSongResponse,
   type ResolveSongResponse,
@@ -41,6 +42,18 @@ export interface SongRouteDeps {
   /** Injected so tests can drive createdAt and the default seed from a ManualClock. */
   now: () => number;
 }
+
+/** Coarse position of each compose stage, for a progress bar. */
+const COMPOSE_FRACTION: Record<ComposeStage, number> = {
+  picking: 0.1,
+  briefing: 0.25,
+  recipe: 0.4,
+  bands: 0.55,
+  rebriefing: 0.7,
+  layout: 0.9,
+  done: 1,
+  failed: 1,
+};
 
 export function songRoutes(deps: SongRouteDeps): Hono {
   const r = new Hono();
@@ -83,8 +96,11 @@ export function songRoutes(deps: SongRouteDeps): Hono {
     const [templates, bands] = await Promise.all([deps.templates.list(), deps.bands.list()]);
     // The request goes into the conversation before the slow part, so the app shows it while composing.
     deps.store.appendTranscript({ role: "user", kind: "compose", text: opts.text, at: deps.now() });
+    const narrate = (stage: ComposeStage, message: string) =>
+      deps.store.events.emit({ type: "compose.progress", progress: { request: opts.text, stage, message, fraction: COMPOSE_FRACTION[stage], at: deps.now() } });
     try {
       const song = await composeSong({
+        onProgress: narrate,
         text: opts.text,
         seed,
         ...(opts.name !== undefined ? { name: opts.name } : {}),
@@ -99,9 +115,11 @@ export function songRoutes(deps: SongRouteDeps): Hono {
       await deps.songs.save(song);
       deps.store.setSong(song);
       deps.store.setLastMessage(song.brief.summary, deps.now());
+      narrate("done", `composed “${song.name}”`);
       const body: SongResponse = { song };
       return c.json(body);
     } catch (err) {
+      narrate("failed", err instanceof Error ? err.message : String(err));
       if (err instanceof EmptyLibraryError) {
         return c.json({ error: `${err.message} (see /templates and /bands)`, library: err.library }, 409);
       }
