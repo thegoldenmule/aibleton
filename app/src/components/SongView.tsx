@@ -1,17 +1,16 @@
-import { formTotalBars, keyName, parseForm, songTracks, type Song } from "@aibleton/protocol";
+import { formTotalBars, keyName, parseForm, type Song } from "@aibleton/protocol";
 import { FormStrip } from "./FormStrip";
-import { TrackLane } from "./TrackLane";
+import { SongArrangement } from "./SongArrangement";
 
 /**
  * The active song as the session mate intends to build: the brief in a row of
- * chips, the form as a roadmap, then one lane per planned track with a clip
- * slot per section (a scene per section) and the placements on the
- * arrangement strip. This is mate's state, not Ableton's.
+ * chips, the form as a roadmap, then the arrangement — every track laid out
+ * along the form with its looped clips in each occurrence. This is mate's
+ * state, not Ableton's.
  */
 export function SongView({ song }: { song: Song }) {
   const { brief, plan } = song;
   const totalBars = formTotalBars(parseForm(song.template.form));
-  const tracks = songTracks(song);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -48,14 +47,10 @@ export function SongView({ song }: { song: Song }) {
         </p>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-auto">
-        {tracks.map((track) => (
-          <TrackLane key={track.index} track={track} />
-        ))}
-      </div>
+      <SongArrangement song={song} />
 
       <p className="text-[10px] text-muted/70">
-        {plan.slots.length} sample slots · {plan.placements.length} placements · nothing sent to Splice or Ableton yet
+        {plan.slots.length} sample slots · {plan.placements.length} placements · “?” marks a slot not yet resolved on Splice · nothing sent to Ableton yet
       </p>
     </div>
   );
