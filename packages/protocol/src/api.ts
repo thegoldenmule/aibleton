@@ -3,6 +3,7 @@ import { AdapterStatusSchema, PhaseSchema, SessionStateSchema } from "./state.ts
 import { CommandSummarySchema, ExternalCommandSchema } from "./commands.ts";
 import { TemplateSchema } from "./templates.ts";
 import { BandSchema, GenreSchema } from "./bands.ts";
+import { SongSchema } from "./songs.ts";
 
 export const HealthResponseSchema = z.object({ ok: z.literal(true), uptimeMs: z.number() });
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;
@@ -85,3 +86,27 @@ export type GenerateBandRequest = z.infer<typeof GenerateBandRequestSchema>;
 
 export const DeleteBandResponseSchema = z.object({ deleted: z.boolean() });
 export type DeleteBandResponse = z.infer<typeof DeleteBandResponseSchema>;
+
+/**
+ * Body of `POST /songs/compose`. `seed` drives the deterministic template and
+ * band picks and is chosen from the clock when omitted.
+ */
+export const ComposeSongRequestSchema = z.object({
+  text: z.string().min(1),
+  seed: z.number().int().optional(),
+  name: z.string().min(1).optional(),
+});
+export type ComposeSongRequest = z.infer<typeof ComposeSongRequestSchema>;
+
+export const SongListResponseSchema = z.object({ songs: z.array(SongSchema) });
+export type SongListResponse = z.infer<typeof SongListResponseSchema>;
+
+export const SongResponseSchema = z.object({ song: SongSchema });
+export type SongResponse = z.infer<typeof SongResponseSchema>;
+
+export const DeleteSongResponseSchema = z.object({ deleted: z.boolean() });
+export type DeleteSongResponse = z.infer<typeof DeleteSongResponseSchema>;
+
+/** Response of `DELETE /songs/active`: the song that was active, or null. */
+export const ActiveSongResponseSchema = z.object({ song: SongSchema.nullable() });
+export type ActiveSongResponse = z.infer<typeof ActiveSongResponseSchema>;

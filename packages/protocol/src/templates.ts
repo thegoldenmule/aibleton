@@ -55,36 +55,3 @@ export const TemplateSchema = TemplateShape.superRefine((template, ctx) => {
   }
 });
 export type Template = z.infer<typeof TemplateSchema>;
-
-/** One resolved Splice loop inside a bound section. */
-export const CompositionLayerSchema = z.object({
-  layerType: z.string(),
-  soundUuid: z.string(),
-  /** Absolute path once downloaded; null while the section is a roadmap only. */
-  localPath: z.string().nullable(),
-});
-export type CompositionLayer = z.infer<typeof CompositionLayerSchema>;
-
-export const CompositionStackSchema = z.object({
-  stackUuid: z.string(),
-  layers: z.array(CompositionLayerSchema),
-});
-export type CompositionStack = z.infer<typeof CompositionStackSchema>;
-
-/** A template bound to real Splice material, persisted so re-rendering costs no credits. */
-export const CompositionSchema = z.object({
-  id: z.string().min(1),
-  templateId: z.string().min(1),
-  bpm: z.number().positive(),
-  /** Section label -> the material chosen for it. */
-  stacks: z.record(z.string(), CompositionStackSchema),
-  layout: z.array(
-    z.object({
-      label: SectionLabelSchema,
-      startBeat: z.number().min(0),
-      lengthBeats: z.number().positive(),
-    }),
-  ),
-  createdAt: z.number(),
-});
-export type Composition = z.infer<typeof CompositionSchema>;
