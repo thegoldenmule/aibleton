@@ -18,6 +18,7 @@ const ConfigSchema = z.object({
   abletonMcpCommand: z.string().default("uvx"),
   abletonMcpArgs: z.array(z.string()).default(["ableton-mcp"]),
   maxBrainRetries: z.coerce.number().int().min(0).default(3),
+  templatesDir: z.string().min(1).default(".mate/templates"),
 });
 export type Config = z.infer<typeof ConfigSchema>;
 
@@ -35,5 +36,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     abletonMcpCommand: env.ABLETON_MCP_COMMAND,
     abletonMcpArgs: env.ABLETON_MCP_ARGS ? env.ABLETON_MCP_ARGS.split(" ") : undefined,
     maxBrainRetries: env.MATE_MAX_BRAIN_RETRIES,
+    templatesDir: env.MATE_TEMPLATES_DIR,
   });
 }
