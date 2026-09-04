@@ -65,6 +65,7 @@ export function songRoutes(deps: SongRouteDeps): Hono {
       });
       await deps.songs.save(song);
       deps.store.setSong(song);
+      deps.store.setLastMessage(song.brief.summary);
       const body: SongResponse = { song };
       return c.json(body);
     } catch (err) {

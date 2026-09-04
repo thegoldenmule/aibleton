@@ -95,6 +95,7 @@ describe("POST /songs/compose", () => {
     expect(await h.songs.get(song.id)).toEqual(song);
     expect(h.store.getSong()).toEqual(song);
     expect(h.events.ofType("song.changed").map((e) => e.song?.id)).toEqual([song.id]);
+    expect(h.events.ofType("message").map((e) => e.text)).toEqual([song.brief.summary]);
     expect(h.briefer.calls[0]!.text).toBe("something funky and upbeat");
 
     const state = StateResponseSchema.parse(await (await h.app.request("/state")).json());
