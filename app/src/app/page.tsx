@@ -30,7 +30,7 @@ export default function Home() {
   const session = state?.session ?? null;
 
   return (
-    <main className="flex flex-1 flex-col gap-3 p-4">
+    <main className="flex min-h-0 flex-1 flex-col gap-3 p-4">
       <TransportBar
         transport={session?.transport ?? null}
         phase={state?.phase ?? "idle"}
@@ -59,7 +59,7 @@ export default function Home() {
           ) : session.tracks.length === 0 ? (
             <div className="flex flex-1 items-center justify-center text-xs text-muted">No tracks in the set.</div>
           ) : (
-            <div className="flex flex-col gap-1.5 overflow-x-auto">
+            <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-auto">
               {session.tracks.map((track) => (
                 <TrackLane key={track.index} track={track} />
               ))}
