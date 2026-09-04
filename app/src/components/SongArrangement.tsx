@@ -25,12 +25,15 @@ export function SongArrangement({
   selectedSlotId,
   onSelect,
   busy,
+  resolving,
   onRemoveTrack,
 }: {
   song: Song;
   selectedSlotId: string | null;
   onSelect: (slotId: string | null) => void;
   busy: boolean;
+  /** True while Splice is being searched: clips still without candidates pulse. */
+  resolving: boolean;
   /** Drops a part and all its clips, e.g. the drums when the drummer is the one playing. */
   onRemoveTrack: (partId: string) => void;
 }) {
@@ -131,6 +134,7 @@ export function SongArrangement({
                             repeat={i}
                             label={occ.label}
                             selected={slot.id === selectedSlotId}
+                            searching={resolving && slot.candidates.length === 0}
                             onSelect={() => onSelect(slot.id === selectedSlotId ? null : slot.id)}
                           />
                         ))
@@ -155,6 +159,7 @@ function Clip({
   repeat,
   label,
   selected,
+  searching,
   onSelect,
 }: {
   slot: SampleSlot;
@@ -162,6 +167,8 @@ function Clip({
   repeat: number;
   label: string;
   selected: boolean;
+  /** Splice has not answered for this slot yet. */
+  searching: boolean;
   onSelect: () => void;
 }) {
   const first = repeat === 0;
@@ -176,7 +183,7 @@ function Clip({
   ].join("\n");
   return (
     <div
-      className={`relative flex h-14 min-w-0 flex-1 overflow-hidden rounded-sm border ${letterClass(label)}${onDisk ? " border-b-4 border-b-accent-2" : ""}${selected ? " ring-1 ring-accent" : ""}`}
+      className={`relative flex h-14 min-w-0 flex-1 overflow-hidden rounded-sm border ${letterClass(label)}${onDisk ? " border-b-4 border-b-accent-2" : ""}${selected ? " ring-1 ring-accent" : ""}${searching ? " animate-pulse border-dashed" : ""}`}
       title={onDisk ? `${title}\non disk: ${slot.resolved?.localPath ?? ""}` : title}
     >
       <button
@@ -186,12 +193,12 @@ function Clip({
         className="flex min-w-0 flex-1 cursor-pointer flex-col justify-between px-1.5 py-1 text-left"
       >
         <span className={`w-full truncate text-[11px] font-medium leading-tight${previewUrl ? " pr-14" : ""}`}>
-          {first ? (pick ? shortName(pick.fileName) : slot.id) : "↻"}
+          {first ? (pick ? shortName(pick.fileName) : searching ? "searching Splice…" : slot.id) : "↻"}
         </span>
         <span className="font-mono text-[10px] opacity-80">
           {placement.loopBars} bar{placement.loopBars === 1 ? "" : "s"}
           {placement.repeats > 1 ? ` · ${repeat + 1}/${placement.repeats}` : ""}
-          {onDisk ? " · ✓" : slot.pickedUuid ? " · ○" : " · ?"}
+          {onDisk ? " · ✓" : slot.pickedUuid ? " · ○" : searching ? " · …" : " · ?"}
         </span>
       </button>
       {onDisk && first ? (

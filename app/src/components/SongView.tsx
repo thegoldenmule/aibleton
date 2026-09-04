@@ -146,6 +146,7 @@ export function SongView({ song, spliceStub, resolving, downloading, downloadPro
         selectedSlotId={selectedSlotId}
         onSelect={setSelectedSlotId}
         busy={busy}
+        resolving={resolving}
         onRemoveTrack={(partId) => swallow(onRemoveTrack(partId))}
       />
 
