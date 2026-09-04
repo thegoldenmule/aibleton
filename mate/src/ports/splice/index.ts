@@ -22,6 +22,8 @@ export interface CreateSplicePortOptions {
 }
 
 export const NOT_LOGGED_IN = "not logged in to Splice: run `bun run --cwd mate splice:login`";
+/** A bearer token wins over the OAuth login, so a stale one hides a working login. */
+export const TOKEN_REJECTED = "Splice rejected SPLICE_MCP_TOKEN (401); unset it to use the OAuth login, or set a valid token";
 
 /**
  * `stub`: fixtures. `mcp`: real server or throw. `auto`: try the real server (connect + listTools,
@@ -54,7 +56,7 @@ export async function createSplicePort(mode: PortMode, opts: CreateSplicePortOpt
     opts.log.info(`splice mcp ready with ${tools.length} tool(s)`);
     return { port: adapter, live: true };
   } catch (err) {
-    const reason = isUnauthorized(err) ? NOT_LOGGED_IN : err instanceof Error ? err.message : String(err);
+    const reason = isUnauthorized(err) ? (opts.token ? TOKEN_REJECTED : NOT_LOGGED_IN) : err instanceof Error ? err.message : String(err);
     return fail(reason, adapter);
   }
 }
