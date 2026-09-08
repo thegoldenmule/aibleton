@@ -2,8 +2,8 @@
 
 One EC2 box (Ubuntu or Amazon Linux 2023), no Ableton or Splice: mate runs with both
 ports stubbed and the Anthropic brain live. nginx + certbot run in docker; mate and the
-app run on the host under systemd. The site sits behind basic auth because the API is
-unauthenticated and every command spends Anthropic credits.
+app run on the host under systemd. Nothing gates the site: mate's API is unauthenticated
+and every command spends Anthropic credits, so treat the hostname as the only secret.
 
 ```
 https://aibleton.thegoldenmule.com/        -> next start   (127.0.0.1:3000)
@@ -16,10 +16,10 @@ Prerequisites: DNS A record pointing at the box, security group open on 22/80/44
 `ANTHROPIC_API_KEY` either exported locally, in a local `.env` or `mate/.env`, or in `~/.env` on the box.
 
 ```bash
-BASIC_AUTH_USER=... BASIC_AUTH_PASSWORD=... ./deploy.sh -i ~/.ssh/key.pem --setup ubuntu@host
+./deploy.sh -i ~/.ssh/key.pem --setup ubuntu@host
 ```
 
-Installs docker, bun (pinned to app/package.json), node 22 and rsync, creates `/srv/aibleton`, writes the htpasswd and `secrets.env`,
+Installs docker, bun (pinned to app/package.json), node 22 and rsync, creates `/srv/aibleton`, writes `secrets.env`,
 issues the cert with certbot in standalone mode, then runs a normal deploy.
 
 ## Every deploy

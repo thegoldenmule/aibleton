@@ -1,6 +1,6 @@
 # Reverse proxy + cert renewal only. mate and the app run on the host under systemd.
-# AIBLETON_ROOT defaults to /srv/aibleton; deploy.sh renders the nginx config and
-# htpasswd into $AIBLETON_ROOT/proxy and certbot's state lives in $AIBLETON_ROOT/letsencrypt.
+# AIBLETON_ROOT defaults to /srv/aibleton; deploy.sh renders the nginx config into
+# $AIBLETON_ROOT/proxy and certbot's state lives in $AIBLETON_ROOT/letsencrypt.
 services:
   nginx:
     image: nginx:1.27-alpine
@@ -9,7 +9,6 @@ services:
     network_mode: host
     volumes:
       - ${AIBLETON_ROOT:-/srv/aibleton}/proxy/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - ${AIBLETON_ROOT:-/srv/aibleton}/proxy/htpasswd:/etc/nginx/htpasswd:ro
       - ${AIBLETON_ROOT:-/srv/aibleton}/letsencrypt:/etc/letsencrypt:ro
       - ${AIBLETON_ROOT:-/srv/aibleton}/certbot-www:/var/www/certbot:ro
     # Reload every 6h so a renewed cert is picked up without a deploy.

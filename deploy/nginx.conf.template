@@ -22,9 +22,6 @@ server {
     ssl_certificate     /etc/letsencrypt/live/__DOMAIN__/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/__DOMAIN__/privkey.pem;
 
-    auth_basic           "aibleton";
-    auth_basic_user_file /etc/nginx/htpasswd;
-
     # proxy_set_header is not inherited once a location sets its own, so each block repeats the set.
     # mate API. The trailing slash strips the /mate prefix; mate's routes live at its root.
     # /events is server-sent events: no buffering, long read timeout.

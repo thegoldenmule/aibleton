@@ -4,10 +4,9 @@
 #
 #   ./deploy.sh [-i key.pem] [--setup] [--domain host] user@host
 #
-#   --setup   One-time: install docker, bun, node and rsync, create /srv/aibleton, write the
-#             basic-auth file and secrets, issue the TLS cert. Then runs a normal deploy.
-#             Needs BASIC_AUTH_USER and BASIC_AUTH_PASSWORD in the environment (prompted
-#             if missing). ANTHROPIC_API_KEY is taken from the environment or from ./.env
+#   --setup   One-time: install docker, bun, node and rsync, create /srv/aibleton, write
+#             secrets, issue the TLS cert. Then runs a normal deploy.
+#             ANTHROPIC_API_KEY is taken from the environment or from ./.env
 #             or ./mate/.env locally, or from ~/.env on the server; first found wins.
 #             CERTBOT_EMAIL is optional (registers without an email when unset).
 #
@@ -17,7 +16,7 @@
 # Server layout under /srv/aibleton:
 #   src/          rsynced checkout           data/         mate's persisted state
 #   app.env       rendered, non-secret env   secrets.env   ANTHROPIC_API_KEY, never rewritten
-#   proxy/        nginx conf + htpasswd      letsencrypt/  certbot state; certbot-www/ challenges
+#   proxy/        rendered nginx conf        letsencrypt/  certbot state; certbot-www/ challenges
 #
 set -euo pipefail
 
@@ -28,7 +27,7 @@ SETUP=0
 TARGET=""
 
 usage() {
-  sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'
   exit 1
 }
 
@@ -74,12 +73,6 @@ EOF
 # ---------------------------------------------------------------- setup (one time)
 
 if [ "$SETUP" = 1 ]; then
-  BASIC_AUTH_USER="${BASIC_AUTH_USER:-}"
-  BASIC_AUTH_PASSWORD="${BASIC_AUTH_PASSWORD:-}"
-  if [ -z "$BASIC_AUTH_USER" ]; then read -r -p "basic auth user: " BASIC_AUTH_USER; fi
-  if [ -z "$BASIC_AUTH_PASSWORD" ]; then read -r -s -p "basic auth password: " BASIC_AUTH_PASSWORD; echo; fi
-  [ -n "$BASIC_AUTH_USER" ] && [ -n "$BASIC_AUTH_PASSWORD" ] || { echo "basic auth user and password are required" >&2; exit 1; }
-
   API_KEY="${ANTHROPIC_API_KEY:-}"
   for envfile in "$HERE/.env" "$HERE/mate/.env"; do
     [ -n "$API_KEY" ] && break
@@ -90,12 +83,10 @@ if [ "$SETUP" = 1 ]; then
   BUN_VERSION="$(sed -n 's/.*"packageManager": *"bun@\([^"]*\)".*/\1/p' "$HERE/app/package.json")"
   [ -n "$BUN_VERSION" ] || { echo "could not read packageManager bun version from app/package.json" >&2; exit 1; }
 
-  log "setup: packages, bun, directories, auth, secrets, cert on $TARGET"
+  log "setup: packages, bun, directories, secrets, cert on $TARGET"
   {
     preamble
     cat <<EOF
-BASIC_AUTH_USER=$(printf %q "$BASIC_AUTH_USER")
-BASIC_AUTH_PASSWORD=$(printf %q "$BASIC_AUTH_PASSWORD")
 API_KEY=$(printf %q "$API_KEY")
 CERTBOT_EMAIL=$(printf %q "$CERTBOT_EMAIL")
 BUN_VERSION=$(printf %q "$BUN_VERSION")
@@ -138,12 +129,6 @@ node --version
 sudo mkdir -p "$ROOT"/{src,data,proxy,letsencrypt,certbot-www}
 sudo chown -R "$REMOTE_USER":"$REMOTE_USER" "$ROOT/src" "$ROOT/data" "$ROOT/proxy" "$ROOT/certbot-www"
 sudo chown "$REMOTE_USER":"$REMOTE_USER" "$ROOT"
-
-# --- basic auth
-# World-readable: nginx's worker runs as an unprivileged user in the container and only opens
-# this file when credentials are presented, so a stricter mode turns every login into a 500.
-printf '%s:%s\n' "$BASIC_AUTH_USER" "$(openssl passwd -apr1 "$BASIC_AUTH_PASSWORD")" > "$ROOT/proxy/htpasswd"
-chmod 644 "$ROOT/proxy/htpasswd"
 
 # --- secrets (never rewritten by deploy). Sources, first wins: explicit key, existing file, ~/.env.
 if [ -n "$API_KEY" ]; then
@@ -199,10 +184,6 @@ fi
 log "install, build, render config, restart services"
 {
   preamble
-  cat <<EOF
-BASIC_AUTH_USER=$(printf %q "${BASIC_AUTH_USER:-}")
-BASIC_AUTH_PASSWORD=$(printf %q "${BASIC_AUTH_PASSWORD:-}")
-EOF
   cat <<'EOF'
 cd "$ROOT/src"
 BUN="$(command -v bun)"
@@ -212,7 +193,7 @@ NODE="$(command -v node)"
 render() { sed -e "s|__DOMAIN__|$DOMAIN|g" -e "s|__ROOT__|$ROOT|g" -e "s|__USER__|$REMOTE_USER|g" -e "s|__BUN__|$BUN|g" -e "s|__NODE__|$NODE|g" "$1"; }
 render deploy/server.env.template > "$ROOT/app.env"
 render deploy/nginx.conf.template > "$ROOT/proxy/default.conf"
-chmod 644 "$ROOT/proxy/default.conf" "$ROOT/proxy/htpasswd"
+chmod 644 "$ROOT/proxy/default.conf"
 [ -f "$ROOT/data/splice-oauth.json" ] && chmod 600 "$ROOT/data/splice-oauth.json" || true
 render deploy/aibleton-mate.service.template | sudo tee /etc/systemd/system/aibleton-mate.service >/dev/null
 render deploy/aibleton-app.service.template  | sudo tee /etc/systemd/system/aibleton-app.service  >/dev/null
@@ -232,19 +213,16 @@ sudo -E docker compose -p aibleton -f deploy/docker-compose.yml up -d --remove-o
 sudo docker exec aibleton-nginx nginx -t
 sudo docker exec aibleton-nginx nginx -s reload
 
-# Health: local services, then the public edge (401 proves TLS + basic auth are in place).
+# Health: local services, then the public edge (200 through nginx proves TLS is in place).
 for i in $(seq 1 30); do
   if curl -fsS http://127.0.0.1:4545/health >/dev/null && curl -fsS -o /dev/null http://127.0.0.1:3000/; then break; fi
   [ "$i" = 30 ] && { echo "services did not come up" >&2; sudo systemctl status --no-pager aibleton-mate aibleton-app || true; exit 1; }
   sleep 1
 done
 code="$(curl -s -o /dev/null -w '%{http_code}' "https://$DOMAIN/mate/health")"
-[ "$code" = 401 ] || { echo "expected 401 from https://$DOMAIN/mate/health, got $code" >&2; exit 1; }
-# With credentials in the environment, prove a login actually works end to end.
-if [ -n "$BASIC_AUTH_USER" ] && [ -n "$BASIC_AUTH_PASSWORD" ]; then
-  code="$(curl -s -o /dev/null -w '%{http_code}' -u "$BASIC_AUTH_USER:$BASIC_AUTH_PASSWORD" "https://$DOMAIN/")"
-  [ "$code" = 200 ] || { echo "expected 200 from https://$DOMAIN/ with credentials, got $code" >&2; sudo docker logs --tail 20 aibleton-nginx >&2; exit 1; }
-fi
+[ "$code" = 200 ] || { echo "expected 200 from https://$DOMAIN/mate/health, got $code" >&2; sudo docker logs --tail 20 aibleton-nginx >&2; exit 1; }
+code="$(curl -s -o /dev/null -w '%{http_code}' "https://$DOMAIN/")"
+[ "$code" = 200 ] || { echo "expected 200 from https://$DOMAIN/, got $code" >&2; sudo docker logs --tail 20 aibleton-nginx >&2; exit 1; }
 echo "deployed: https://$DOMAIN"
 EOF
 } | remote
