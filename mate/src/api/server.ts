@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Config } from "../config.ts";
+import type { SessionManager } from "../core/sessions.ts";
 import type { StateStore } from "../core/state.ts";
 import type { BandStore } from "../core/bands.ts";
 import type { RecipeBook } from "../core/recipes.ts";
@@ -15,6 +16,7 @@ import { healthRoutes } from "./routes/health.ts";
 import { stateRoutes } from "./routes/state.ts";
 import { bandRoutes } from "./routes/bands.ts";
 import { recipeRoutes } from "./routes/recipes.ts";
+import { sessionRoutes } from "./routes/sessions.ts";
 import { songRoutes } from "./routes/songs.ts";
 import { templateRoutes } from "./routes/templates.ts";
 
@@ -26,6 +28,12 @@ export interface AppDeps {
   songs: SongService;
   /** Every recipe the band generator can staff from; fills gaps through the model. */
   recipes: RecipeBook;
+  /**
+   * The session library. Optional: without it mate runs exactly as before,
+   * minus `/sessions` — which is what the tests that build an app without a
+   * journal on disk want.
+   */
+  sessions?: SessionManager;
   intelligence: Intelligence;
   config: Config;
   log: Logger;
@@ -43,7 +51,10 @@ export function createApp(deps: AppDeps): Hono {
     "*",
     cors({
       origin: deps.config.corsOrigin,
-      allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
+      // `PUT` is here for `PUT /songs/:id/placements`, the arrangement grid's
+      // placement toggle: without it the preflight is refused and the toggle
+      // silently does nothing in a browser.
+      allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       allowHeaders: ["Content-Type"],
     }),
   );
@@ -69,6 +80,9 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/", bandRoutes({ bands: deps.bands, recipes: deps.recipes, log: deps.log, now }));
   app.route("/", recipeRoutes({ recipes: deps.recipes }));
   app.route("/", songRoutes({ songs: deps.songs, log: deps.log }));
+  if (deps.sessions) {
+    app.route("/", sessionRoutes({ sessions: deps.sessions, store: deps.store, intelligence: deps.intelligence, log: deps.log }));
+  }
   app.route("/", eventRoutes(deps.store, deps.log));
 
   app.notFound((c) => c.json({ error: `no route for ${c.req.method} ${c.req.path}` }, 404));

@@ -32,6 +32,7 @@ export const VOLATILE_EVENT_TYPES = [
   "adapters",
   "download.progress",
   "cancelled",
+  "state.replaced",
 ] as const;
 
 export type DurableEventType = (typeof DURABLE_EVENT_TYPES)[number];
@@ -117,6 +118,7 @@ export function toJournaled(event: MateEvent): JournaledEvent | null {
     case "adapters":
     case "download.progress":
     case "cancelled":
+    case "state.replaced":
       return null;
     default: {
       const never: never = event;

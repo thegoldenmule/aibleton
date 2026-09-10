@@ -9,7 +9,7 @@ import { BandStore } from "./core/bands.ts";
 import { RecipeBook, RecipeStore } from "./core/recipes.ts";
 import { SongStore } from "./core/songs.ts";
 import { TemplateStore } from "./core/templates.ts";
-import { SessionStore } from "./core/sessions.ts";
+import { SessionManager, SessionStore } from "./core/sessions.ts";
 import { attachJournal } from "./core/journal.ts";
 import { restoreStore } from "./core/restore.ts";
 import { createAbletonPort } from "./ports/ableton/index.ts";
@@ -145,6 +145,21 @@ async function main(): Promise<void> {
   });
   intelligence.start();
 
+  // The one place the current session changes, from here on: it owns the open
+  // session and the journal's detach, so a switch and a shutdown flush and
+  // record the same way. It is built after the loop because a switch reseeds it.
+  const sessionManager = new SessionManager({
+    sessions,
+    store,
+    events,
+    songs,
+    intelligence,
+    session,
+    detach: detachJournal,
+    now: () => clock.now(),
+    log: sessionLog,
+  });
+
   const ticks = new TickSource(intelligence, clock);
   ticks.start();
   const midi = new NoopMidiSource(intelligence);
@@ -156,6 +171,7 @@ async function main(): Promise<void> {
     bands,
     songs: songService,
     recipes,
+    sessions: sessionManager,
     intelligence,
     config,
     log: createLogger("api"),
@@ -183,13 +199,12 @@ async function main(): Promise<void> {
     }
     await Promise.allSettled([abletonResult.port.close(), spliceResult.port.close()]);
     // Nothing more may reach the journal, then the tail reaches disk, then the
-    // metadata records where it got to so the next boot continues past it.
-    detachJournal();
-    await session.journal.flush();
+    // metadata records where it got to so the next boot continues past it. The
+    // manager, not `session`, because a switch may have moved on since boot.
     try {
-      await sessions.save({ ...session.meta, lastSeq: session.journal.seq() - 1, updatedAt: clock.now() });
+      await sessionManager.close();
     } catch (err) {
-      sessionLog.warn("could not save the session", err);
+      sessionLog.warn("could not close the session", err);
     }
     server.stop(true);
     log.info("bye");

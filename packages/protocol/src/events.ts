@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ActivitySchema, AdapterStatusSchema, PhaseSchema, DawStateSchema, TranscriptEntrySchema } from "./state.ts";
 import { CommandSummarySchema } from "./commands.ts";
 import { SongSchema } from "./songs.ts";
+import { StateResponseSchema } from "./api.ts";
 
 /**
  * Where a song's download stands, sent before and after every asset so the
@@ -50,6 +51,15 @@ export const MateEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("activity.changed"), activity: ActivitySchema.nullable() }),
   /** Requests that arrived while mate was working and are waiting their turn, oldest first. */
   z.object({ type: z.literal("queue.changed"), queued: z.array(CommandSummarySchema) }),
+  /**
+   * Everything at once: a session switch replaced the state this stream was
+   * describing. Without it, a browser connected while another client resumes
+   * would stay folded onto the session mate has already left.
+   *
+   * Volatile by construction — it is a picture, not an event, and the journal
+   * it would land in belongs to the session that just started.
+   */
+  z.object({ type: z.literal("state.replaced"), state: StateResponseSchema }),
 ]);
 export type MateEvent = z.infer<typeof MateEventSchema>;
 

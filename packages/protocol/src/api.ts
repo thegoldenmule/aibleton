@@ -4,6 +4,7 @@ import { CommandSummarySchema, ExternalCommandSchema } from "./commands.ts";
 import { TemplateSchema } from "./templates.ts";
 import { BandSchema, RecipeSummarySchema } from "./bands.ts";
 import { SongSchema } from "./songs.ts";
+import { SessionSummarySchema } from "./sessions.ts";
 
 export const HealthResponseSchema = z.object({ ok: z.literal(true), uptimeMs: z.number() });
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;
@@ -156,3 +157,29 @@ export const ArrangeSongResponseSchema = z.object({
   notes: z.array(z.string()),
 });
 export type ArrangeSongResponse = z.infer<typeof ArrangeSongResponseSchema>;
+
+/**
+ * Response of `GET /sessions`, most recently updated first. `currentId` is
+ * always one of them: mate is always in a session, minting one at boot when
+ * there is none on disk.
+ */
+export const SessionListResponseSchema = z.object({ sessions: z.array(SessionSummarySchema), currentId: z.string() });
+export type SessionListResponse = z.infer<typeof SessionListResponseSchema>;
+
+export const SessionResponseSchema = z.object({ session: SessionSummarySchema });
+export type SessionResponse = z.infer<typeof SessionResponseSchema>;
+
+/** Body of `POST /sessions`. An omitted name becomes the session's start time. */
+export const CreateSessionRequestSchema = z.object({ name: z.string().trim().min(1).optional() });
+export type CreateSessionRequest = z.infer<typeof CreateSessionRequestSchema>;
+
+/**
+ * Response of `POST /sessions` and `POST /sessions/:id/resume`. It carries the
+ * whole `StateResponse` because a switch replaces everything the caller is
+ * showing — the same picture `state.replaced` pushes to every other client.
+ */
+export const ResumeSessionResponseSchema = z.object({ session: SessionSummarySchema, state: StateResponseSchema });
+export type ResumeSessionResponse = z.infer<typeof ResumeSessionResponseSchema>;
+
+export const DeleteSessionResponseSchema = z.object({ deleted: z.boolean() });
+export type DeleteSessionResponse = z.infer<typeof DeleteSessionResponseSchema>;

@@ -48,6 +48,9 @@ export function applyMateEvent(state: StateResponse, event: MateEvent, opts: Fol
   switch (event.type) {
     case "state.changed":
       return { ...state, daw: event.daw };
+    // A session switch: the whole picture is new, so there is nothing to merge.
+    case "state.replaced":
+      return event.state;
     case "phase.changed":
       return { ...state, phase: event.phase, error: event.error ?? null };
     case "command.received": {

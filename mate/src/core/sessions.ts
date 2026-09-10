@@ -1,11 +1,17 @@
 import { mkdir, readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
-import type { JournalEntry } from "@aibleton/protocol";
+import type { JournalEntry, SessionSummary, StateResponse } from "@aibleton/protocol";
 import { z } from "zod";
 import { silentLogger, type Logger } from "../log.ts";
+import { contextFromState } from "../intelligence/loop.ts";
+import type { Intelligence } from "../intelligence/types.ts";
 import { newId } from "./commands.ts";
 import { isValidDocumentId } from "./document-store.ts";
-import { SessionJournal, readJournal } from "./journal.ts";
+import type { EventBus } from "./events.ts";
+import { SessionJournal, attachJournal, readJournal } from "./journal.ts";
+import { restoreStore } from "./restore.ts";
+import type { SongStore } from "./songs.ts";
+import type { StateStore } from "./state.ts";
 
 /** True when `id` is safe to use as a session directory name. */
 export function isValidSessionId(id: string): boolean {
@@ -238,4 +244,209 @@ export class SessionStore {
 /** "2026-09-10 14:03" — enough for the drummer to recognise a session in a list. */
 function defaultName(at: number): string {
   return new Date(at).toISOString().replace("T", " ").slice(0, 16);
+}
+
+/** What a switch leaves the caller holding: the session mate is now in, and its state. */
+export interface SessionSwitch {
+  session: SessionSummary;
+  state: StateResponse;
+  /** False when the caller asked to resume the session mate was already in. */
+  switched: boolean;
+}
+
+export interface SessionManagerOptions {
+  sessions: SessionStore;
+  store: StateStore;
+  /** The bus the journal subscribes to, and where `state.replaced` is announced. */
+  events: EventBus;
+  /** Where a journaled song id is read back from; a `Song` never rides in the journal. */
+  songs: Pick<SongStore, "get">;
+  /** Reseeded with the new session's goal, request and song after every switch. */
+  intelligence: Intelligence;
+  /** The session boot opened, already restored into `store` and journaling. */
+  session: OpenSession;
+  /** The detach boot's `attachJournal` returned; the manager owns it from here. */
+  detach: () => void;
+  now: () => number;
+  log?: Logger;
+}
+
+/**
+ * Which session mate is in, and the only place that changes.
+ *
+ * The switch is eight ordered steps and every one of them is load-bearing, so
+ * it lives here rather than in the route: the routes stay status codes, the way
+ * `SongService` owns every song operation. Nothing in it touches `AbletonPort`
+ * or `SplicePort` — resuming restores mate's picture of a session and never
+ * says a word to Live. That is a hard invariant of the feature and this class
+ * has no reference to either port with which to break it.
+ */
+export class SessionManager {
+  private readonly sessions: SessionStore;
+  private readonly store: StateStore;
+  private readonly events: EventBus;
+  private readonly songs: Pick<SongStore, "get">;
+  private readonly intelligence: Intelligence;
+  private readonly now: () => number;
+  private readonly log: Logger;
+  private session: OpenSession;
+  private detach: () => void;
+
+  constructor(opts: SessionManagerOptions) {
+    this.sessions = opts.sessions;
+    this.store = opts.store;
+    this.events = opts.events;
+    this.songs = opts.songs;
+    this.intelligence = opts.intelligence;
+    this.session = opts.session;
+    this.detach = opts.detach;
+    this.now = opts.now;
+    this.log = opts.log ?? silentLogger;
+  }
+
+  /** The session mate is in. There is always one: boot mints it when there is none. */
+  currentId(): string {
+    return this.session.meta.id;
+  }
+
+  /** Every session, most recently updated first. */
+  async list(): Promise<SessionSummary[]> {
+    // The current session's tail is buffered, so it would otherwise report one
+    // event count in the list and another the moment anything else flushed it.
+    await this.session.journal.flush();
+    const metas = await this.sessions.list();
+    const summaries: SessionSummary[] = [];
+    for (const meta of metas) summaries.push(await this.summarize(meta));
+    return summaries;
+  }
+
+  /** One session, or `null` when there is nothing readable under that id. @throws on a bad id. */
+  async get(id: string): Promise<SessionSummary | null> {
+    if (id === this.session.meta.id) await this.session.journal.flush();
+    const meta = await this.sessions.get(id);
+    return meta ? this.summarize(meta) : null;
+  }
+
+  /** A new, empty session, switched into. */
+  async create(name?: string): Promise<SessionSwitch> {
+    const meta = await this.sessions.create(name === undefined ? {} : { name });
+    return { ...(await this.switchTo(meta)), switched: true };
+  }
+
+  /**
+   * Leave the current session for this one. Resuming the session mate is
+   * already in is a **no-op**, not an error: the app may double-fire it, and
+   * flushing and replaying to arrive where we already are would only risk
+   * something.
+   *
+   * @throws when the session does not exist; a route answers 404 before this.
+   */
+  async resume(id: string): Promise<SessionSwitch> {
+    if (id === this.session.meta.id) {
+      return { session: await this.summarize(this.session.meta), state: this.store.snapshot(), switched: false };
+    }
+    const meta = await this.sessions.get(id);
+    if (!meta) throw new Error(`no session ${id}`);
+    return { ...(await this.switchTo(meta)), switched: true };
+  }
+
+  /**
+   * Remove a session and its journal. Never the current one: the journal has
+   * that file open, so deleting it would leave every later append going to an
+   * unlinked inode. A route answers 409 before this.
+   */
+  async delete(id: string): Promise<boolean> {
+    if (id === this.session.meta.id) throw new Error(`session ${id} is the current one`);
+    return this.sessions.delete(id);
+  }
+
+  /** Shutdown: nothing more reaches the journal, the tail reaches disk, the metadata records where it got to. */
+  async close(): Promise<void> {
+    this.detach();
+    await this.session.journal.flush();
+    await this.persist(this.session);
+  }
+
+  /**
+   * The switch. The order is the whole guard and none of it is decoration:
+   *
+   * 1. flush, so the outgoing session's tail is on disk;
+   * 2. detach, so nothing from here lands in the old file;
+   * 3. reset the store to boot;
+   * 4. replay the new session's journal — the same `restoreStore` boot runs;
+   * 5. attach the new journal **after** the replay, which is what stops the
+   *    replay writing the whole session down a second time;
+   * 6. record where the outgoing session got to, and point `current.json` here;
+   * 7. announce `state.replaced`, which is volatile, so step 5's fresh
+   *    subscription drops it rather than journaling it;
+   * 8. reseed the machine's context, *including clearing* a goal, request or
+   *    song the new session does not have.
+   */
+  private async switchTo(meta: SessionMeta): Promise<{ session: SessionSummary; state: StateResponse }> {
+    // Opened first because it only reads: if the incoming journal cannot be
+    // opened, nothing about the session mate is in has changed yet.
+    const next = await this.sessions.open(meta.id);
+    const outgoing = this.session;
+
+    await outgoing.journal.flush();
+    this.detach();
+    this.store.reset();
+    const restored = await restoreStore({ store: this.store, entries: next.entries, songs: this.songs, log: this.log });
+    this.detach = attachJournal(this.events, next.journal, this.now);
+    this.session = next;
+
+    await this.persist(outgoing);
+    await this.sessions.setCurrent(next.meta.id);
+    // Touched last so the session just resumed sorts to the top of the library.
+    this.session = { ...next, meta: await this.persist(next) };
+
+    const state = this.store.snapshot();
+    this.events.emit({ type: "state.replaced", state });
+    this.intelligence.submit(contextFromState(state), "loop");
+
+    this.log.info(`switched to session ${next.meta.id} (${next.meta.name}): ${restored.events} event(s)`);
+    return { session: await this.summarize(this.session.meta), state };
+  }
+
+  /** Write down where a session's journal got to. A failure here must not fail the switch. */
+  private async persist(session: OpenSession): Promise<SessionMeta> {
+    const meta: SessionMeta = { ...session.meta, lastSeq: session.journal.seq() - 1, updatedAt: this.now() };
+    try {
+      return await this.sessions.save(meta);
+    } catch (err) {
+      this.log.warn(`could not save session ${meta.id}`, err);
+      return meta;
+    }
+  }
+
+  /** Read a session's journal for the two things that make its row readable. */
+  private async summarize(meta: SessionMeta): Promise<SessionSummary> {
+    const read = await readJournal(this.sessions.journalPath(meta.id));
+    return summarizeSession(meta, read.entries);
+  }
+}
+
+/**
+ * A session's row, folded from its journal. `preview` is the **first** thing
+ * the drummer said and `songId` the **last** song it held: the one says what
+ * the session was for, the other where it got to.
+ */
+export function summarizeSession(meta: SessionMeta, entries: readonly JournalEntry[]): SessionSummary {
+  let preview: string | null = null;
+  let songId: string | null = null;
+  for (const { event } of entries) {
+    if (preview === null && event.type === "transcript.appended" && event.entry.role === "user" && event.entry.kind === "request") {
+      preview = event.entry.text;
+    }
+    if (event.type === "song.changed") songId = event.songId;
+  }
+  return {
+    id: meta.id,
+    name: meta.name,
+    createdAt: meta.createdAt,
+    updatedAt: meta.updatedAt,
+    events: entries.length,
+    songId,
+    preview,
+  };
 }
