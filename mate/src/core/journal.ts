@@ -1,0 +1,194 @@
+import { appendFile } from "node:fs/promises";
+import { JournalEntrySchema, toJournaled, type JournaledEvent, type JournalEntry } from "@aibleton/protocol";
+import type { Logger } from "../log.ts";
+import type { EventBus } from "./events.ts";
+
+export interface SessionJournalOptions {
+  /** The `journal.jsonl` this instance appends to. Its directory must already exist. */
+  path: string;
+  /** The sequence number the next append takes; `readJournal`'s `lastSeq + 1`. */
+  startSeq: number;
+  log: Logger;
+  /** Bytes already in the file, so `bytesWritten` measures the file and not just this process. */
+  startBytes?: number;
+}
+
+/**
+ * The session's append-only log, one JSON object per line.
+ *
+ * `EventBus.emit` is synchronous and runs on the agent loop's drain stack, so
+ * `append` must never await: it stringifies, buffers, and kicks a drain if one
+ * is not already running. A single promise chain is the only writer, and each
+ * drain writes everything buffered as **one** string — a compose narrating a
+ * dozen transcript lines in one tick costs one syscall, not a dozen.
+ *
+ * There is no fsync per event, and there does not need to be: whole-line
+ * `appendFile` writes never interleave, so the only way to get a partial line
+ * is a crash mid-write, which `readJournal` reports as `truncated`.
+ *
+ * A write error is logged once and then the journal degrades to a no-op. A full
+ * disk must not stop the drummer's session.
+ */
+export class SessionJournal {
+  private readonly path: string;
+  private readonly log: Logger;
+  private readonly buffer: string[] = [];
+  private tail: Promise<void> = Promise.resolve();
+  private draining = false;
+  private nextSeq: number;
+  private bytes: number;
+  private broken = false;
+
+  constructor(opts: SessionJournalOptions) {
+    this.path = opts.path;
+    this.log = opts.log;
+    this.nextSeq = opts.startSeq;
+    this.bytes = opts.startBytes ?? 0;
+  }
+
+  /** Buffer one event for writing. Never awaits, never throws. */
+  append(event: JournaledEvent, at: number): void {
+    if (this.broken) return;
+    const entry: JournalEntry = { seq: this.nextSeq, at, event };
+    this.nextSeq += 1;
+    this.buffer.push(`${JSON.stringify(entry)}\n`);
+    this.kick();
+  }
+
+  /** Resolves once everything appended so far has reached the file. */
+  async flush(): Promise<void> {
+    while (!this.broken && (this.buffer.length > 0 || this.draining)) {
+      this.kick();
+      await this.tail;
+    }
+  }
+
+  /** The sequence number the next `append` will use. */
+  seq(): number {
+    return this.nextSeq;
+  }
+
+  /** Size of the journal file, counting what was in it when this instance opened it. */
+  bytesWritten(): number {
+    return this.bytes;
+  }
+
+  private kick(): void {
+    if (this.draining || this.buffer.length === 0) return;
+    this.draining = true;
+    this.tail = this.tail.then(() => this.drain());
+  }
+
+  private async drain(): Promise<void> {
+    try {
+      // Re-checked after every await: appends that land mid-write join this
+      // same drain rather than queueing another one.
+      while (this.buffer.length > 0) {
+        const chunk = this.buffer.join("");
+        this.buffer.length = 0;
+        await appendFile(this.path, chunk, "utf8");
+        this.bytes += Buffer.byteLength(chunk, "utf8");
+      }
+    } catch (err) {
+      this.broken = true;
+      this.buffer.length = 0;
+      this.log.error(`journal ${this.path} is no longer being written`, err);
+    } finally {
+      this.draining = false;
+    }
+  }
+}
+
+export interface ReadJournalResult {
+  entries: JournalEntry[];
+  /** Lines that did not parse and were dropped. Corruption, not a torn tail. */
+  skipped: number;
+  /**
+   * The largest `seq` *seen*, including on a skipped line, so reopening the
+   * journal cannot hand out a number that is already on disk. `0` for a journal
+   * with nothing readable in it; the first append is then `1`.
+   */
+  lastSeq: number;
+  /** The file ends mid-line, which is what a crash during a write leaves behind. */
+  truncated: boolean;
+  /** Size of the file on disk, for `SessionJournal`'s byte counter. */
+  bytes: number;
+}
+
+const EMPTY: ReadJournalResult = { entries: [], skipped: 0, lastSeq: 0, truncated: false, bytes: 0 };
+
+/**
+ * Every readable entry in a journal, oldest first. A missing file is an empty
+ * result, not an error — a session that has never been written to is a valid
+ * session.
+ */
+export async function readJournal(path: string): Promise<ReadJournalResult> {
+  let raw: string;
+  try {
+    raw = await Bun.file(path).text();
+  } catch {
+    return { ...EMPTY };
+  }
+  if (raw.length === 0) return { ...EMPTY };
+
+  const lines = raw.split("\n");
+  // A complete file ends with a newline, which leaves one empty tail element.
+  // Anything else means the last line was cut off part-written.
+  const unterminated = lines.at(-1) !== "";
+  if (!unterminated) lines.pop();
+
+  const entries: JournalEntry[] = [];
+  let skipped = 0;
+  let lastSeq = 0;
+  let truncated = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (line.trim().length === 0) continue;
+    const { entry, seq } = parseLine(line);
+    // `lastSeq` is the largest number *seen*, not `entries.length`: a line that
+    // was skipped still occupies its sequence number on disk, and reusing it
+    // would put two entries with the same `seq` in one file.
+    if (seq !== null && seq > lastSeq) lastSeq = seq;
+    if (!entry) {
+      // The last line is special: an unterminated final line is a torn write,
+      // not corruption, and there is nothing to repair — the entry never
+      // finished being an event.
+      if (unterminated && i === lines.length - 1) truncated = true;
+      else skipped += 1;
+      continue;
+    }
+    entries.push(entry);
+  }
+
+  return { entries, skipped, lastSeq, truncated, bytes: Buffer.byteLength(raw, "utf8") };
+}
+
+/** The entry a line holds, plus whatever sequence number it claims either way. */
+function parseLine(line: string): { entry: JournalEntry | null; seq: number | null } {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(line);
+  } catch {
+    return { entry: null, seq: null };
+  }
+  const claimed = (raw as { seq?: unknown } | null)?.seq;
+  const seq = typeof claimed === "number" && Number.isFinite(claimed) ? claimed : null;
+  const parsed = JournalEntrySchema.safeParse(raw);
+  return { entry: parsed.success ? parsed.data : null, seq };
+}
+
+/**
+ * Write every durable event the bus carries to `journal`. Returns the detach.
+ *
+ * It subscribes to the **bus**, not the store: `action.applied` and `cancelled`
+ * are emitted straight onto the bus by `EffectRunner` and never pass through a
+ * setter. Attaching it *after* a replay is also what stops a restore from
+ * re-journaling itself — there is no `restoring` flag to drift.
+ */
+export function attachJournal(events: EventBus, journal: SessionJournal, now: () => number): () => void {
+  return events.subscribe((event) => {
+    const journaled = toJournaled(event);
+    if (journaled) journal.append(journaled, now());
+  });
+}

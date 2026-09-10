@@ -3,6 +3,7 @@ export * from "./commands.ts";
 export * from "./events.ts";
 export * from "./api.ts";
 export * from "./fold.ts";
+export * from "./journal.ts";
 export * from "./form.ts";
 export * from "./templates.ts";
 export * from "./bands.ts";
