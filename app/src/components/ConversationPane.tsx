@@ -62,12 +62,14 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
       setText("");
       return;
     }
-    // No song yet: this request composes one. Slow — it waits on the model.
+    // No song yet: this request composes one. Slow — it waits on the model and
+    // then on Splice, so the box empties on send and only refills if it failed.
+    setText("");
     try {
       await compose(trimmed);
-      setText("");
     } catch {
-      // surfaced through useMateState.lastError; keep the text so they can retry
+      // surfaced through useMateState.lastError; hand the text back so they can retry
+      setText(trimmed);
     }
   };
 
