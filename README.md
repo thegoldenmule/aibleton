@@ -27,9 +27,11 @@ aibleton/
 
 ## How it works
 
-Every input (API call, timer, future MIDI controller, Ableton change) becomes a **command** in a mailbox. The **agent loop** pops one command at a time and hands it to a pure reducer, `step(state, command) -> { state, effects }`. Effects (refresh the Ableton snapshot, call the brain, apply actions, emit an event, enqueue a follow-up) run asynchronously and their completions re-enter the mailbox as commands. Phases: `idle -> observing -> deciding -> acting -> idle`, plus `paused` and `error`.
+Every input (API call, timer, future MIDI controller, Ableton change) becomes a **command** in a mailbox — including everything the drummer types, which is always a `userRequest`. The **agent loop** pops one command at a time and hands it to a pure reducer, `step(state, command) -> { state, effects }`. Effects (refresh the Ableton snapshot, call the brain, apply actions, emit an event, enqueue a follow-up) run asynchronously and their completions re-enter the mailbox as commands. Phases: `idle -> observing -> deciding -> acting -> idle`, plus `paused` and `error`. A request typed while mate is working is held in the machine and answered when the current turn finishes, one per return to idle.
 
-The **brain** turns a session snapshot plus the drummer's request into a `Decision`: a message and a list of `Action`s. Only the loop applies actions to Ableton; the brain never mutates anything directly. The Anthropic brain runs a manual tool-use loop; the scripted brain returns canned decisions and is what tests and the no-credentials demo use.
+The **brain** turns a session snapshot, a digest of the active song and the drummer's request into a `Decision`: a message and a list of `Action`s. Only the loop applies actions; the brain never mutates anything directly. The Anthropic brain runs a manual tool-use loop; the scripted brain returns canned decisions and is what tests and the no-credentials demo use.
+
+**Songs** are laid out and edited through one service (`songwriting/service.ts`), called both by the HTTP routes the app's buttons use and by the loop when the brain chooses a song tool — compose, resolve on Splice, pick a candidate, rest or bring in a part, drop a part, build in Live, or put the song away. Downloading is the exception: it spends Splice credits, so it stays behind the app's confirm and is never offered to the brain.
 
 **Ports** hide MCP. `AbletonPort` and `SplicePort` each have a real MCP adapter and a stub. Each port's mode is `auto | mcp | stub`; `auto` tries MCP at startup and falls back to the stub if that fails, so the whole stack runs with no Ableton, no Splice, and no API key.
 
@@ -100,7 +102,7 @@ Other variables: `MATE_PORT` (4545), `MATE_CORS_ORIGIN` (http://localhost:3000),
 | POST | `/commands` | `{ command: ExternalCommand }` -> `{ id, queued }`; accepts `userRequest`, `goalSet`, `abletonChanged`, `midiNote`, `pause`, `resume`, `cancel` |
 | GET | `/commands/recent` | last commands seen by the mailbox, newest first |
 | GET | `/events` | server-sent events; first event is `snapshot`, then one event per bus event (`state.changed`, `phase.changed`, `command.received`, `message`, `action.applied`, ...) |
-| POST | `/songs/compose`, `/songs/:id/resolve`, `/songs/:id/pick`, `/songs/:id/download` | compose a song, search Splice for its slots (free), choose a candidate, download the picks (spends credits; each file is put into Live as it lands) |
+| POST | `/songs/compose`, `/songs/:id/resolve`, `/songs/:id/pick`, `/songs/:id/download` | compose a song (and search Splice for its slots, free), re-search, choose a candidate, download the picks (spends credits; each file is put into Live as it lands). The app composes by chatting instead; these stay for scripts and the direct-manipulation buttons |
 | POST | `/songs/:id/arrange` | build what the song has on disk into the Live set: its `[mate]` tracks, a session clip per section, copies along the arrangement, locators. Adds only; safe to repeat |
 
 Schemas live in `packages/protocol`.
