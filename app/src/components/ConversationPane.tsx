@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
-import type { Activity, ActivityKind, CommandSummary, ExternalCommand, Phase, Song, TranscriptEntry, TranscriptField } from "@aibleton/protocol";
+import type { Activity, CommandSummary, ExternalCommand, Phase, Song, TranscriptEntry, TranscriptField } from "@aibleton/protocol";
+import { ACTIVITY_LABEL } from "../lib/status";
 
 interface Props {
   phase: Phase;
@@ -23,16 +24,6 @@ const KIND_CLASS: Record<Exclude<TranscriptEntry["kind"], "step">, string> = {
   compose: "border-accent/50 bg-accent/10",
   request: "border-accent-2/50 bg-accent-2/10",
   reply: "border-line bg-panel-2",
-};
-
-/** What mate is doing, in the drummer's words, for the line above the box. */
-const DOING: Record<ActivityKind, string> = {
-  think: "bandmate is thinking…",
-  compose: "bandmate is writing a song…",
-  resolve: "bandmate is searching Splice…",
-  arrange: "bandmate is building in Live…",
-  download: "bandmate is getting the sounds…",
-  edit: "bandmate is changing the plan…",
 };
 
 /**
@@ -135,7 +126,7 @@ export function ConversationPane({ phase, disabled, song, transcript, activity, 
                 <Dot delay="150ms" />
                 <Dot delay="300ms" />
               </span>
-              {activity ? DOING[activity.kind] : phase === "deciding" ? "bandmate is thinking…" : "bandmate is applying changes…"}
+              {activity ? `bandmate is ${ACTIVITY_LABEL[activity.kind]}…` : phase === "deciding" ? "bandmate is thinking…" : "bandmate is applying changes…"}
             </span>
             {activity ? <span className="pl-6 font-mono text-[11px] text-muted/70">{activity.message}</span> : null}
           </div>

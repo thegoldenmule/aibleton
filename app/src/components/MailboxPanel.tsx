@@ -1,9 +1,15 @@
 import { useSyncExternalStore } from "react";
-import type { CommandSummary } from "@aibleton/protocol";
+import type { Activity, CommandSummary, Phase } from "@aibleton/protocol";
+import { ACTIVITY_LABEL, PHASE_CLASS } from "../lib/status";
 
 interface Props {
   commands: CommandSummary[];
-  lastMessage: string | null;
+  /** Where the machine is. What the bandmate *said* belongs in the conversation, not here. */
+  phase: Phase;
+  /** The one thing mate is working on, or null at rest. */
+  activity: Activity | null;
+  /** Requests typed while it was busy, oldest first. */
+  queued: CommandSummary[];
   now: number;
   /** True while mate is paused: it still answers, it just does not act between messages. */
   answersOnly: boolean;
@@ -64,6 +70,45 @@ function subscribe(onChange: () => void): () => void {
 }
 
 /**
+ * Where the loop is: the phase, what it is working on and what is waiting for
+ * it. Not what it said — that is the conversation's job, and printing it twice
+ * only made the same sentence look like two.
+ */
+function Status({ phase, activity, queued, answersOnly }: { phase: Phase; activity: Activity | null; queued: CommandSummary[]; answersOnly: boolean }) {
+  const doing = activity ? ACTIVITY_LABEL[activity.kind] : phase === "deciding" ? "thinking" : phase === "acting" ? "applying changes" : null;
+  return (
+    <div className="flex flex-col gap-1.5 rounded-sm bg-panel-2 px-2 py-1.5">
+      <p className="flex items-center gap-1.5 text-xs">
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${doing ? "animate-pulse bg-accent" : "bg-line"}`} aria-hidden />
+        <span className={`font-mono text-[10px] uppercase tracking-wider ${PHASE_CLASS[phase]}`}>{phase}</span>
+        <span className="truncate">{doing ?? (answersOnly ? "waiting for you" : "watching the set")}</span>
+      </p>
+      {activity ? (
+        <>
+          <p className="truncate font-mono text-[10px] text-muted" title={activity.message}>
+            {activity.message}
+          </p>
+          {activity.fraction !== null ? (
+            <div className="h-0.5 overflow-hidden rounded-full bg-line">
+              <div className="h-full bg-accent transition-[width] duration-500" style={{ width: `${Math.round(activity.fraction * 100)}%` }} />
+            </div>
+          ) : null}
+        </>
+      ) : null}
+      {queued.length > 0 ? (
+        <ul className="flex flex-col gap-0.5 border-t border-line/60 pt-1 font-mono text-[10px] text-muted">
+          {queued.map((c) => (
+            <li key={c.id} className="truncate" title={c.summary}>
+              waiting · {c.summary}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * How the bandmate behaves between messages. It always answers what you say;
  * this is only about whether it does anything on its own — the pause/resume
  * commands, said the way the drummer thinks about them.
@@ -111,7 +156,7 @@ function toggleSource(source: Source): void {
   for (const listener of listeners) listener();
 }
 
-export function MailboxPanel({ commands, lastMessage, now, answersOnly, disabled, setAnswersOnly }: Props) {
+export function MailboxPanel({ commands, phase, activity, queued, now, answersOnly, disabled, setAnswersOnly }: Props) {
   const hidden = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const visible = commands.filter((c) => !hidden.has(c.source));
@@ -123,9 +168,7 @@ export function MailboxPanel({ commands, lastMessage, now, answersOnly, disabled
           <h2 className="text-[10px] uppercase tracking-wider text-muted">bandmate</h2>
           <Mode answersOnly={answersOnly} disabled={disabled} onChange={setAnswersOnly} />
         </div>
-        <p className="min-h-10 rounded-sm bg-panel-2 px-2 py-1.5 text-sm leading-snug">
-          {lastMessage ?? <span className="text-muted">Nothing said yet.</span>}
-        </p>
+        <Status phase={phase} activity={activity} queued={queued} answersOnly={answersOnly} />
       </section>
 
       <section className="flex min-h-0 flex-1 flex-col">

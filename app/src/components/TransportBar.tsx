@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { AdapterStatus, Phase, Transport } from "@aibleton/protocol";
 import type { Connection } from "../lib/useMateState";
+import { PHASE_CLASS } from "../lib/status";
 
 interface Props {
   transport: Transport | null;
@@ -10,15 +11,6 @@ interface Props {
   connection: Connection;
   goal: string | null;
 }
-
-const PHASE_CLASS: Record<Phase, string> = {
-  idle: "bg-line text-foreground",
-  observing: "bg-accent-2/25 text-accent-2",
-  deciding: "bg-accent/25 text-accent",
-  acting: "bg-midi/25 text-midi",
-  paused: "bg-muted/25 text-muted",
-  error: "bg-audio/25 text-audio",
-};
 
 const CONNECTION_CLASS: Record<Connection, string> = {
   connecting: "bg-accent animate-pulse",

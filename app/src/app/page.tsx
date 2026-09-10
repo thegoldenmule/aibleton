@@ -117,7 +117,9 @@ export default function Home() {
 
         <MailboxPanel
           commands={state?.recentCommands ?? []}
-          lastMessage={state?.lastMessage ?? null}
+          phase={state?.phase ?? "idle"}
+          activity={activity}
+          queued={state?.queued ?? []}
           now={now}
           answersOnly={state?.phase === "paused"}
           disabled={!state}
