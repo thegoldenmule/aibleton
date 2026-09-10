@@ -125,6 +125,36 @@ describe("SessionJournal", () => {
     expect(read.entries.map((e) => (e.event as { goal: string }).goal)).toEqual(["first", "second"]);
   });
 
+  // What `process.on("exit")` has to work with: the tail must reach disk
+  // without ever yielding, because no promise will resolve again.
+  test("flushSync writes the tail with no await at all", async () => {
+    const journal = open();
+    journal.append(goal("one"), 1);
+    journal.append(goal("two"), 2);
+    journal.flushSync();
+
+    const read = await readJournal(path);
+    expect(read.entries.map((e) => (e.event as { goal: string }).goal)).toEqual(["one", "two"]);
+    expect(read.truncated).toBe(false);
+    expect(journal.bytesWritten()).toBe(read.bytes);
+    // Nothing is written twice when the async drain that was kicked catches up.
+    await journal.flush();
+    expect((await readJournal(path)).entries).toHaveLength(2);
+  });
+
+  test("flushSync on an empty buffer touches nothing, and a broken journal stays broken", async () => {
+    const journal = open();
+    journal.flushSync();
+    expect(await readJournal(path)).toMatchObject({ entries: [], bytes: 0 });
+
+    const missing = new SessionJournal({ path: join(dir, "missing", "journal.jsonl"), startSeq: 1, log });
+    missing.append(goal("one"), 1);
+    missing.flushSync();
+    missing.append(goal("two"), 2);
+    missing.flushSync();
+    expect(errors).toHaveLength(1);
+  });
+
   test("reopening at lastSeq + 1 continues without a collision", async () => {
     const first = open();
     first.append(goal("one"), 1);

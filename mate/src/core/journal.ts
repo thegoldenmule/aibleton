@@ -1,3 +1,4 @@
+import { appendFileSync } from "node:fs";
 import { appendFile } from "node:fs/promises";
 import { JournalEntrySchema, toJournaled, type JournaledEvent, type JournalEntry } from "@aibleton/protocol";
 import type { Logger } from "../log.ts";
@@ -60,6 +61,30 @@ export class SessionJournal {
     while (!this.broken && (this.buffer.length > 0 || this.draining)) {
       this.kick();
       await this.tail;
+    }
+  }
+
+  /**
+   * The buffered tail, written with one blocking append. **Last resort**, for
+   * `process.on("exit")`, where the process is already leaving and a promise
+   * will never be resolved again — everywhere else, `flush`.
+   *
+   * A drain already in flight is not waited for and cannot be: its chunk left
+   * the buffer, and whether it reached the file is now up to the write that is
+   * already running. It is not a lost line either way — this appends only what
+   * is still buffered, so nothing is written twice, and `seq` keeps the order
+   * a gap would otherwise hide.
+   */
+  flushSync(): void {
+    if (this.broken || this.buffer.length === 0) return;
+    const chunk = this.buffer.join("");
+    this.buffer.length = 0;
+    try {
+      appendFileSync(this.path, chunk, "utf8");
+      this.bytes += Buffer.byteLength(chunk, "utf8");
+    } catch (err) {
+      this.broken = true;
+      this.log.error(`journal ${this.path} is no longer being written`, err);
     }
   }
 

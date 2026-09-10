@@ -210,8 +210,33 @@ async function main(): Promise<void> {
     log.info("bye");
     process.exit(0);
   };
+  // Every exit that can be handled flushes the journal, because the documented
+  // dev command runs `--watch` and a reload does not always send SIGTERM:
+  //
+  // - SIGINT / SIGTERM / SIGHUP — the full shutdown; SIGHUP is here because a
+  //   closed terminal or a reload that hangs up sends it and nothing else.
+  // - `beforeExit` — the loop drained on its own. Rare for a server, but it is
+  //   the one exit where async work still runs, so it gets the full shutdown.
+  // - `exit` — the process is already leaving and no promise will resolve
+  //   again, so only the blocking tail write is possible. It is a no-op after
+  //   any of the above, which have already emptied the buffer.
+  //
+  // What cannot be covered, honestly: SIGKILL, a hard `process.abort`, and a
+  // power cut. There is no handler for those, and there is no fsync per event
+  // to fall back on — that trade-off is deliberate and documented on
+  // `SessionJournal`. Under SIGKILL the buffered tail is lost; `readJournal`
+  // reports a torn last line and `open` never reuses its sequence number.
   process.on("SIGINT", () => void shutdown("SIGINT"));
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGHUP", () => void shutdown("SIGHUP"));
+  process.on("beforeExit", () => void shutdown("beforeExit"));
+  process.on("exit", () => {
+    try {
+      sessionManager.flushSync();
+    } catch (err) {
+      sessionLog.warn("could not flush the journal on exit", err);
+    }
+  });
 }
 
 main().catch((err) => {

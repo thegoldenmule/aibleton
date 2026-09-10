@@ -412,6 +412,17 @@ export class SessionManager {
     return this.sessions.delete(id);
   }
 
+  /**
+   * The tail, written with one blocking append. For `process.on("exit")` only,
+   * where nothing asynchronous can still run. The metadata is deliberately not
+   * saved: `open` takes `Math.max(read.lastSeq, meta.lastSeq)`, so a `lastSeq`
+   * left behind by an abrupt exit is recovered from the file itself.
+   */
+  flushSync(): void {
+    this.detach();
+    this.session.journal.flushSync();
+  }
+
   /** Shutdown: nothing more reaches the journal, the tail reaches disk, the metadata records where it got to. */
   async close(): Promise<void> {
     this.detach();
