@@ -15,6 +15,7 @@ import { createAnthropicClient } from "./core/anthropic.ts";
 import { createBrain } from "./intelligence/brain/index.ts";
 import { createIntelligence } from "./intelligence/index.ts";
 import { createBriefer } from "./songwriting/briefer/index.ts";
+import { SongService } from "./songwriting/service.ts";
 import { createRecipeWriter } from "./songwriting/recipe-writer/index.ts";
 import { TickSource } from "./inputs/timer.ts";
 import { NoopMidiSource } from "./inputs/midi.ts";
@@ -92,6 +93,21 @@ async function main(): Promise<void> {
     brain: brainResult.brain.kind,
   });
 
+  // One implementation of every song operation, shared by the REST routes and the loop.
+  const songService = new SongService({
+    songs,
+    templates,
+    bands,
+    briefer: brieferResult.briefer,
+    recipes,
+    store,
+    splice: spliceResult.port,
+    ableton: abletonResult.port,
+    downloadsDir: config.downloadsDir,
+    log: createLogger("songs"),
+    now: () => clock.now(),
+  });
+
   const intelligence = createIntelligence({
     clock,
     mailbox,
@@ -113,12 +129,9 @@ async function main(): Promise<void> {
     store,
     templates,
     bands,
-    songs,
+    songs: songService,
     recipes,
-    briefer: brieferResult.briefer,
     intelligence,
-    splice: spliceResult.port,
-    ableton: abletonResult.port,
     config,
     log: createLogger("api"),
     startedAt,

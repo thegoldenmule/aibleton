@@ -1,14 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { InMemoryAbletonAdapter } from "../src/ports/ableton/stub.ts";
-import { FixtureSpliceAdapter } from "../src/ports/splice/stub.ts";
 import { StateResponseSchema, HealthResponseSchema, AdapterStatusSchema } from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
 import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
 import { TemplateStore } from "../src/core/templates.ts";
 import { BandStore } from "../src/core/bands.ts";
-import { SongStore } from "../src/core/songs.ts";
-import { ScriptedBriefer } from "../src/songwriting/briefer/index.ts";
 import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { envelope, type Command, type CommandBody, type CommandSource } from "../src/core/commands.ts";
@@ -18,6 +14,7 @@ import type { Intelligence } from "../src/intelligence/types.ts";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { songServiceHarness } from "./helpers/song-service.ts";
 
 function fakeIntelligence() {
   const submitted: { body: CommandBody; source: CommandSource }[] = [];
@@ -45,18 +42,14 @@ function build() {
   const fake = fakeIntelligence();
   const templates = new TemplateStore({ dir: mkdtempSync(join(tmpdir(), "mate-api-")) });
   const bands = new BandStore({ dir: mkdtempSync(join(tmpdir(), "mate-api-bands-")) });
-  const songs = new SongStore({ dir: mkdtempSync(join(tmpdir(), "mate-api-songs-")) });
   const recipes = new RecipeBook({ store: new RecipeStore({ dir: mkdtempSync(join(tmpdir(), "mate-api-recipes-")) }), writer: new ScriptedRecipeWriter(), now: () => Date.now() });
   const app = createApp({
     store,
     templates,
     bands,
-    songs,
+    songs: songServiceHarness().service,
     recipes,
-    briefer: new ScriptedBriefer(),
     intelligence: fake.intelligence,
-    splice: new FixtureSpliceAdapter(),
-    ableton: new InMemoryAbletonAdapter(),
     config: loadConfig({}),
     log: silentLogger,
     startedAt: Date.now() - 1000,

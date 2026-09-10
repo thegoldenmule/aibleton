@@ -27,6 +27,7 @@ import type { Intelligence } from "../src/intelligence/types.ts";
 import { silentLogger } from "../src/log.ts";
 import { InMemoryAbletonAdapter } from "../src/ports/ableton/stub.ts";
 import { FixtureSpliceAdapter } from "../src/ports/splice/stub.ts";
+import { SongService } from "../src/songwriting/service.ts";
 import { ModelRefusedError } from "../src/core/anthropic.ts";
 import { ScriptedBriefer } from "../src/songwriting/briefer/index.ts";
 import { defaultBrief } from "../src/songwriting/briefer/scripted.ts";
@@ -72,22 +73,33 @@ async function build(
     await templates.save(fixtureTemplate());
     await bands.save(fixtureBand());
   }
+  const config = loadConfig({ MATE_DOWNLOADS_DIR: join(dir, "downloads") });
+  const service = new SongService({
+    songs,
+    templates,
+    bands,
+    briefer,
+    recipes,
+    store,
+    splice,
+    ableton,
+    downloadsDir: config.downloadsDir,
+    log: silentLogger,
+    now: () => clock.now(),
+  });
   const app = createApp({
     store,
     templates,
     bands,
-    songs,
+    songs: service,
     recipes,
-    briefer,
     intelligence: idleIntelligence,
-    splice,
-    ableton,
-    config: loadConfig({ MATE_DOWNLOADS_DIR: join(dir, "downloads") }),
+    config,
     log: silentLogger,
     startedAt: 0,
     now: () => clock.now(),
   });
-  return { app, store, events, songs, bands, briefer, writer, recipes, clock, splice, ableton, downloadsDir: join(dir, "downloads") };
+  return { app, service, store, events, songs, bands, briefer, writer, recipes, clock, splice, ableton, downloadsDir: config.downloadsDir };
 }
 
 type App = Awaited<ReturnType<typeof build>>["app"];

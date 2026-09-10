@@ -1,6 +1,4 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { InMemoryAbletonAdapter } from "../src/ports/ableton/stub.ts";
-import { FixtureSpliceAdapter } from "../src/ports/splice/stub.ts";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,14 +9,13 @@ import { StateStore } from "../src/core/state.ts";
 import { TemplateStore } from "../src/core/templates.ts";
 import { BandStore } from "../src/core/bands.ts";
 import { BUILTIN_GENRES } from "../src/core/band-generator.ts";
-import { SongStore } from "../src/core/songs.ts";
-import { ScriptedBriefer } from "../src/songwriting/briefer/index.ts";
 import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { ManualClock } from "../src/core/clock.ts";
 import { loadConfig } from "../src/config.ts";
 import { silentLogger } from "../src/log.ts";
 import type { Intelligence } from "../src/intelligence/types.ts";
+import { songServiceHarness } from "./helpers/song-service.ts";
 
 const idleIntelligence: Intelligence = {
   start() {},
@@ -39,12 +36,9 @@ function build(now = 1_000) {
     store: new StateStore(new EventBus()),
     templates: new TemplateStore({ dir: join(dir, "templates") }),
     bands: new BandStore({ dir: join(dir, "bands") }),
-    songs: new SongStore({ dir: join(dir, "songs") }),
+    songs: songServiceHarness({ dir }).service,
     recipes,
-    briefer: new ScriptedBriefer(),
     intelligence: idleIntelligence,
-    splice: new FixtureSpliceAdapter(),
-    ableton: new InMemoryAbletonAdapter(),
     config: loadConfig({}),
     log: silentLogger,
     startedAt: 0,

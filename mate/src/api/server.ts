@@ -4,13 +4,10 @@ import type { Config } from "../config.ts";
 import type { StateStore } from "../core/state.ts";
 import type { BandStore } from "../core/bands.ts";
 import type { RecipeBook } from "../core/recipes.ts";
-import type { SongStore } from "../core/songs.ts";
 import type { TemplateStore } from "../core/templates.ts";
 import type { Intelligence } from "../intelligence/types.ts";
 import type { Logger } from "../log.ts";
-import type { AbletonPort } from "../ports/ableton/types.ts";
-import type { SplicePort } from "../ports/splice/types.ts";
-import type { Briefer } from "../songwriting/briefer/index.ts";
+import type { SongService } from "../songwriting/service.ts";
 import { adaptersRoutes } from "./routes/adapters.ts";
 import { commandRoutes } from "./routes/commands.ts";
 import { eventRoutes } from "./routes/events.ts";
@@ -25,16 +22,11 @@ export interface AppDeps {
   store: StateStore;
   templates: TemplateStore;
   bands: BandStore;
-  songs: SongStore;
+  /** Every song operation, shared with the agent loop. */
+  songs: SongService;
   /** Every recipe the band generator can staff from; fills gaps through the model. */
   recipes: RecipeBook;
-  /** Writes the brief for POST /songs/compose. */
-  briefer: Briefer;
   intelligence: Intelligence;
-  /** Searches and downloads for the song routes. Downloads spend credits. */
-  splice: SplicePort;
-  /** Where songs get built; the song routes touch only the tracks mate created. */
-  ableton: AbletonPort;
   config: Config;
   log: Logger;
   startedAt: number;
@@ -76,22 +68,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/", templateRoutes({ templates: deps.templates, now }));
   app.route("/", bandRoutes({ bands: deps.bands, recipes: deps.recipes, log: deps.log, now }));
   app.route("/", recipeRoutes({ recipes: deps.recipes }));
-  app.route(
-    "/",
-    songRoutes({
-      songs: deps.songs,
-      templates: deps.templates,
-      bands: deps.bands,
-      briefer: deps.briefer,
-      recipes: deps.recipes,
-      store: deps.store,
-      splice: deps.splice,
-      ableton: deps.ableton,
-      downloadsDir: deps.config.downloadsDir,
-      log: deps.log,
-      now,
-    }),
-  );
+  app.route("/", songRoutes({ songs: deps.songs, log: deps.log }));
   app.route("/", eventRoutes(deps.store, deps.log));
 
   app.notFound((c) => c.json({ error: `no route for ${c.req.method} ${c.req.path}` }, 404));
