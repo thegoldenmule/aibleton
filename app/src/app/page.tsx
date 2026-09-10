@@ -115,7 +115,14 @@ export default function Home() {
           clearSong={clearSong}
         />
 
-        <MailboxPanel commands={state?.recentCommands ?? []} lastMessage={state?.lastMessage ?? null} now={now} />
+        <MailboxPanel
+          commands={state?.recentCommands ?? []}
+          lastMessage={state?.lastMessage ?? null}
+          now={now}
+          answersOnly={state?.phase === "paused"}
+          disabled={!state}
+          setAnswersOnly={(answersOnly) => void send({ type: answersOnly ? "pause" : "resume" })}
+        />
       </div>
       {lastError && state ? (
         <p className="truncate font-mono text-[11px] text-audio" title={lastError}>

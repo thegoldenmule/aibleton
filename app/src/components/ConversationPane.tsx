@@ -36,20 +36,6 @@ const DOING: Record<ActivityKind, string> = {
 };
 
 /**
- * Stopping costs something different for each kind of work, and Live has no
- * delete: a half-built arrangement stays half-built. Say so on the button
- * rather than letting the drummer find out.
- */
-const STOPPING: Record<ActivityKind, { label: string; consequence: string }> = {
-  think: { label: "stop", consequence: "It hasn't done anything yet — it's still working out what to do." },
-  compose: { label: "stop composing", consequence: "Nothing has been written to your set." },
-  resolve: { label: "stop searching", consequence: "Searching is free; it keeps the sounds it has found so far." },
-  arrange: { label: "stop building", consequence: "It stops partway. Nothing is removed from your set — press build again to finish it." },
-  download: { label: "stop downloading", consequence: "Sounds already paid for are yours and stay." },
-  edit: { label: "stop", consequence: "A change this quick may already have gone through." },
-};
-
-/**
  * The conversation with the bandmate: history on top, what it is doing in the
  * middle, the input at the bottom. Every message is the same command — the
  * bandmate decides whether that means writing a song or changing one — so the
@@ -61,10 +47,6 @@ export function ConversationPane({ phase, disabled, song, transcript, activity, 
   const endRef = useRef<HTMLDivElement>(null);
 
   const working = activity !== null || phase === "deciding" || phase === "acting";
-  // Cancel is most useful when there is something to stop, so it is live exactly then. An
-  // activity a button started (not the loop) cannot be stopped with a command, and says so.
-  const stoppable = activity?.cancellable ?? (phase === "deciding" || phase === "acting");
-  const stopping = activity ? STOPPING[activity.kind] : null;
   // Waiting messages are already in the transcript — `recordCommand` writes them the moment they
   // arrive, before the machine parks them — so they are marked in place rather than listed twice.
   const waiting = new Set(queued.map((c) => `${c.at}|${c.summary}`));
@@ -72,17 +54,6 @@ export function ConversationPane({ phase, disabled, song, transcript, activity, 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
   }, [transcript.length, working]);
-
-  const fire = async (command: ExternalCommand) => {
-    setBusy(true);
-    try {
-      await send(command);
-    } catch {
-      // surfaced through useMateState.lastError
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -205,41 +176,7 @@ export function ConversationPane({ phase, disabled, song, transcript, activity, 
               new song
             </button>
           ) : null}
-          {phase === "paused" ? (
-            <button
-              type="button"
-              disabled={disabled || busy}
-              onClick={() => fire({ type: "resume" })}
-              className={btn()}
-              title="Let mate act on its own between messages again"
-            >
-              let it act on its own
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={disabled || busy}
-              onClick={() => fire({ type: "pause" })}
-              className={btn()}
-              title="Mate keeps answering you; it just stops acting on its own between messages"
-            >
-              only answer me
-            </button>
-          )}
-          <button
-            type="button"
-            disabled={disabled || busy || !stoppable}
-            onClick={() => fire({ type: "cancel" })}
-            className={btn()}
-            title={stopping?.consequence}
-          >
-            {stopping?.label ?? "stop"}
-          </button>
-          <button type="button" disabled={disabled || busy} onClick={() => fire({ type: "abletonChanged" })} className={btn()}>
-            refresh
-          </button>
         </div>
-        {stoppable && stopping ? <p className="text-[11px] leading-snug text-muted">{stopping.consequence}</p> : null}
         {queued.length > 0 ? (
           <p className="text-[11px] leading-snug text-muted">
             {queued.length} message{queued.length === 1 ? "" : "s"} waiting; mate answers them in order.

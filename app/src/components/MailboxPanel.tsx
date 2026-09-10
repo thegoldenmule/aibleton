@@ -5,6 +5,11 @@ interface Props {
   commands: CommandSummary[];
   lastMessage: string | null;
   now: number;
+  /** True while mate is paused: it still answers, it just does not act between messages. */
+  answersOnly: boolean;
+  /** Disabled until mate is reachable. */
+  disabled: boolean;
+  setAnswersOnly: (answersOnly: boolean) => void;
 }
 
 type Source = CommandSummary["source"];
@@ -58,6 +63,41 @@ function subscribe(onChange: () => void): () => void {
   return () => listeners.delete(onChange);
 }
 
+/**
+ * How the bandmate behaves between messages. It always answers what you say;
+ * this is only about whether it does anything on its own — the pause/resume
+ * commands, said the way the drummer thinks about them.
+ */
+function Mode({ answersOnly, disabled, onChange }: { answersOnly: boolean; disabled: boolean; onChange: (answersOnly: boolean) => void }) {
+  return (
+    <div className="flex overflow-hidden rounded-sm border border-line" role="group" aria-label="bandmate mode">
+      <ModeButton on={!answersOnly} disabled={disabled} onClick={() => onChange(false)} title="Mate watches the set and can act between your messages">
+        acts on its own
+      </ModeButton>
+      <ModeButton on={answersOnly} disabled={disabled} onClick={() => onChange(true)} title="Mate answers what you say and nothing else">
+        answers only
+      </ModeButton>
+    </div>
+  );
+}
+
+function ModeButton({ on, disabled, onClick, title, children }: { on: boolean; disabled: boolean; onClick: () => void; title: string; children: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={on}
+      title={title}
+      className={`px-1.5 py-0.5 text-[10px] lowercase tracking-wide disabled:cursor-not-allowed disabled:opacity-40 ${
+        on ? "bg-accent-2/20 text-accent-2" : "bg-panel-2 text-muted hover:text-foreground"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function toggleSource(source: Source): void {
   const next = new Set(getSnapshot());
   if (next.has(source)) next.delete(source);
@@ -71,7 +111,7 @@ function toggleSource(source: Source): void {
   for (const listener of listeners) listener();
 }
 
-export function MailboxPanel({ commands, lastMessage, now }: Props) {
+export function MailboxPanel({ commands, lastMessage, now, answersOnly, disabled, setAnswersOnly }: Props) {
   const hidden = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const visible = commands.filter((c) => !hidden.has(c.source));
@@ -79,7 +119,10 @@ export function MailboxPanel({ commands, lastMessage, now }: Props) {
   return (
     <aside className="flex min-h-0 flex-col gap-3 rounded-md border border-line bg-panel p-3">
       <section>
-        <h2 className="mb-1 text-[10px] uppercase tracking-wider text-muted">bandmate</h2>
+        <div className="mb-1 flex items-baseline justify-between gap-2">
+          <h2 className="text-[10px] uppercase tracking-wider text-muted">bandmate</h2>
+          <Mode answersOnly={answersOnly} disabled={disabled} onChange={setAnswersOnly} />
+        </div>
         <p className="min-h-10 rounded-sm bg-panel-2 px-2 py-1.5 text-sm leading-snug">
           {lastMessage ?? <span className="text-muted">Nothing said yet.</span>}
         </p>
