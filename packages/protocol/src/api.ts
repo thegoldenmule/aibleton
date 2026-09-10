@@ -9,7 +9,7 @@ export const HealthResponseSchema = z.object({ ok: z.literal(true), uptimeMs: z.
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;
 
 export const StateResponseSchema = z.object({
-  session: DawStateSchema.nullable(),
+  daw: DawStateSchema.nullable(),
   phase: PhaseSchema,
   error: z.string().nullable(),
   goal: z.string().nullable(),
@@ -147,7 +147,7 @@ export type DownloadSongResponse = z.infer<typeof DownloadSongResponseSchema>;
 /**
  * Response of `POST /songs/:id/arrange`: the song (tracks now carry their Live
  * names), what was done, what failed, and what Live cannot do. The picture of
- * what is in Live comes from `dawStatus(song, state.session)`, not from here.
+ * what is in Live comes from `dawStatus(song, state.daw)`, not from here.
  */
 export const ArrangeSongResponseSchema = z.object({
   song: SongSchema,

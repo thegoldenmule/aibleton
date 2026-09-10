@@ -43,7 +43,7 @@ export default function Home() {
   // Relative timestamps in the mailbox; ticks once a minute, not per frame.
   const now = useNow(15_000);
 
-  const session = state?.session ?? null;
+  const daw = state?.daw ?? null;
   const song = state?.song ?? null;
   // One busy signal from the server, split back out for the buttons that each mean one thing.
   // Whoever asked for the work — this tab, another one, or the bandmate itself — it shows here.
@@ -54,7 +54,7 @@ export default function Home() {
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-3 p-4">
       <TransportBar
-        transport={session?.transport ?? null}
+        transport={daw?.transport ?? null}
         phase={state?.phase ?? "idle"}
         error={state?.error ?? null}
         adapters={state?.adapters ?? FALLBACK_ADAPTERS}
@@ -81,7 +81,7 @@ export default function Home() {
             <SongView
               key={song.id}
               song={song}
-              session={session}
+              session={daw}
               spliceStub={(state.adapters ?? FALLBACK_ADAPTERS).splice === "stub"}
               abletonStub={(state.adapters ?? FALLBACK_ADAPTERS).ableton === "stub"}
               resolving={resolving}

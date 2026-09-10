@@ -76,7 +76,7 @@ describe("api", () => {
     const body = StateResponseSchema.parse(await res.json());
     expect(body.phase).toBe("idle");
     expect(body.goal).toBe("keep time at 120");
-    expect(body.session).toBeNull();
+    expect(body.daw).toBeNull();
   });
 
   test("POST /commands accepts a userRequest and forwards it", async () => {

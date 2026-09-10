@@ -382,7 +382,7 @@ export class SongService {
       signal,
       userPrompt: song.request.text,
       onProgress: async (s) => this.publish(await this.deps.songs.save(s)),
-      onSnapshot: (session) => this.deps.store.setSession(session),
+      onSnapshot: (daw) => this.deps.store.setDaw(daw),
       // Every step is one call into Live, so this is the only honest progress there is: how far
       // through the steps this round found. Later rounds are short, so the bar can go back.
       onStep: (step, index, total) => update?.(`${describeStep(step)} (${index + 1} of ${total})`, { fraction: (index + 1) / total }),

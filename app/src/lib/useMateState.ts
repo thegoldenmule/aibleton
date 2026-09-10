@@ -73,7 +73,7 @@ function applyEvent(prev: StateResponse | null, event: MateEvent): StateResponse
   if (!prev) return prev;
   switch (event.type) {
     case "state.changed":
-      return { ...prev, session: event.session };
+      return { ...prev, daw: event.daw };
     case "phase.changed":
       return { ...prev, phase: event.phase, error: event.error ?? null };
     case "command.received":

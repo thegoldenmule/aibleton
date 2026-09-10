@@ -646,7 +646,7 @@ describe("POST /songs/:id/arrange", () => {
     const h = await build();
     const song = await downloaded(h);
     expect(song.plan.tracks.map((t) => t.liveName)).toEqual(["kit [mate]", "p bass [mate]", "strat [mate]"]);
-    const session = h.store.getSession()!;
+    const session = h.store.getDaw()!;
     expect(session.transport.tempo).toBe(song.plan.bpm);
     expect(session.tracks.slice(4).map((t) => t.name)).toEqual(["kit [mate]", "p bass [mate]", "strat [mate]"]);
     const status = dawStatus(song, session);

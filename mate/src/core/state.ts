@@ -4,7 +4,7 @@ import { newId, summarize, type Command } from "./commands.ts";
 
 /** Observable snapshot of everything the API exposes. Emits events on change. */
 export class StateStore {
-  private session: DawState | null = null;
+  private daw: DawState | null = null;
   private phase: Phase = "idle";
   private error: string | null = null;
   private goal: string | null = null;
@@ -22,12 +22,12 @@ export class StateStore {
     private readonly keepTranscript = 200,
   ) {}
 
-  getSession(): DawState | null {
-    return this.session;
+  getDaw(): DawState | null {
+    return this.daw;
   }
-  setSession(session: DawState): void {
-    this.session = session;
-    this.events.emit({ type: "state.changed", session });
+  setDaw(daw: DawState): void {
+    this.daw = daw;
+    this.events.emit({ type: "state.changed", daw });
   }
 
   getPhase(): Phase {
@@ -122,7 +122,7 @@ export class StateStore {
 
   snapshot(): StateResponse {
     return {
-      session: this.session,
+      daw: this.daw,
       phase: this.phase,
       error: this.error,
       goal: this.goal,

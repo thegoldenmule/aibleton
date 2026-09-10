@@ -68,7 +68,7 @@ export class EffectRunner {
         this.track(
           deps.ableton.getSnapshot().then(
             (snapshot) => {
-              deps.store.setSession(snapshot);
+              deps.store.setDaw(snapshot);
               this.post({ type: "snapshotReady", snapshot });
             },
             (err) => this.post({ type: "snapshotFailed", error: message(err) }),

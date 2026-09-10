@@ -42,7 +42,7 @@ describe("AgentLoop", () => {
     expect(applied[0]!.requestId).toBe(h.events.ofType("activity.changed")[0]!.activity!.requestId);
     expect(h.store.snapshot().lastMessage).toBe("Setting 120.");
     // After acting, the loop refreshed the snapshot again so the store sees the new tempo.
-    expect(h.store.getSession()?.transport.tempo).toBe(120);
+    expect(h.store.getDaw()?.transport.tempo).toBe(120);
     expect(h.ableton.callsOf("getSnapshot").length).toBeGreaterThanOrEqual(2);
     const phases = h.events.ofType("phase.changed").map((e) => e.phase);
     expect(phases).toEqual(["observing", "deciding", "acting", "idle", "observing", "idle"]);
@@ -174,7 +174,7 @@ describe("AgentLoop", () => {
     expect(ticks).toHaveLength(3);
     // Ticks only observe: with no goal set they refresh the snapshot and never call the brain.
     expect(h.brain.calls).toHaveLength(0);
-    expect(h.store.getSession()).not.toBeNull();
+    expect(h.store.getDaw()).not.toBeNull();
     expect(h.loop.phase()).toBe("idle");
   });
 

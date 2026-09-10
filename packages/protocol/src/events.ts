@@ -28,7 +28,7 @@ export type ComposeStage = z.infer<typeof ComposeStageSchema>;
 
 /** Events mate pushes to the app over SSE. */
 export const MateEventSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("state.changed"), session: DawStateSchema }),
+  z.object({ type: z.literal("state.changed"), daw: DawStateSchema }),
   z.object({ type: z.literal("phase.changed"), phase: PhaseSchema, error: z.string().optional() }),
   z.object({ type: z.literal("command.received"), command: CommandSummarySchema }),
   z.object({ type: z.literal("message"), text: z.string(), requestId: z.string().optional() }),
