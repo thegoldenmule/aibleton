@@ -69,3 +69,64 @@ export async function seedLibrary(h: SongServiceHarness): Promise<void> {
   await h.templates.save(fixtureTemplate());
   await h.bands.save(fixtureBand());
 }
+
+/**
+ * The two slow ports, holdable. `hold()` parks every call at a gate until
+ * `release()`, so a test can start one service operation, freeze it mid-flight
+ * and watch what a second one does. Modelled on `ScriptedBrain.hold()`.
+ */
+export class FakeSongwriting {
+  readonly splice: SplicePort;
+  readonly ableton: AbletonPort;
+  /** Every gated call, in the order it started: `"splice.searchSounds"`, `"ableton.createAudioTrack"`, … */
+  readonly started: string[] = [];
+  private holding = false;
+  private parked: { resolve: () => void }[] = [];
+
+  constructor(now: () => number = () => 1_000) {
+    this.splice = gate(new FixtureSpliceAdapter(), (m) => this.enter(`splice.${m}`));
+    this.ableton = gate(new InMemoryAbletonAdapter({ now }), (m) => this.enter(`ableton.${m}`));
+  }
+
+  hold(): void {
+    this.holding = true;
+  }
+  release(): void {
+    this.holding = false;
+    const waiting = this.parked;
+    this.parked = [];
+    for (const w of waiting) w.resolve();
+  }
+  /** How many calls are sitting at the gate right now. */
+  pendingCount(): number {
+    return this.parked.length;
+  }
+  /** Resolves once at least `n` calls are parked; a test should never spin on its own. */
+  async waitForHold(n = 1): Promise<void> {
+    while (this.parked.length < n) await new Promise((r) => setTimeout(r, 0));
+  }
+  /** Calls that started after `mark`, for asserting two operations did not interleave. */
+  startedSince(mark: number): string[] {
+    return this.started.slice(mark);
+  }
+
+  private async enter(name: string): Promise<void> {
+    this.started.push(name);
+    if (!this.holding) return;
+    await new Promise<void>((resolve) => this.parked.push({ resolve }));
+  }
+}
+
+/** Wraps every method of a port so `before` runs first. The ports are all-async, so this is safe. */
+function gate<T extends object>(port: T, before: (method: string) => Promise<void>): T {
+  return new Proxy(port, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver) as unknown;
+      if (typeof value !== "function" || prop === "close") return value;
+      return async (...args: unknown[]) => {
+        await before(String(prop));
+        return (value as (...a: unknown[]) => unknown).apply(target, args);
+      };
+    },
+  });
+}

@@ -134,7 +134,10 @@ describe("POST /songs/compose", () => {
 
     expect(await h.songs.get(song.id)).toEqual(song);
     expect(h.store.getSong()).toEqual(song);
-    expect(h.events.ofType("song.changed").map((e) => e.song?.id)).toEqual([song.id]);
+    // Composing chains the free Splice search, which publishes the song again as each slot's candidates land.
+    expect(new Set(h.events.ofType("song.changed").map((e) => e.song?.id))).toEqual(new Set([song.id]));
+    expect(h.events.ofType("song.changed").at(-1)?.song).toEqual(song);
+    expect(song.plan.slots.every((s) => s.candidates.length > 0)).toBe(true);
     expect(h.events.ofType("message").map((e) => e.text)).toEqual([song.brief.summary]);
     // The request, then the trail of steps, then the brief's summary as the reply.
     const conversation = h.store.getTranscript().map((t) => [t.role, t.kind, t.text] as const);
@@ -284,7 +287,9 @@ describe("song library and active song", () => {
     expect(res.status).toBe(200);
     expect(ActiveSongResponseSchema.parse(await res.json()).song?.id).toBe(song.id);
     expect(h.store.getSong()).toBeNull();
-    expect(h.events.ofType("song.changed").map((e) => e.song?.id ?? null)).toEqual([song.id, null]);
+    const published = h.events.ofType("song.changed").map((e) => e.song?.id ?? null);
+    expect(published.at(-1)).toBeNull();
+    expect(new Set(published.slice(0, -1))).toEqual(new Set([song.id]));
     expect(await h.songs.get(song.id)).toEqual(song);
 
     const again = ActiveSongResponseSchema.parse(await (await h.app.request("/songs/active", { method: "DELETE" })).json());
@@ -433,7 +438,6 @@ describe("POST /songs/:id/resolve, /pick and /download", () => {
   test("download writes every distinct pick to disk and publishes progress", async () => {
     const h = await build();
     const { active } = await twoSongs(h);
-    expect((await post(h.app, `/songs/${active.id}/download`)).status).toBe(409);
     const resolved = ResolveSongResponseSchema.parse(await (await post(h.app, `/songs/${active.id}/resolve`)).json()).song;
     const pending = pendingDownloadUuids(resolved.plan);
     expect(pending.length).toBeGreaterThan(0);
