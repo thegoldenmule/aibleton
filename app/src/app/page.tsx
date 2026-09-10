@@ -28,14 +28,10 @@ export default function Home() {
     state,
     connection,
     lastError,
-    composing,
     activity,
-    resolving,
-    downloading,
-    arranging,
+    queued,
     downloadProgress,
     send,
-    compose,
     clearSong,
     resolveSounds,
     pickSound,
@@ -49,6 +45,11 @@ export default function Home() {
 
   const session = state?.session ?? null;
   const song = state?.song ?? null;
+  // One busy signal from the server, split back out for the buttons that each mean one thing.
+  // Whoever asked for the work — this tab, another one, or the bandmate itself — it shows here.
+  const resolving = activity?.kind === "resolve";
+  const downloading = activity?.kind === "download";
+  const arranging = activity?.kind === "arrange";
 
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-3 p-4">
@@ -74,7 +75,7 @@ export default function Home() {
           </div>
           {!state ? (
             <EmptyState error={lastError} />
-          ) : composing ? (
+          ) : activity?.kind === "compose" ? (
             <ComposingState activity={activity} />
           ) : song ? (
             <SongView
@@ -107,10 +108,10 @@ export default function Home() {
           disabled={!state}
           song={song}
           transcript={state?.transcript ?? []}
-          composing={composing}
+          activity={activity}
+          queued={queued}
           now={now}
           send={send}
-          compose={compose}
           clearSong={clearSong}
         />
 
@@ -127,12 +128,11 @@ export default function Home() {
 
 /**
  * The session column while a song is being composed: the lanes it will fill,
- * pulsing, under where the compose has got to. Only the stage it is on — the
- * conversation pane keeps the full account of what the bandmate decided.
+ * pulsing, under where the compose has got to. Only the step it is on — the
+ * conversation pane keeps the full trail of what the bandmate decided.
  */
-function ComposingState({ activity }: { activity: Activity | null }) {
-  const fraction = activity?.fraction ?? 0.05;
-  const done = activity === null;
+function ComposingState({ activity }: { activity: Activity }) {
+  const fraction = activity.fraction ?? 0.05;
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3" role="status" aria-live="polite">
       <div className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
@@ -140,10 +140,10 @@ function ComposingState({ activity }: { activity: Activity | null }) {
           <div className="h-full bg-accent transition-[width] duration-500" style={{ width: `${Math.round(fraction * 100)}%` }} />
         </div>
         <p className="flex items-center gap-1.5 font-mono text-[11px]">
-          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${done ? "bg-line" : "animate-pulse bg-accent"}`} />
-          <span className="w-16 shrink-0 uppercase tracking-wider text-muted/70">{activity?.kind ?? "sending"}</span>
-          <span className="truncate text-foreground" title={activity?.message}>
-            {activity?.message ?? "sending the request to your bandmate…"}
+          <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" />
+          <span className="w-16 shrink-0 uppercase tracking-wider text-muted/70">{activity.kind}</span>
+          <span className="truncate text-foreground" title={activity.message}>
+            {activity.message}
           </span>
         </p>
       </div>

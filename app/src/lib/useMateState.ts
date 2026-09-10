@@ -13,31 +13,28 @@ import {
   type StateResponse,
 } from "@aibleton/protocol";
 import { getState, mateUrl, postCommand } from "./mate";
-import { arrangeSong, clearActiveSong, composeSong, deleteTrack, downloadSong, pickSlot, resolveSong, setPlacement } from "./songs";
+import { arrangeSong, clearActiveSong, deleteTrack, downloadSong, pickSlot, resolveSong, setPlacement } from "./songs";
 
 export type Connection = "connecting" | "open" | "error";
 
 export interface MateView {
   state: StateResponse | null;
   connection: Connection;
+  /**
+   * Transport only: the request never reached mate, or an action it ran came back failed.
+   * Anything the bandmate has an opinion about arrives as its spoken reply in the transcript.
+   */
   lastError: string | null;
-  /** True while a compose request from this page is waiting on the model. */
-  composing: boolean;
-  /** The one slow thing mate is doing, straight from the server, or null at rest. */
+  /**
+   * The one slow thing mate is doing, or null at rest. Owned by the server, so a reload
+   * mid-compose still shows it, and so does a second tab.
+   */
   activity: Activity | null;
   /** Requests that arrived while mate was working and are waiting their turn, oldest first. */
   queued: CommandSummary[];
-  /** True while Splice is being searched for the song's slots. Free. */
-  resolving: boolean;
-  /** True while picked sounds are being downloaded. Spends credits. */
-  downloading: boolean;
-  /** True while the song is being built in the Live set. */
-  arranging: boolean;
   /** Where the current download stands, from mate's progress events; null when none is running. */
   downloadProgress: DownloadProgress | null;
   send: (command: ExternalCommand) => Promise<void>;
-  /** Runs the song flow for a request, then fetches Splice candidates; the active song lands in `state.song`. */
-  compose: (text: string) => Promise<void>;
   /** Clears the active song so the next request composes a new one. */
   clearSong: () => Promise<void>;
   /** Searches Splice for every slot of a song. */
@@ -116,10 +113,6 @@ export function useMateState(): MateView {
   const [state, setState] = useState<StateResponse | null>(null);
   const [connection, setConnection] = useState<Connection>("connecting");
   const [lastError, setLastError] = useState<string | null>(null);
-  const [composing, setComposing] = useState(false);
-  const [resolving, setResolving] = useState(false);
-  const [downloading, setDownloading] = useState(false);
-  const [arranging, setArranging] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
   const retryRef = useRef(0);
 
@@ -175,7 +168,13 @@ export function useMateState(): MateView {
           const parsed = MateEventSchema.safeParse(JSON.parse(e.data));
           if (!parsed.success) return;
           if (parsed.data.type === "download.progress") setDownloadProgress(parsed.data.progress);
-          else setState((prev) => applyEvent(prev, parsed.data));
+          else {
+            // A failed action is the one domain failure with no voice of its own; the rest of what
+            // went wrong reaches the drummer as the bandmate's reply in the transcript.
+            if (parsed.data.type === "action.applied" && !parsed.data.ok) setLastError(`${parsed.data.action}: ${parsed.data.detail ?? "failed"}`);
+            if (parsed.data.type === "activity.changed" && parsed.data.activity === null) setDownloadProgress(null);
+            setState((prev) => applyEvent(prev, parsed.data));
+          }
         });
       }
     };
@@ -205,43 +204,15 @@ export function useMateState(): MateView {
 
   const resolveSounds = useCallback(
     async (songId: string) => {
-      setResolving(true);
       try {
-        const { song, failedSlotIds } = await resolveSong(songId);
-        replaceSong(song);
-        setLastError(failedSlotIds.length ? `Splice returned nothing for ${failedSlotIds.length} slot${failedSlotIds.length === 1 ? "" : "s"}` : null);
-      } catch (err) {
-        setLastError(err instanceof Error ? err.message : String(err));
-        throw err;
-      } finally {
-        setResolving(false);
-      }
-    },
-    [replaceSong],
-  );
-
-  const compose = useCallback(
-    async (text: string) => {
-      setComposing(true);
-      let song: Song;
-      try {
-        song = await composeSong({ text });
-        replaceSong(song);
+        replaceSong((await resolveSong(songId)).song);
         setLastError(null);
       } catch (err) {
         setLastError(err instanceof Error ? err.message : String(err));
         throw err;
-      } finally {
-        setComposing(false);
-      }
-      // Candidates are free, so fetch them right away; the song is already on screen while this runs.
-      try {
-        await resolveSounds(song.id);
-      } catch {
-        // Surfaced through lastError; the song stays.
       }
     },
-    [replaceSong, resolveSounds],
+    [replaceSong],
   );
 
   const pickSound = useCallback(
@@ -259,20 +230,15 @@ export function useMateState(): MateView {
 
   const downloadSounds = useCallback(
     async (songId: string) => {
-      setDownloading(true);
       try {
         const { song, failed } = await downloadSong(songId);
         replaceSong(song);
-        setLastError(
-          failed.length
-            ? `${failed.length} download${failed.length === 1 ? "" : "s"} failed: ${failed.map((f) => `${f.uuid.slice(0, 8)} (${f.error})`).join("; ")}`
-            : null,
-        );
+        // Partial failure is a 200 and mate says so in its own words; only name the ones that cost nothing.
+        setLastError(failed.length ? `${failed.length} download${failed.length === 1 ? "" : "s"} failed` : null);
       } catch (err) {
         setLastError(err instanceof Error ? err.message : String(err));
         throw err;
       } finally {
-        setDownloading(false);
         setDownloadProgress(null);
       }
     },
@@ -318,17 +284,14 @@ export function useMateState(): MateView {
 
   const buildInLive = useCallback(
     async (songId: string) => {
-      setArranging(true);
       try {
-        const { song, failed, notes } = await arrangeSong(songId);
-        replaceSong(song);
-        const problems = [...failed.map((f) => `${f.step}: ${f.error}`), ...notes];
-        setLastError(problems.length ? problems.join("; ") : null);
+        // What was built, what Live could not do and what is still missing all come back as
+        // mate's own line in the conversation; the page only reports a request that never landed.
+        replaceSong((await arrangeSong(songId)).song);
+        setLastError(null);
       } catch (err) {
         setLastError(err instanceof Error ? err.message : String(err));
         throw err;
-      } finally {
-        setArranging(false);
       }
     },
     [replaceSong],
@@ -338,15 +301,10 @@ export function useMateState(): MateView {
     state,
     connection,
     lastError,
-    composing,
     activity: state?.activity ?? null,
     queued: state?.queued ?? [],
-    resolving,
-    downloading,
-    arranging,
     downloadProgress,
     send,
-    compose,
     clearSong,
     resolveSounds,
     pickSound,

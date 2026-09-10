@@ -7,7 +7,6 @@ import {
   SongListResponseSchema,
   SongResponseSchema,
   type ArrangeSongResponse,
-  type ComposeSongRequest,
   type DownloadSongResponse,
   type PickSlotRequest,
   type ResolveSongResponse,
@@ -15,18 +14,6 @@ import {
   type Song,
 } from "@aibleton/protocol";
 import { request } from "./mate";
-
-/**
- * Runs the song flow on mate: picks a template and band, briefs the model,
- * lays the song out, saves it and makes it active. Slow — it waits on the LLM.
- */
-export async function composeSong(opts: ComposeSongRequest): Promise<Song> {
-  const { song } = await request("/songs/compose", SongResponseSchema, {
-    method: "POST",
-    body: JSON.stringify(opts),
-  });
-  return song;
-}
 
 /** Saved songs, newest first. */
 export async function listSongs(): Promise<Song[]> {

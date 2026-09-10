@@ -1,19 +1,20 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
-import type { ExternalCommand, Phase, Song, TranscriptEntry, TranscriptField } from "@aibleton/protocol";
+import type { Activity, ActivityKind, CommandSummary, ExternalCommand, Phase, Song, TranscriptEntry, TranscriptField } from "@aibleton/protocol";
 
 interface Props {
   phase: Phase;
   disabled: boolean;
-  /** The active song, or null. With no song the pane composes; with one it talks to the bandmate. */
+  /** The active song, or null. Only changes what the pane says; every message goes the same way. */
   song: Song | null;
   transcript: TranscriptEntry[];
-  /** True while this page's compose request is waiting on the model. */
-  composing: boolean;
+  /** The one slow thing mate is doing, from the server, or null at rest. */
+  activity: Activity | null;
+  /** What arrived while mate was working and is waiting its turn, oldest first. */
+  queued: CommandSummary[];
   now: number;
   send: (command: ExternalCommand) => Promise<void>;
-  compose: (text: string) => Promise<void>;
   clearSong: () => Promise<void>;
 }
 
@@ -24,19 +25,49 @@ const KIND_CLASS: Record<Exclude<TranscriptEntry["kind"], "step">, string> = {
   reply: "border-line bg-panel-2",
 };
 
+/** What mate is doing, in the drummer's words, for the line above the box. */
+const DOING: Record<ActivityKind, string> = {
+  think: "bandmate is thinking…",
+  compose: "bandmate is writing a song…",
+  resolve: "bandmate is searching Splice…",
+  arrange: "bandmate is building in Live…",
+  download: "bandmate is getting the sounds…",
+  edit: "bandmate is changing the plan…",
+};
+
+/**
+ * Stopping costs something different for each kind of work, and Live has no
+ * delete: a half-built arrangement stays half-built. Say so on the button
+ * rather than letting the drummer find out.
+ */
+const STOPPING: Record<ActivityKind, { label: string; consequence: string }> = {
+  think: { label: "stop", consequence: "It hasn't done anything yet — it's still working out what to do." },
+  compose: { label: "stop composing", consequence: "Nothing has been written to your set." },
+  resolve: { label: "stop searching", consequence: "Searching is free; it keeps the sounds it has found so far." },
+  arrange: { label: "stop building", consequence: "It stops partway. Nothing is removed from your set — press build again to finish it." },
+  download: { label: "stop downloading", consequence: "Sounds already paid for are yours and stay." },
+  edit: { label: "stop", consequence: "A change this quick may already have gone through." },
+};
+
 /**
  * The conversation with the bandmate: history on top, what it is doing in the
- * middle, the input at the bottom. Composes a song while none is active and
- * talks to the bandmate once one is.
+ * middle, the input at the bottom. Every message is the same command — the
+ * bandmate decides whether that means writing a song or changing one — so the
+ * box stays live while it works and a second message queues behind the first.
  */
-export function ConversationPane({ phase, disabled, song, transcript, composing, now, send, compose, clearSong }: Props) {
+export function ConversationPane({ phase, disabled, song, transcript, activity, queued, now, send, clearSong }: Props) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
-  // The loop's brain is at work while deciding; acting means actions are being applied.
-  const thinking = composing || phase === "deciding";
-  const working = thinking || phase === "acting";
+  const working = activity !== null || phase === "deciding" || phase === "acting";
+  // Cancel is most useful when there is something to stop, so it is live exactly then. An
+  // activity a button started (not the loop) cannot be stopped with a command, and says so.
+  const stoppable = activity?.cancellable ?? (phase === "deciding" || phase === "acting");
+  const stopping = activity ? STOPPING[activity.kind] : null;
+  // Waiting messages are already in the transcript — `recordCommand` writes them the moment they
+  // arrive, before the machine parks them — so they are marked in place rather than listed twice.
+  const waiting = new Set(queued.map((c) => `${c.at}|${c.summary}`));
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
@@ -57,18 +88,12 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
     e.preventDefault();
     const trimmed = text.trim();
     if (!trimmed) return;
-    if (song) {
-      await fire({ type: "userRequest", text: trimmed });
-      setText("");
-      return;
-    }
-    // No song yet: this request composes one. Slow — it waits on the model and
-    // then on Splice, so the box empties on send and only refills if it failed.
+    // The box empties on send and only refills if the POST itself failed, which now means the
+    // message never reached mate — not that something it asked for went wrong a minute later.
     setText("");
     try {
-      await compose(trimmed);
+      await send({ type: "userRequest", text: trimmed });
     } catch {
-      // surfaced through useMateState.lastError; hand the text back so they can retry
       setText(trimmed);
     }
   };
@@ -84,18 +109,16 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
     }
   };
 
-  const locked = disabled || busy || composing;
-
   return (
     <section className="flex min-h-0 flex-col rounded-md border border-line bg-panel">
       <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2">
         <h2 className="text-[10px] uppercase tracking-wider text-muted">conversation</h2>
         <span
           className={`rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-            song ? "bg-accent-2/20 text-accent-2" : "bg-accent/20 text-accent"
+            activity ? "bg-accent/20 text-accent" : "bg-accent-2/20 text-accent-2"
           }`}
         >
-          {song ? "bandmate" : "compose"}
+          {activity ? activity.kind : "bandmate"}
         </span>
       </div>
 
@@ -107,7 +130,7 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
         ) : null}
         {transcript.map((entry, i) =>
           entry.kind === "step" ? (
-            <StepLine key={entry.id} text={entry.text} fields={entry.fields} live={composing && i === transcript.length - 1} />
+            <StepLine key={entry.id} text={entry.text} fields={entry.fields} live={working && i === transcript.length - 1} />
           ) : (
             <div
               key={entry.id}
@@ -117,7 +140,12 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
             >
               <span className="flex items-baseline justify-between gap-3 text-[10px] text-muted">
                 <span className="font-mono">{entry.role === "user" ? (entry.kind === "compose" ? "you · compose" : "you") : "bandmate"}</span>
-                <span className="font-mono text-muted/70">{relative(entry.at, now)}</span>
+                <span className="flex items-baseline gap-1.5">
+                  {waiting.has(`${entry.at}|${entry.text}`) ? (
+                    <span className="rounded-sm bg-line px-1 py-0.5 font-mono text-[9px] uppercase tracking-wider text-muted">waiting</span>
+                  ) : null}
+                  <span className="font-mono text-muted/70">{relative(entry.at, now)}</span>
+                </span>
               </span>
               <span className="whitespace-pre-wrap text-sm leading-snug">{entry.text}</span>
               {entry.fields.length > 0 ? (
@@ -129,13 +157,16 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
           ),
         )}
         {working ? (
-          <div className="flex items-center gap-2 self-start rounded-sm border border-dashed border-line px-2 py-1.5 text-xs text-muted" role="status">
-            <span className="flex gap-0.5" aria-hidden>
-              <Dot delay="0ms" />
-              <Dot delay="150ms" />
-              <Dot delay="300ms" />
+          <div className="flex flex-col gap-0.5 self-start rounded-sm border border-dashed border-line px-2 py-1.5 text-xs text-muted" role="status">
+            <span className="flex items-center gap-2">
+              <span className="flex gap-0.5" aria-hidden>
+                <Dot delay="0ms" />
+                <Dot delay="150ms" />
+                <Dot delay="300ms" />
+              </span>
+              {activity ? DOING[activity.kind] : phase === "deciding" ? "bandmate is thinking…" : "bandmate is applying changes…"}
             </span>
-            {composing ? "bandmate is composing a song…" : phase === "deciding" ? "bandmate is thinking…" : "bandmate is applying changes…"}
+            {activity ? <span className="pl-6 font-mono text-[11px] text-muted/70">{activity.message}</span> : null}
           </div>
         ) : null}
         <div ref={endRef} />
@@ -143,10 +174,11 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
 
       <form onSubmit={onSubmit} className="flex flex-col gap-2 border-t border-line px-3 py-2">
         <div className="flex items-stretch gap-2">
+          {/* Live while mate works: a second message is queued and answered in turn, not refused. */}
           <textarea
             rows={2}
             className="min-w-0 flex-1 resize-none rounded-sm border border-line bg-panel-2 px-2.5 py-1.5 text-sm outline-none placeholder:text-muted/70 focus:border-accent"
-            placeholder={song ? "e.g. “give me a 4-bar rock groove at 110”" : "e.g. “something funky and upbeat”"}
+            placeholder={song ? "e.g. “make the breakdown sparser”" : "e.g. “something funky and upbeat”"}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
@@ -155,39 +187,64 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
                 e.currentTarget.form?.requestSubmit();
               }
             }}
-            disabled={locked}
+            disabled={disabled}
           />
-          <button type="submit" disabled={locked || !text.trim()} className={btn("h-full bg-accent text-black")}>
-            {composing ? "composing…" : "send"}
+          <button type="submit" disabled={disabled || !text.trim()} className={btn("h-full bg-accent text-black")} title={working ? "Mate is busy; this waits its turn" : undefined}>
+            {working ? "queue" : "send"}
           </button>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {song ? (
-            <button type="button" disabled={locked} onClick={newSong} className={btn()} title="Clear the active song and compose another">
+            <button
+              type="button"
+              disabled={disabled || busy || activity !== null}
+              onClick={newSong}
+              className={btn()}
+              title="Put the active song away so the next thing you say starts a new one"
+            >
               new song
             </button>
           ) : null}
           {phase === "paused" ? (
-            <button type="button" disabled={locked} onClick={() => fire({ type: "resume" })} className={btn()}>
-              resume
+            <button
+              type="button"
+              disabled={disabled || busy}
+              onClick={() => fire({ type: "resume" })}
+              className={btn()}
+              title="Let mate act on its own between messages again"
+            >
+              let it act on its own
             </button>
           ) : (
-            <button type="button" disabled={locked} onClick={() => fire({ type: "pause" })} className={btn()}>
-              pause
+            <button
+              type="button"
+              disabled={disabled || busy}
+              onClick={() => fire({ type: "pause" })}
+              className={btn()}
+              title="Mate keeps answering you; it just stops acting on its own between messages"
+            >
+              only answer me
             </button>
           )}
           <button
             type="button"
-            disabled={locked || (phase !== "deciding" && phase !== "acting")}
+            disabled={disabled || busy || !stoppable}
             onClick={() => fire({ type: "cancel" })}
             className={btn()}
+            title={stopping?.consequence}
           >
-            cancel
+            {stopping?.label ?? "stop"}
           </button>
-          <button type="button" disabled={locked} onClick={() => fire({ type: "abletonChanged" })} className={btn()}>
+          <button type="button" disabled={disabled || busy} onClick={() => fire({ type: "abletonChanged" })} className={btn()}>
             refresh
           </button>
         </div>
+        {stoppable && stopping ? <p className="text-[11px] leading-snug text-muted">{stopping.consequence}</p> : null}
+        {queued.length > 0 ? (
+          <p className="text-[11px] leading-snug text-muted">
+            {queued.length} message{queued.length === 1 ? "" : "s"} waiting; mate answers them in order.
+          </p>
+        ) : null}
       </form>
     </section>
   );
