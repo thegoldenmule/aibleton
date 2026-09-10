@@ -18,14 +18,16 @@ export const DownloadProgressSchema = z.object({
 });
 export type DownloadProgress = z.infer<typeof DownloadProgressSchema>;
 
-export const COMPOSE_STAGES = ["picking", "briefing", "recipe", "bands", "rebriefing", "layout", "done", "failed"] as const;
+export const COMPOSE_STAGES = ["picking", "briefing", "recipe", "bands", "rebriefing", "feedback", "layout", "done", "failed"] as const;
 export const ComposeStageSchema = z.enum(COMPOSE_STAGES);
 export type ComposeStage = z.infer<typeof ComposeStageSchema>;
 
 /**
  * One step of composing a song, in words: "asking the model for a brief",
  * "rolled band 2 of 3 for hip hop". Sent as the compose runs so the app can
- * narrate it; `fraction` is a coarse 0..1 for a bar.
+ * narrate it; `fraction` is a coarse 0..1 for a bar. Every step but the last
+ * also lands in the transcript as a `step` entry, so the conversation keeps
+ * the trail of how a song was made.
  */
 export const ComposeProgressSchema = z.object({
   /** The request text, so the app can match events to the compose it started. */

@@ -93,7 +93,10 @@ export const TranscriptEntrySchema = z.object({
   at: z.number(),
   role: z.enum(["user", "mate"]),
   text: z.string(),
-  /** What produced it: a request to compose a song, a request to the bandmate, or a bandmate reply. */
-  kind: z.enum(["compose", "request", "reply"]),
+  /**
+   * What produced it: a request to compose a song, a request to the bandmate,
+   * a bandmate reply, or one step of a compose narrating itself as it runs.
+   */
+  kind: z.enum(["compose", "request", "reply", "step"]),
 });
 export type TranscriptEntry = z.infer<typeof TranscriptEntrySchema>;
