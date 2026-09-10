@@ -31,6 +31,26 @@ export class StateStore {
     this.events.emit(event);
   }
 
+  /**
+   * Replay durable events through the same fold, emitting **nothing**. Once, at
+   * boot or on a session switch, before anything subscribes.
+   *
+   * It bypasses the setters on purpose, for two reasons. The journal is an
+   * `EventBus` subscriber attached *after* the replay, so emitting here would
+   * write the whole session down a second time — that ordering is what makes a
+   * `restoring` flag unnecessary. And `appendTranscript` mints a fresh id, so
+   * replaying a reply through `setLastMessage` would give every restored line a
+   * new one and duplicate it.
+   */
+  restore(events: readonly MateEvent[]): void {
+    for (const event of events) this.state = applyMateEvent(this.state, event, this.fold);
+  }
+
+  /** Back to boot, emitting nothing: what a session switch does before its replay. */
+  reset(): void {
+    this.state = emptyState();
+  }
+
   getDaw(): DawState | null {
     return this.state.daw;
   }

@@ -9,6 +9,9 @@ import { BandStore } from "./core/bands.ts";
 import { RecipeBook, RecipeStore } from "./core/recipes.ts";
 import { SongStore } from "./core/songs.ts";
 import { TemplateStore } from "./core/templates.ts";
+import { SessionStore } from "./core/sessions.ts";
+import { attachJournal } from "./core/journal.ts";
+import { restoreStore } from "./core/restore.ts";
 import { createAbletonPort } from "./ports/ableton/index.ts";
 import { createSplicePort } from "./ports/splice/index.ts";
 import { createAnthropicClient } from "./core/anthropic.ts";
@@ -33,6 +36,24 @@ async function main(): Promise<void> {
   const templates = new TemplateStore({ dir: config.templatesDir });
   const bands = new BandStore({ dir: config.bandsDir });
   const songs = new SongStore({ dir: config.songsDir });
+
+  // The session mate left behind, folded back in before anything else runs. It
+  // has to happen here, before the loop starts: `AgentLoop.start()` reads the
+  // active song once, so a restored song flows through that existing path
+  // rather than depending on subscription timing, nothing from the loop can
+  // interleave with the replay, and the HTTP server comes up on the restored
+  // state — no window where the app renders an empty session and then jumps.
+  const sessionLog = createLogger("session");
+  const sessions = new SessionStore({ dir: config.sessionsDir, now: () => clock.now(), log: sessionLog });
+  const session = await sessions.openCurrent();
+  const restored = await restoreStore({ store, entries: session.entries, songs, log: sessionLog });
+  // Attached *after* the replay: that ordering is the whole re-journaling
+  // guard. It listens to the bus, not the store — `action.applied` and
+  // `cancelled` are emitted straight onto the bus and never pass a setter.
+  const detachJournal = attachJournal(events, session.journal, () => clock.now());
+  if (restored.events > 0) {
+    sessionLog.info(`resumed session ${session.meta.id} (${session.meta.name}): ${restored.events} event(s)${restored.song ? `, song "${restored.song.name}"` : ""}`);
+  }
 
   const abletonResult = await createAbletonPort(config.ableton, {
     command: config.abletonMcpCommand,
@@ -161,6 +182,15 @@ async function main(): Promise<void> {
       log.warn("error stopping intelligence", err);
     }
     await Promise.allSettled([abletonResult.port.close(), spliceResult.port.close()]);
+    // Nothing more may reach the journal, then the tail reaches disk, then the
+    // metadata records where it got to so the next boot continues past it.
+    detachJournal();
+    await session.journal.flush();
+    try {
+      await sessions.save({ ...session.meta, lastSeq: session.journal.seq() - 1, updatedAt: clock.now() });
+    } catch (err) {
+      sessionLog.warn("could not save the session", err);
+    }
     server.stop(true);
     log.info("bye");
     process.exit(0);
