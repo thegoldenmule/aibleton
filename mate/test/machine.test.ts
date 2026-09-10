@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { envelope, type Command } from "../src/core/commands.ts";
-import { actionTrack, guardDecision, initialState, step, type Effect, type MachineState, type StepOptions } from "../src/intelligence/machine.ts";
+import { actionTrack, guardDecision, initialState, isTrigger, step, type Effect, type MachineState, type StepOptions } from "../src/intelligence/machine.ts";
+import type { SongDigest } from "../src/songwriting/digest.ts";
 import type { Action } from "../src/intelligence/brain/types.ts";
 import { makeSession } from "./helpers/fakes.ts";
 
@@ -342,6 +343,74 @@ describe("actionTrack", () => {
       [{ type: "splicePromptToStack", prompt: "p", bpm: 90 }, undefined],
     ];
     for (const [action, expected] of cases) expect(actionTrack(action)).toBe(expected);
+  });
+});
+
+/** Enough of a digest to tell two of them apart; `digest.test.ts` covers what goes into a real one. */
+function digest(over: Partial<SongDigest> = {}): SongDigest {
+  return {
+    id: "song-1",
+    name: "Tuesday jam",
+    request: "something funky",
+    key: "C minor",
+    bpm: 108,
+    meter: "4/4",
+    form: "a8 b8",
+    sections: [],
+    tracks: [],
+    slots: [],
+    counts: { sections: 2, tracks: 3, slots: 3, resolved: 0, picked: 0, downloaded: 0 },
+    ...over,
+  };
+}
+
+describe("songChanged", () => {
+  const toActing = () => {
+    const deciding = toDeciding();
+    if (deciding.state.kind !== "deciding") throw new Error("expected deciding");
+    return step(deciding.state, cmd({ type: "brainDecided", requestId: deciding.state.requestId, decision: { message: "ok", actions: [{ type: "setTempo", bpm: 100 }] } }, "loop"), opts);
+  };
+  const states: [string, MachineState][] = [
+    ["idle", initialState()],
+    ["observing", step(initialState(), cmd({ type: "userRequest", text: "go" }), opts).state],
+    ["deciding", toDeciding().state],
+    ["acting", toActing().state],
+    ["paused", step(initialState(), cmd({ type: "pause" }), opts).state],
+    ["error", { kind: "error", ctx: { history: [], retryCount: 0, deferred: [] }, error: "boom" }],
+  ];
+
+  test("updates the context in every phase without changing it or emitting anything", () => {
+    for (const [name, state] of states) {
+      const r = step(state, cmd({ type: "songChanged", digest: digest({ name }) }, "loop"), opts);
+      expect(r.state.kind).toBe(state.kind);
+      expect(r.effects).toEqual([]);
+      expect(r.state.ctx.song?.name).toBe(name);
+    }
+  });
+
+  test("a null digest clears the song, and the phase still does not move", () => {
+    const withSong = step(initialState(), cmd({ type: "songChanged", digest: digest() }, "loop"), opts);
+    const cleared = step(withSong.state, cmd({ type: "songChanged", digest: null }, "loop"), opts);
+    expect(cleared.state.ctx.song).toBeUndefined();
+    expect(cleared.state.kind).toBe("idle");
+    expect(cleared.effects).toEqual([]);
+  });
+
+  test("is never a trigger: it cannot wake the brain, only colour the next call", () => {
+    expect(isTrigger("songChanged")).toBe(false);
+    const r = step(initialState(), cmd({ type: "songChanged", digest: digest() }, "loop"), opts);
+    expect(types(r.effects)).toEqual([]);
+
+    const observing = step(r.state, cmd({ type: "userRequest", text: "busier chorus" }), opts);
+    const deciding = step(observing.state, cmd({ type: "snapshotReady", snapshot: makeSession() }, "loop"), opts);
+    const call = deciding.effects.find((e) => e.type === "callBrain");
+    expect(call?.type === "callBrain" && call.input.song?.id).toBe("song-1");
+  });
+
+  test("no song means no digest in the brain input — the line that asks for a compose", () => {
+    const deciding = toDeciding();
+    const call = deciding.effects.find((e) => e.type === "callBrain");
+    expect(call?.type === "callBrain" && call.input.song).toBeUndefined();
   });
 });
 

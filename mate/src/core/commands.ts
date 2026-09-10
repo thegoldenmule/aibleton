@@ -1,5 +1,6 @@
 import type { CommandSource, CommandSummary, Envelope, ExternalCommand, SessionState } from "@aibleton/protocol";
 import type { ActionResult, Decision } from "../intelligence/brain/types.ts";
+import type { SongDigest } from "../songwriting/digest.ts";
 
 export type { CommandSource, Envelope };
 
@@ -10,6 +11,11 @@ export type InternalCommand =
   | { type: "retry" }
   | { type: "snapshotReady"; snapshot: SessionState }
   | { type: "snapshotFailed"; error: string }
+  /**
+   * The active song plan changed (composed, resolved, picked, edited, arranged) — or went away.
+   * A picture, not an event: it updates the machine's context and is never a trigger.
+   */
+  | { type: "songChanged"; digest: SongDigest | null }
   | { type: "brainDecided"; requestId: string; decision: Decision }
   | { type: "brainFailed"; requestId: string; error: string }
   /** `aborted` when the set stopped early: cancel, pause or shutdown. */
@@ -57,6 +63,9 @@ export function summarize(cmd: Command): CommandSummary {
     case "snapshotFailed":
     case "actionFailed":
       summary = cmd.error;
+      break;
+    case "songChanged":
+      summary = cmd.digest ? `${cmd.digest.name}: ${cmd.digest.counts.tracks} parts, ${cmd.digest.counts.slots} slots` : "no song";
       break;
     case "actionsDone":
       summary = cmd.aborted ? `${cmd.results.length} result(s), stopped early` : `${cmd.results.length} result(s)`;

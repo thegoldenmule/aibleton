@@ -1,5 +1,6 @@
 import { envelope, type Command, type CommandBody, type CommandSource } from "../core/commands.ts";
-import type { Phase } from "@aibleton/protocol";
+import type { Phase, Song } from "@aibleton/protocol";
+import { songDigest } from "../songwriting/digest.ts";
 import { EffectRunner } from "./effects.ts";
 import { DEFAULT_STEP_OPTIONS, errorOf, initialState, phaseOf, step, type MachineState, type StepOptions } from "./machine.ts";
 import type { Intelligence, IntelligenceDeps } from "./types.ts";
@@ -25,6 +26,7 @@ export class AgentLoop implements Intelligence {
   private draining = false;
   private seen = new Set<string>();
   private lastGoal: string | undefined;
+  private unsubscribeSong: (() => void) | null = null;
 
   constructor(private readonly deps: IntelligenceDeps) {
     this.runner = new EffectRunner({
@@ -50,6 +52,15 @@ export class AgentLoop implements Intelligence {
     if (this.running) return;
     this.running = true;
     this.deps.mailbox.setListener(() => this.drain());
+    // Everything that changes the song — the drummer's buttons and the loop's own actions alike —
+    // goes through the store, so this is the one place that keeps the brain's picture current.
+    this.unsubscribeSong = this.deps.store.events.subscribe((event) => {
+      if (event.type === "song.changed") this.postSongDigest(event.song);
+    });
+    // A song activated before the loop started is still active; without this the brain would think
+    // there is none and offer to compose over it.
+    const song = this.deps.store.getSong();
+    if (song) this.postSongDigest(song);
     this.armTick();
     this.drain();
   }
@@ -58,6 +69,8 @@ export class AgentLoop implements Intelligence {
     if (!this.running) return;
     this.running = false;
     this.deps.mailbox.setListener(null);
+    this.unsubscribeSong?.();
+    this.unsubscribeSong = null;
     if (this.tickHandle !== null) {
       this.deps.clock.clearTimeout(this.tickHandle);
       this.tickHandle = null;
@@ -128,7 +141,15 @@ export class AgentLoop implements Intelligence {
     }
   }
 
+  /** `songDigest` is pure — no I/O leaks into the loop, only the shape of the plan. */
+  private postSongDigest(song: Song | null): void {
+    this.deps.mailbox.enqueue(envelope({ type: "songChanged", digest: song ? songDigest(song) : null }, "loop", this.deps.clock.now()));
+  }
+
   private record(cmd: Command): void {
+    // A digest is a picture, not an event: one resolve saves every slot in turn, and each save
+    // would otherwise become a recentCommands row and a command.received on the wire.
+    if (cmd.type === "songChanged") return;
     if (this.seen.has(cmd.id)) return; // re-enqueued command, already recorded
     this.seen.add(cmd.id);
     if (this.seen.size > 500) this.seen.delete(this.seen.values().next().value as string);

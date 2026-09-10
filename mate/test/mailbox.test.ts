@@ -35,6 +35,16 @@ describe("Mailbox", () => {
     expect(m.next()).toMatchObject({ type: "abletonChanged", hint: "clips" });
   });
 
+  test("songChanged keeps only the newest: a picture, not an event", () => {
+    const m = new Mailbox();
+    m.enqueue(cmd({ type: "songChanged", digest: null }));
+    m.enqueue(cmd({ type: "userRequest", text: "x" }));
+    m.enqueue(cmd({ type: "songChanged", digest: null }));
+    expect(m.size()).toBe(2);
+    expect(m.next()?.type).toBe("userRequest");
+    expect(m.next()?.type).toBe("songChanged");
+  });
+
   test("listener fires for accepted commands only", () => {
     const m = new Mailbox();
     let n = 0;

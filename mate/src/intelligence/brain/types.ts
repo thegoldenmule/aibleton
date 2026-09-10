@@ -1,5 +1,6 @@
 import type { MidiNote, SessionState } from "@aibleton/protocol";
 import type { Command, CommandBody, CommandType } from "../../core/commands.ts";
+import type { SongDigest } from "../../songwriting/digest.ts";
 
 /** Something the brain wants done. The machine (never the brain) applies these to the ports. */
 export type Action =
@@ -43,6 +44,8 @@ export interface BrainInput {
   userText?: string;
   history: HistoryEntry[];
   trigger: CommandType;
+  /** The active song plan, kept current by `songChanged`. Absent means no song is active. */
+  song?: SongDigest;
 }
 
 export interface Brain {

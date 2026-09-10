@@ -153,6 +153,8 @@ export function renderInput(input: BrainInput): string {
   if (input.goal) parts.push(`Practice goal: ${input.goal}`);
   if (input.userText) parts.push(`Drummer says: ${input.userText}`);
   parts.push(`Session snapshot:\n${JSON.stringify(compactSession(input.snapshot))}`);
+  // Either the plan or the line that says there isn't one — that line is what tells the brain to compose.
+  parts.push(input.song ? `Active song (the plan the song tools edit):\n${JSON.stringify(input.song)}` : "Song: none — nothing is planned yet.");
   if (input.history.length) {
     const lines = input.history.slice(-8).map((h) => {
       const what = h.command.type === "userRequest" ? `user: ${h.command.text}` : h.command.type;

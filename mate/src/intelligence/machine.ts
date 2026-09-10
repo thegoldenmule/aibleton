@@ -1,6 +1,7 @@
 import { ownedTrackIndexes } from "@aibleton/protocol";
 import type { MateEvent, Phase, SessionState } from "@aibleton/protocol";
 import type { Command, CommandBody, CommandType } from "../core/commands.ts";
+import type { SongDigest } from "../songwriting/digest.ts";
 import type { Action, ActionResult, BrainInput, Decision, HistoryEntry } from "./brain/types.ts";
 
 /** Everything the machine remembers across phases. */
@@ -14,6 +15,8 @@ export interface MachineContext {
   retryCount: number;
   /** Requests that arrived mid-turn, oldest first. Held here, never back in the mailbox. */
   deferred: Command[];
+  /** The active song plan as the brain sees it; undefined when no song is active. Type-only import: the reducer stays pure. */
+  song?: SongDigest;
 }
 
 export type MachineState =
@@ -162,6 +165,13 @@ export function step(state: MachineState, cmd: Command, opts: StepOptions = DEFA
       }
       return same();
     }
+    case "songChanged": {
+      // Handled here rather than per phase: every step* ends in a silent default, so a per-phase
+      // version would drop the digest in whichever phase someone forgot. It changes no phase and
+      // emits nothing, and songChanged is not in TRIGGER_TYPES, so it can never cause a brain call.
+      const ctx: MachineContext = { ...state.ctx, song: cmd.digest ?? undefined };
+      return { state: { ...state, ctx } as MachineState, effects: [] };
+    }
     case "goalSet": {
       const goal = cmd.text.trim() ? cmd.text.trim() : undefined;
       const ctx = { ...state.ctx, goal };
@@ -252,6 +262,8 @@ function stepObserving(state: Extract<MachineState, { kind: "observing" }>, cmd:
         userText: state.pending.type === "userRequest" ? state.pending.text : undefined,
         history: ctx.history.slice(-opts.historyLimit),
         trigger: state.pending.type,
+        // Absent means no song is active, which is what tells the brain to offer to compose one.
+        song: ctx.song,
       };
       return {
         state: { kind: "deciding", ctx, pending: state.pending, requestId },

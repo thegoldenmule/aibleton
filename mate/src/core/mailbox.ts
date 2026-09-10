@@ -3,7 +3,7 @@ import { PRIORITY_COMMANDS, type Command } from "./commands.ts";
 /**
  * In-memory command queue the agent loop drains.
  * - Priority lane: cancel/pause/resume/shutdown jump ahead of everything.
- * - Coalescing: at most one pending `tick`; `abletonChanged` keeps only the newest.
+ * - Coalescing: at most one pending `tick`; `abletonChanged` and `songChanged` keep only the newest.
  */
 export class Mailbox {
   private priority: Command[] = [];
@@ -23,6 +23,11 @@ export class Mailbox {
       else return;
     } else if (cmd.type === "abletonChanged") {
       this.normal = this.normal.filter((c) => c.type !== "abletonChanged");
+      this.normal.push(cmd);
+    } else if (cmd.type === "songChanged") {
+      // A digest is a picture of the whole plan, so only the newest one can be right. A resolve
+      // saves once per slot, and a burst of those would otherwise queue twenty stale pictures.
+      this.normal = this.normal.filter((c) => c.type !== "songChanged");
       this.normal.push(cmd);
     } else {
       this.normal.push(cmd);
