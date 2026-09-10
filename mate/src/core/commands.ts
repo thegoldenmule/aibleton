@@ -41,10 +41,17 @@ export type Command = Envelope & CommandBody;
 /** Commands that jump the mailbox queue. */
 export const PRIORITY_COMMANDS: ReadonlySet<CommandType> = new Set(["cancel", "pause", "resume", "shutdown"]);
 
+/**
+ * Per-process salt. The counter alone restarts at 1 every boot, so two mates starting in the same
+ * millisecond mint identical ids — which `--watch` reloads really do (see `SessionStore.openCurrent`).
+ * That matters because the fold dedupes `transcript.appended` by id and those ids are journaled: a
+ * collision across a restart would silently drop a real line of the conversation.
+ */
+const salt = Math.random().toString(36).slice(2, 6);
 let counter = 0;
 export function newId(prefix = "cmd"): string {
   counter += 1;
-  return `${prefix}_${Date.now().toString(36)}_${counter.toString(36)}`;
+  return `${prefix}_${Date.now().toString(36)}_${salt}${counter.toString(36)}`;
 }
 
 export function envelope(body: CommandBody, source: CommandSource, at: number): Command {
