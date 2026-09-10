@@ -1,4 +1,4 @@
-import type { CommandSource, CommandSummary, Envelope, ExternalCommand, SessionState } from "@aibleton/protocol";
+import type { CommandSource, CommandSummary, Envelope, ExternalCommand, DawState } from "@aibleton/protocol";
 import type { ActionResult, Decision } from "../intelligence/brain/types.ts";
 import type { SongDigest } from "../songwriting/digest.ts";
 
@@ -9,7 +9,7 @@ export type InternalCommand =
   | { type: "tick" }
   | { type: "shutdown" }
   | { type: "retry" }
-  | { type: "snapshotReady"; snapshot: SessionState }
+  | { type: "snapshotReady"; snapshot: DawState }
   | { type: "snapshotFailed"; error: string }
   /**
    * The active song plan changed (composed, resolved, picked, edited, arranged) — or went away.

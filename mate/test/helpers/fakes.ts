@@ -1,9 +1,9 @@
 import { join } from "node:path";
-import type { MidiNote, SessionState } from "@aibleton/protocol";
+import type { MidiNote, DawState } from "@aibleton/protocol";
 import type { AbletonPort, CallContext } from "../../src/ports/ableton/types.ts";
 import type { DownloadResult, SearchOptions, Sound, SplicePort, Stack } from "../../src/ports/splice/types.ts";
 
-export function makeSession(overrides: Partial<SessionState["transport"]> = {}, capturedAt = 0): SessionState {
+export function makeSession(overrides: Partial<DawState["transport"]> = {}, capturedAt = 0): DawState {
   return {
     transport: { tempo: 120, signatureNumerator: 4, signatureDenominator: 4, isPlaying: false, currentSongTime: 0, songLength: 0, ...overrides },
     tracks: [
@@ -19,7 +19,7 @@ export type RecordedCall = { method: string; args: unknown[]; ctx?: CallContext 
 export class FakeAbleton implements AbletonPort {
   readonly kind = "stub" as const;
   readonly calls: RecordedCall[] = [];
-  session: SessionState = makeSession();
+  session: DawState = makeSession();
   failSnapshot: Error | null = null;
   failNext: Error | null = null;
   /** Methods that always throw. `failNext` can only fail the very next call, whichever it is. */
@@ -34,7 +34,7 @@ export class FakeAbleton implements AbletonPort {
       throw e;
     }
   }
-  async getSnapshot(): Promise<SessionState> {
+  async getSnapshot(): Promise<DawState> {
     if (this.failSnapshot) throw this.failSnapshot;
     this.calls.push({ method: "getSnapshot", args: [] });
     return structuredClone(this.session);

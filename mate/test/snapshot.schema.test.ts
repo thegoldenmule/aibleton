@@ -10,7 +10,7 @@ describe("ableton snapshot v2", () => {
     expect(raw.return_tracks).toHaveLength(2);
   });
 
-  test("maps to SessionState", () => {
+  test("maps to DawState", () => {
     const state = toSessionState(parseSnapshotV2(fixture), 1234);
     expect(state.capturedAt).toBe(1234);
     expect(state.transport.tempo).toBe(120);

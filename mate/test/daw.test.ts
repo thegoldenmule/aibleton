@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { SessionState, Song } from "@aibleton/protocol";
+import type { DawState, Song } from "@aibleton/protocol";
 import { dawStatus, fullyArranged, isMateTrack, liveClipName, locatorName, mateTrackName, ownedTrackIndexes, sceneIndexOf, uniqueTrackName } from "@aibleton/protocol";
 import { InMemoryAbletonAdapter } from "../src/ports/ableton/stub.ts";
 import { fixtureSong } from "./helpers/song.ts";
@@ -33,7 +33,7 @@ describe("track names", () => {
     expect(isMateTrack({ name: "Bass" })).toBe(false);
     expect(uniqueTrackName("Bass", new Set(["Bass [mate]", "Bass 2 [mate]"]))).toBe("Bass 3 [mate]");
     expect(uniqueTrackName("kit [mate]", new Set())).toBe("kit [mate]");
-    const s: Pick<SessionState, "tracks"> = { tracks: [{ index: 0, name: "1-MIDI" }, { index: 3, name: "kit [mate]" }] as SessionState["tracks"] };
+    const s: Pick<DawState, "tracks"> = { tracks: [{ index: 0, name: "1-MIDI" }, { index: 3, name: "kit [mate]" }] as DawState["tracks"] };
     expect([...ownedTrackIndexes(s)]).toEqual([3]);
   });
 

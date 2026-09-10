@@ -1,12 +1,12 @@
 import { ownedTrackIndexes } from "@aibleton/protocol";
-import type { MateEvent, Phase, SessionState } from "@aibleton/protocol";
+import type { MateEvent, Phase, DawState } from "@aibleton/protocol";
 import type { Command, CommandBody, CommandType } from "../core/commands.ts";
 import type { SongDigest } from "../songwriting/digest.ts";
 import type { Action, ActionResult, ActionType, BrainInput, Decision, HistoryEntry } from "./brain/types.ts";
 
 /** Everything the machine remembers across phases. */
 export interface MachineContext {
-  snapshot?: SessionState;
+  snapshot?: DawState;
   goal?: string;
   /** Text of the most recent userRequest; forwarded to the brain and to Ableton telemetry. */
   userText?: string;
@@ -107,7 +107,7 @@ export function errorOf(state: MachineState): string | undefined {
  * Ignores capturedAt and the moving song position: while Ableton plays, the playhead advances
  * every tick, and that alone must never count as a musical change (it would trigger a paid brain call).
  */
-export function snapshotFingerprint(s: SessionState | undefined): string {
+export function snapshotFingerprint(s: DawState | undefined): string {
   if (!s) return "";
   const { currentSongTime: _pos, ...transport } = s.transport;
   return JSON.stringify({ transport, tracks: s.tracks });
@@ -339,7 +339,7 @@ const SONG_EDIT_ACTIONS: ReadonlySet<ActionType> = new Set<ActionType>([
  * it is deliberately not fatal: throwing would become an `actionFailed`, which drives the machine
  * to `error` and abandons the rest of the turn. A misdirected compose should cost a sentence.
  */
-export function guardDecision(decision: Decision, snapshot: SessionState | undefined, song?: SongDigest): Decision {
+export function guardDecision(decision: Decision, snapshot: DawState | undefined, song?: SongDigest): Decision {
   const owned = ownedTrackIndexes(snapshot);
   const refused: Action[] = [];
   const composeOverSong: Action[] = [];

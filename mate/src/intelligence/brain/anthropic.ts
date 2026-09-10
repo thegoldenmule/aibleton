@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { isMateTrack } from "@aibleton/protocol";
-import type { SessionState, Song } from "@aibleton/protocol";
+import type { DawState, Song } from "@aibleton/protocol";
 import type { Logger } from "../../log.ts";
 import type { AbletonPort } from "../../ports/ableton/types.ts";
 import type { SplicePort } from "../../ports/splice/types.ts";
@@ -163,7 +163,7 @@ function numOrUndefined(v: unknown): number | undefined {
 }
 
 /** Trim the session to what the model needs: transport, tracks, filled slots. */
-export function compactSession(s: SessionState) {
+export function compactSession(s: DawState) {
   return {
     transport: s.transport,
     tracks: s.tracks.map((t) => ({

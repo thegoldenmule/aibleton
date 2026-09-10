@@ -1,7 +1,7 @@
 import { formLabels, parseForm } from "./form.ts";
 import { beatsPerBar, slotDownloaded } from "./songs.ts";
 import type { SampleSlot, Song, SongOccurrence } from "./songs.ts";
-import type { ArrangementClip, Clip, SessionState, Track } from "./state.ts";
+import type { ArrangementClip, Clip, DawState, Track } from "./state.ts";
 
 /**
  * How a song maps onto the Live set. Live exposes no stable ids through the
@@ -25,7 +25,7 @@ export function isMateTrack(track: Pick<Track, "name">): boolean {
 }
 
 /** Indexes of the tracks mate owns in a snapshot. */
-export function ownedTrackIndexes(session: Pick<SessionState, "tracks"> | null | undefined): Set<number> {
+export function ownedTrackIndexes(session: Pick<DawState, "tracks"> | null | undefined): Set<number> {
   const out = new Set<number>();
   for (const t of session?.tracks ?? []) if (isMateTrack(t)) out.add(t.index);
   return out;
@@ -126,7 +126,7 @@ function samePath(a: string | undefined, b: string | null | undefined): boolean 
   return a === b || baseName(a) === baseName(b);
 }
 
-function findTrack(session: SessionState, name: string | null): Track | null {
+function findTrack(session: DawState, name: string | null): Track | null {
   if (!name) return null;
   return session.tracks.find((t) => t.name === name && isMateTrack(t)) ?? null;
 }
@@ -145,7 +145,7 @@ export function locatorName(timeline: readonly SongOccurrence[], occurrence: Son
  * Diff a song against a Live snapshot. Pure. With no snapshot every slot is
  * pending and there are no steps: nothing can be planned blind.
  */
-export function dawStatus(song: Song, session: SessionState | null | undefined): DawStatus {
+export function dawStatus(song: Song, session: DawState | null | undefined): DawStatus {
   const { plan } = song;
   const bpb = beatsPerBar(plan.timeSignature);
   const notes: string[] = [];

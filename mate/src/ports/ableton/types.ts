@@ -1,6 +1,6 @@
-import type { MidiNote, SessionState } from "@aibleton/protocol";
+import type { MidiNote, DawState } from "@aibleton/protocol";
 
-export type { MidiNote, SessionState };
+export type { MidiNote, DawState };
 
 /** Per-call context. `userPrompt` is forwarded to the Ableton MCP server's telemetry field. */
 export interface CallContext {
@@ -10,7 +10,7 @@ export interface CallContext {
 /** Domain-level view of Ableton. No MCP types leak through this interface. */
 export interface AbletonPort {
   readonly kind: "mcp" | "stub";
-  getSnapshot(ctx?: CallContext): Promise<SessionState>;
+  getSnapshot(ctx?: CallContext): Promise<DawState>;
   /** Returns the index of the new track. */
   createMidiTrack(index?: number, ctx?: CallContext): Promise<number>;
   /** Creates an audio track at the end of the set, named `name`. Returns its index. */

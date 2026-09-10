@@ -1,4 +1,4 @@
-import type { SessionState } from "@aibleton/protocol";
+import type { DawState } from "@aibleton/protocol";
 import type { Logger } from "../../log.ts";
 import { McpConnection } from "../mcp/client.ts";
 import { parseSnapshotV2, parseToolJson, toSessionState } from "./snapshot.schema.ts";
@@ -68,7 +68,7 @@ export class McpAbletonAdapter implements AbletonPort {
     }
   }
 
-  async getSnapshot(ctx?: CallContext): Promise<SessionState> {
+  async getSnapshot(ctx?: CallContext): Promise<DawState> {
     const raw = await this.call("get_session_snapshot", { include_notes: true, include_params: false }, ctx);
     return toSessionState(parseSnapshotV2(raw), this.now());
   }

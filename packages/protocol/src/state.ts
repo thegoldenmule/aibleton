@@ -68,14 +68,14 @@ export const LocatorSchema = z.object({ name: z.string(), time: z.number() });
 export type Locator = z.infer<typeof LocatorSchema>;
 
 /** The DAW-level picture mate holds and the app renders. Not realtime. */
-export const SessionStateSchema = z.object({
+export const DawStateSchema = z.object({
   transport: TransportSchema,
   tracks: z.array(TrackSchema),
   /** Arrangement cue points; absent when the source does not report them. */
   locators: z.array(LocatorSchema).optional(),
   capturedAt: z.number(),
 });
-export type SessionState = z.infer<typeof SessionStateSchema>;
+export type DawState = z.infer<typeof DawStateSchema>;
 
 export const PhaseSchema = z.enum(["idle", "observing", "deciding", "acting", "paused", "error"]);
 export type Phase = z.infer<typeof PhaseSchema>;

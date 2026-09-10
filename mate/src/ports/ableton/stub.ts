@@ -1,5 +1,5 @@
 import { basename } from "node:path";
-import type { SessionState, Track } from "@aibleton/protocol";
+import type { DawState, Track } from "@aibleton/protocol";
 import type { AbletonPort, CallContext, MidiNote } from "./types.ts";
 
 export interface StubCall {
@@ -23,7 +23,7 @@ function emptyTrack(index: number, name: string, kind: Track["kind"], slots = 8)
 }
 
 /** Default state shaped like the live set seen during planning: 2 MIDI + 2 audio tracks, 8 slots, 120 BPM. */
-export function defaultStubSession(capturedAt = 0): SessionState {
+export function defaultStubSession(capturedAt = 0): DawState {
   return {
     transport: {
       tempo: 120,
@@ -52,11 +52,11 @@ const DEFAULT_CLIP_BEATS = 16;
 export class InMemoryAbletonAdapter implements AbletonPort {
   readonly kind = "stub" as const;
   readonly calls: StubCall[] = [];
-  private session: SessionState;
+  private session: DawState;
   private readonly now: () => number;
   private readonly clipBeats: ClipBeatsFor;
 
-  constructor(opts: { session?: SessionState; now?: () => number; clipBeats?: ClipBeatsFor } = {}) {
+  constructor(opts: { session?: DawState; now?: () => number; clipBeats?: ClipBeatsFor } = {}) {
     this.now = opts.now ?? Date.now;
     this.session = structuredClone(opts.session ?? defaultStubSession(this.now()));
     this.clipBeats = opts.clipBeats ?? (() => DEFAULT_CLIP_BEATS);
@@ -78,7 +78,7 @@ export class InMemoryAbletonAdapter implements AbletonPort {
     return s;
   }
 
-  async getSnapshot(ctx?: CallContext): Promise<SessionState> {
+  async getSnapshot(ctx?: CallContext): Promise<DawState> {
     this.calls.push({ method: "getSnapshot", args: [], ctx });
     return structuredClone(this.session);
   }

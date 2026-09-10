@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Clip, ClipSlot, MidiNote, SessionState, Track } from "@aibleton/protocol";
+import type { Clip, ClipSlot, MidiNote, DawState, Track } from "@aibleton/protocol";
 
 /** Zod schema for the `ableton_mcp_snapshot_v2` payload. Lenient: only what mate needs is required. */
 const RawNoteSchema = z
@@ -124,8 +124,8 @@ function toTrack(t: z.infer<typeof RawTrackSchema>): Track {
   };
 }
 
-/** Map a validated v2 snapshot onto the protocol SessionState the UI renders. */
-export function toSessionState(raw: SnapshotV2, capturedAt: number): SessionState {
+/** Map a validated v2 snapshot onto the protocol DawState the UI renders. */
+export function toSessionState(raw: SnapshotV2, capturedAt: number): DawState {
   return {
     transport: {
       tempo: raw.session.tempo,

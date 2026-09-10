@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { dawStatus, formTotalBars, keyName, parseForm, pendingDownloadUuids, slotDownloaded, type DownloadProgress, type SessionState, type Song } from "@aibleton/protocol";
+import { dawStatus, formTotalBars, keyName, parseForm, pendingDownloadUuids, slotDownloaded, type DownloadProgress, type DawState, type Song } from "@aibleton/protocol";
 import { shortName } from "../lib/format";
 import { CandidateList } from "./CandidateList";
 import { FormStrip } from "./FormStrip";
@@ -8,7 +8,7 @@ import { SongArrangement } from "./SongArrangement";
 interface Props {
   song: Song;
   /** Ableton's picture of the set, for what of the song is in Live already. */
-  session: SessionState | null;
+  session: DawState | null;
   /** True when mate's Splice port is the fixture stub: downloads write placeholder files and spend nothing. */
   spliceStub: boolean;
   /** True when mate's Ableton port is the in-memory stub: "Live" is a pretend set. */

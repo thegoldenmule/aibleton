@@ -1,4 +1,4 @@
-import type { MidiNote, SessionState } from "@aibleton/protocol";
+import type { MidiNote, DawState } from "@aibleton/protocol";
 import type { Command, CommandBody, CommandType } from "../../core/commands.ts";
 import type { SongDigest } from "../../songwriting/digest.ts";
 
@@ -50,7 +50,7 @@ export interface HistoryEntry {
 }
 
 export interface BrainInput {
-  snapshot: SessionState;
+  snapshot: DawState;
   goal?: string;
   /** Text of the userRequest that triggered this decision, if any. */
   userText?: string;

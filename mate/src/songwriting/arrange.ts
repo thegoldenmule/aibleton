@@ -1,5 +1,5 @@
 import { SongSchema, dawStatus } from "@aibleton/protocol";
-import type { ArrangeStep, DawStatus, SessionState, Song } from "@aibleton/protocol";
+import type { ArrangeStep, DawStatus, DawState, Song } from "@aibleton/protocol";
 import type { Logger } from "../log.ts";
 import type { AbletonPort } from "../ports/ableton/types.ts";
 
@@ -21,7 +21,7 @@ export interface ArrangeDeps {
   /** Called with the song after a track is created for it (its `liveName` is set); save and publish it here. */
   onProgress: (song: Song) => Promise<void>;
   /** Called with every snapshot taken, so the app sees Live change round by round. */
-  onSnapshot?: (session: SessionState) => void;
+  onSnapshot?: (session: DawState) => void;
   /**
    * Called before each step is run, with its position in this round's list. One step is one call
    * into Live, so this is the only honest measure of how far a build has got.

@@ -1,10 +1,10 @@
-import type { Activity, AdapterStatus, CommandSummary, Phase, SessionState, Song, StateResponse, TranscriptEntry, TranscriptField } from "@aibleton/protocol";
+import type { Activity, AdapterStatus, CommandSummary, Phase, DawState, Song, StateResponse, TranscriptEntry, TranscriptField } from "@aibleton/protocol";
 import { EventBus } from "./events.ts";
 import { newId, summarize, type Command } from "./commands.ts";
 
 /** Observable snapshot of everything the API exposes. Emits events on change. */
 export class StateStore {
-  private session: SessionState | null = null;
+  private session: DawState | null = null;
   private phase: Phase = "idle";
   private error: string | null = null;
   private goal: string | null = null;
@@ -22,10 +22,10 @@ export class StateStore {
     private readonly keepTranscript = 200,
   ) {}
 
-  getSession(): SessionState | null {
+  getSession(): DawState | null {
     return this.session;
   }
-  setSession(session: SessionState): void {
+  setSession(session: DawState): void {
     this.session = session;
     this.events.emit({ type: "state.changed", session });
   }

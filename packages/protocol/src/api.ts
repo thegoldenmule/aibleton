@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ActivitySchema, AdapterStatusSchema, PhaseSchema, SessionStateSchema, TranscriptEntrySchema } from "./state.ts";
+import { ActivitySchema, AdapterStatusSchema, PhaseSchema, DawStateSchema, TranscriptEntrySchema } from "./state.ts";
 import { CommandSummarySchema, ExternalCommandSchema } from "./commands.ts";
 import { TemplateSchema } from "./templates.ts";
 import { BandSchema, RecipeSummarySchema } from "./bands.ts";
@@ -9,7 +9,7 @@ export const HealthResponseSchema = z.object({ ok: z.literal(true), uptimeMs: z.
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;
 
 export const StateResponseSchema = z.object({
-  session: SessionStateSchema.nullable(),
+  session: DawStateSchema.nullable(),
   phase: PhaseSchema,
   error: z.string().nullable(),
   goal: z.string().nullable(),
