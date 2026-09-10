@@ -12,7 +12,8 @@ import { FakeAbleton, FakeSplice } from "./helpers/fakes.ts";
 import { denseBriefer, fixtureSong } from "./helpers/song.ts";
 import { seedLibrary, songServiceHarness } from "./helpers/song-service.ts";
 
-function harness(script: Decision[] | ScriptedBrain = [], tickMs = 0) {
+/** `restore` runs before `loop.start()`, exactly as boot orders it. */
+function harness(script: Decision[] | ScriptedBrain = [], tickMs = 0, restore?: (store: StateStore) => void) {
   const clock = new ManualClock(1_000);
   const events = new EventBus();
   const store = new StateStore(events);
@@ -20,12 +21,42 @@ function harness(script: Decision[] | ScriptedBrain = [], tickMs = 0) {
   const ableton = new FakeAbleton();
   const splice = new FakeSplice();
   const brain = script instanceof ScriptedBrain ? script : new ScriptedBrain(script);
+  restore?.(store);
   const loop = new AgentLoop({ clock, mailbox, store, brain, ableton, splice, log: silentLogger, options: { tickMs, retryBaseMs: 100 } });
   loop.start();
   return { clock, events, store, mailbox, ableton, splice, brain, loop };
 }
 
 describe("AgentLoop", () => {
+  test("resuming a session touches neither port and calls no brain", async () => {
+    const song = await fixtureSong();
+    const h = harness([], 0, (store) => {
+      // What a boot restore leaves behind: folded in, emitting nothing.
+      store.restore([
+        { type: "transcript.appended", entry: { id: "tx_1", at: 1, role: "user", kind: "request", text: "something funky", fields: [] } },
+        { type: "goal.changed", goal: "keep time at 120" },
+        { type: "song.changed", song },
+      ]);
+    });
+    await h.loop.settle();
+
+    // Resume restores mate's own picture and nothing else. Live is the drummer's.
+    expect(h.ableton.calls).toEqual([]);
+    expect(h.splice.calls).toEqual([]);
+    expect(h.brain.calls).toHaveLength(0);
+    expect(h.loop.phase()).toBe("idle");
+
+    const ctx = h.loop.machineState().ctx;
+    expect(ctx.goal).toBe("keep time at 120");
+    expect(ctx.userText).toBe("something funky");
+    expect(ctx.song?.id).toBe(song.id);
+
+    // contextRestored is not recorded, so the journal gains no command row per restart...
+    expect(h.events.ofType("command.received")).toEqual([]);
+    // ...and `lastGoal` was seeded with it, so `sync()` has nothing to announce either.
+    expect(h.events.ofType("goal.changed")).toEqual([]);
+  });
+
   test("round trip: userRequest -> snapshot -> brain -> setTempo applied -> idle", async () => {
     const h = harness([{ message: "Setting 120.", actions: [{ type: "setTempo", bpm: 120 }] }]);
     h.loop.submit({ type: "userRequest", text: "120 bpm" }, "api");

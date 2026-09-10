@@ -415,6 +415,38 @@ describe("songChanged", () => {
     expect(call?.type === "callBrain" && call.input.song?.id).toBe("song-1");
   });
 
+  test("a restored context is seeded in every phase without changing it or emitting anything", () => {
+    for (const [name, state] of states) {
+      const r = step(state, cmd({ type: "contextRestored", goal: `hold ${name}`, userText: "pick it up", song: digest({ name }) }, "loop"), opts);
+      expect(r.state.kind).toBe(state.kind);
+      expect(r.effects).toEqual([]);
+      expect(r.state.ctx.goal).toBe(`hold ${name}`);
+      expect(r.state.ctx.userText).toBe("pick it up");
+      expect(r.state.ctx.song?.name).toBe(name);
+    }
+  });
+
+  test("a resumed session with no goal clears the last one, rather than leaving it standing", () => {
+    const withGoal = step(initialState(), cmd({ type: "goalSet", text: "keep time at 120" }), opts);
+    expect(withGoal.state.ctx.goal).toBe("keep time at 120");
+    const restored = step(withGoal.state, cmd({ type: "contextRestored", goal: null, userText: null, song: null }, "loop"), opts);
+    expect(restored.state.ctx.goal).toBeUndefined();
+    expect(restored.state.ctx.userText).toBeUndefined();
+    expect(restored.state.ctx.song).toBeUndefined();
+  });
+
+  test("contextRestored is never a trigger: coming back to a session costs no brain call", () => {
+    expect(isTrigger("contextRestored")).toBe(false);
+    const r = step(initialState(), cmd({ type: "contextRestored", goal: "keep time at 120", userText: "go", song: digest() }, "loop"), opts);
+    expect(types(r.effects)).toEqual([]);
+    expect(r.state.kind).toBe("idle");
+    // It only colours the next real call, exactly like a digest.
+    const observing = step(r.state, cmd({ type: "userRequest", text: "busier chorus" }), opts);
+    const deciding = step(observing.state, cmd({ type: "snapshotReady", snapshot: makeSession() }, "loop"), opts);
+    const call = deciding.effects.find((e) => e.type === "callBrain");
+    expect(call?.type === "callBrain" && call.input.goal).toBe("keep time at 120");
+  });
+
   test("no song means no digest in the brain input — the line that asks for a compose", () => {
     const deciding = toDeciding();
     const call = deciding.effects.find((e) => e.type === "callBrain");

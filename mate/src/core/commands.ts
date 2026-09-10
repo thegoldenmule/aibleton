@@ -16,6 +16,15 @@ export type InternalCommand =
    * A picture, not an event: it updates the machine's context and is never a trigger.
    */
   | { type: "songChanged"; digest: SongDigest | null }
+  /**
+   * A resumed session's working memory, seeded into the machine in one command.
+   * A picture, not an event, exactly like `songChanged`: it is never a trigger,
+   * so coming back to a saved session can never cost a paid brain call.
+   *
+   * The fields are **nullable, not optional**: resuming a session with no goal
+   * must *clear* the last one, so absent-means-unchanged would be wrong.
+   */
+  | { type: "contextRestored"; goal: string | null; userText: string | null; song: SongDigest | null }
   | { type: "brainDecided"; requestId: string; decision: Decision }
   | { type: "brainFailed"; requestId: string; error: string }
   /** `aborted` when the set stopped early: cancel, pause or shutdown. */
@@ -66,6 +75,9 @@ export function summarize(cmd: Command): CommandSummary {
       break;
     case "songChanged":
       summary = cmd.digest ? `${cmd.digest.name}: ${cmd.digest.counts.tracks} parts, ${cmd.digest.counts.slots} slots` : "no song";
+      break;
+    case "contextRestored":
+      summary = [cmd.goal ? `goal=${cmd.goal}` : null, cmd.song ? `song=${cmd.song.name}` : null].filter(Boolean).join(" ") || "nothing to carry over";
       break;
     case "actionsDone":
       summary = cmd.aborted ? `${cmd.results.length} result(s), stopped early` : `${cmd.results.length} result(s)`;

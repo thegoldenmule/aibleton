@@ -172,6 +172,22 @@ export function step(state: MachineState, cmd: Command, opts: StepOptions = DEFA
       const ctx: MachineContext = { ...state.ctx, song: cmd.digest ?? undefined };
       return { state: { ...state, ctx } as MachineState, effects: [] };
     }
+    case "contextRestored": {
+      // A resumed session's working memory, seeded in one command. Handled here for the same
+      // reason `songChanged` is, and `undefined` is derived from `null` rather than the other way
+      // round: a session with no goal must *clear* the last one, not leave it standing.
+      // Deliberately not carried: `snapshot`, which is Live's and volatile — seeding a stale one
+      // would make `snapshotFingerprint` suppress the first real observation — and `deferred`,
+      // because the mailbox is empty after a restart. Not in TRIGGER_TYPES either, which is what
+      // guarantees a resume never costs a paid brain call.
+      const ctx: MachineContext = {
+        ...state.ctx,
+        goal: cmd.goal ?? undefined,
+        userText: cmd.userText ?? undefined,
+        song: cmd.song ?? undefined,
+      };
+      return { state: { ...state, ctx } as MachineState, effects: [] };
+    }
     case "goalSet": {
       const goal = cmd.text.trim() ? cmd.text.trim() : undefined;
       const ctx = { ...state.ctx, goal };

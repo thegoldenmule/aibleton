@@ -3,7 +3,11 @@ import { PRIORITY_COMMANDS, type Command } from "./commands.ts";
 /**
  * In-memory command queue the agent loop drains.
  * - Priority lane: cancel/pause/resume/shutdown jump ahead of everything.
- * - Coalescing: at most one pending `tick`; `abletonChanged` and `songChanged` keep only the newest.
+ * - Coalescing: at most one pending `tick`; `abletonChanged`, `songChanged` and `contextRestored`
+ *   keep only the newest.
+ *
+ * `contextRestored` is deliberately **not** a priority command: a picture of a resumed session must
+ * never jump ahead of a `cancel`.
  */
 export class Mailbox {
   private priority: Command[] = [];
@@ -23,6 +27,11 @@ export class Mailbox {
       else return;
     } else if (cmd.type === "abletonChanged") {
       this.normal = this.normal.filter((c) => c.type !== "abletonChanged");
+      this.normal.push(cmd);
+    } else if (cmd.type === "contextRestored") {
+      // Same reason as `songChanged`: it is a whole picture, so only the newest can be right. Only
+      // one is ever enqueued today, which makes this belt-and-braces rather than load-bearing.
+      this.normal = this.normal.filter((c) => c.type !== "contextRestored");
       this.normal.push(cmd);
     } else if (cmd.type === "songChanged") {
       // A digest is a picture of the whole plan, so only the newest one can be right. A resolve

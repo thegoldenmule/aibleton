@@ -1,9 +1,26 @@
 import { envelope, summarize, type Command, type CommandBody, type CommandSource } from "../core/commands.ts";
-import type { Phase, Song } from "@aibleton/protocol";
+import type { Phase, Song, StateResponse } from "@aibleton/protocol";
 import { songDigest } from "../songwriting/digest.ts";
 import { EffectRunner } from "./effects.ts";
 import { DEFAULT_STEP_OPTIONS, errorOf, initialState, phaseOf, step, type MachineState, type StepOptions } from "./machine.ts";
 import type { Intelligence, IntelligenceDeps } from "./types.ts";
+
+/**
+ * The machine's working memory as the store already holds it: what a resumed session, or a song
+ * activated before the loop started, has to hand the reducer. Pure — `songDigest` is pure, so no
+ * I/O leaks into the seed.
+ */
+export function contextFromState(state: StateResponse): Extract<CommandBody, { type: "contextRestored" }> {
+  // The most recent thing the drummer typed, so the brain's first turn after a resume knows what
+  // the conversation was about.
+  const lastRequest = [...state.transcript].reverse().find((t) => t.role === "user" && t.kind === "request");
+  return {
+    type: "contextRestored",
+    goal: state.goal,
+    userText: lastRequest?.text ?? null,
+    song: state.song ? songDigest(state.song) : null,
+  };
+}
 
 /**
  * A drain is one synchronous pass: nothing awaits inside it, so a command that keeps re-enqueueing
@@ -59,10 +76,14 @@ export class AgentLoop implements Intelligence {
     this.unsubscribeSong = this.deps.store.events.subscribe((event) => {
       if (event.type === "song.changed") this.postSongDigest(event.song);
     });
-    // A song activated before the loop started is still active; without this the brain would think
-    // there is none and offer to compose over it.
-    const song = this.deps.store.getSong();
-    if (song) this.postSongDigest(song);
+    // Whatever the store already holds is still true: a song activated before the loop started, and
+    // a goal and a request restored from a saved session. Without this the brain would think there
+    // is no song and offer to compose over it, and would have forgotten what it was working toward.
+    const ctx = contextFromState(this.deps.store.snapshot());
+    // Seeded here too, or `sync()` would see the restored goal as a change on the next command and
+    // emit a `goal.changed` the journal would then record: one more line per restart, forever.
+    this.lastGoal = ctx.goal ?? undefined;
+    this.deps.mailbox.enqueue(envelope(ctx, "loop", this.deps.clock.now()));
     this.armTick();
     this.drain();
   }
@@ -150,8 +171,10 @@ export class AgentLoop implements Intelligence {
 
   private record(cmd: Command): void {
     // A digest is a picture, not an event: one resolve saves every slot in turn, and each save
-    // would otherwise become a recentCommands row and a command.received on the wire.
-    if (cmd.type === "songChanged") return;
+    // would otherwise become a recentCommands row and a command.received on the wire. The same for
+    // a restored context, and there it matters twice over: a `command.received` *is* journaled, so
+    // recording it would append one more command row to the session on every single restart.
+    if (cmd.type === "songChanged" || cmd.type === "contextRestored") return;
     if (this.seen.has(cmd.id)) return; // re-enqueued command, already recorded
     this.seen.add(cmd.id);
     if (this.seen.size > 500) this.seen.delete(this.seen.values().next().value as string);
