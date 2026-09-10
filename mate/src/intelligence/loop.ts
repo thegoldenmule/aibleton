@@ -5,6 +5,12 @@ import { DEFAULT_STEP_OPTIONS, errorOf, initialState, phaseOf, step, type Machin
 import type { Intelligence, IntelligenceDeps } from "./types.ts";
 
 /**
+ * A drain is one synchronous pass: nothing awaits inside it, so a command that keeps re-enqueueing
+ * itself would spin here on one stack with no timeout ever firing. Cap it, say so, and let go.
+ */
+const MAX_DRAIN_STEPS = 1000;
+
+/**
  * Drives the machine: mailbox -> step -> effects, and keeps the periodic tick armed.
  * Ticks are re-armed with setTimeout after each fire (never setInterval) so a manual clock
  * cannot double-fire within one advance.
@@ -35,6 +41,7 @@ export class AgentLoop implements Intelligence {
       maxBrainRetries: deps.options?.maxBrainRetries ?? DEFAULT_STEP_OPTIONS.maxBrainRetries,
       retryBaseMs: deps.options?.retryBaseMs ?? DEFAULT_STEP_OPTIONS.retryBaseMs,
       historyLimit: deps.options?.historyLimit ?? DEFAULT_STEP_OPTIONS.historyLimit,
+      maxDeferred: deps.options?.maxDeferred ?? DEFAULT_STEP_OPTIONS.maxDeferred,
     };
     this.tickMs = deps.options?.tickMs ?? 5000;
   }
@@ -99,7 +106,11 @@ export class AgentLoop implements Intelligence {
     if (!this.running || this.draining) return;
     this.draining = true;
     try {
-      for (;;) {
+      for (let steps = 0; ; steps++) {
+        if (steps >= MAX_DRAIN_STEPS) {
+          this.deps.log.error(`drain stopped after ${MAX_DRAIN_STEPS} commands in one pass; ${this.deps.mailbox.size()} left in the mailbox`);
+          break;
+        }
         const cmd = this.deps.mailbox.next();
         if (!cmd) break;
         this.record(cmd);

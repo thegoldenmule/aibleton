@@ -6,7 +6,7 @@ import { makeSession } from "./helpers/fakes.ts";
 
 const cmd = (body: Parameters<typeof envelope>[0], source: Command["source"] = "test"): Command => envelope(body, source, 0);
 let seq = 0;
-const opts: StepOptions = { maxBrainRetries: 3, retryBaseMs: 100, historyLimit: 10, newRequestId: () => `r${++seq}` };
+const opts: StepOptions = { maxBrainRetries: 3, retryBaseMs: 100, historyLimit: 10, maxDeferred: 3, newRequestId: () => `r${++seq}` };
 const types = (effects: Effect[]) => effects.map((e) => e.type);
 
 function toDeciding(trigger: Command = cmd({ type: "userRequest", text: "go" })) {
@@ -123,23 +123,18 @@ describe("machine", () => {
     expect(resumed.state.ctx.retryCount).toBe(0);
   });
 
-  test("userRequest during deciding is re-enqueued, not lost", () => {
-    const d = toDeciding();
-    const late = cmd({ type: "userRequest", text: "later" });
-    const r = step(d.state, late, opts);
-    expect(r.state).toBe(d.state);
-    expect(r.effects).toEqual([{ type: "enqueue", cmd: late }]);
-  });
-
   test("pause during deciding aborts the brain; resume returns to idle", () => {
     const d = toDeciding();
     const p = step(d.state, cmd({ type: "pause" }), opts);
     expect(p.state.kind).toBe("paused");
     expect(types(p.effects)).toEqual(["abortBrain"]);
-    const dropped = step(p.state, cmd({ type: "userRequest", text: "ignored" }), opts);
-    expect(dropped.state.kind).toBe("paused");
-    expect(dropped.effects).toEqual([]);
-    expect(step(p.state, cmd({ type: "resume" }), opts).state.kind).toBe("idle");
+    const parked = step(p.state, cmd({ type: "userRequest", text: "later" }), opts);
+    expect(parked.state.kind).toBe("paused");
+    expect(parked.effects).toEqual([]);
+    expect(parked.state.ctx.deferred.map((c) => c.type)).toEqual(["userRequest"]);
+    const resumed = step(parked.state, cmd({ type: "resume" }), opts);
+    expect(resumed.state.kind).toBe("idle");
+    expect(types(resumed.effects)).toEqual(["enqueue"]);
   });
 
   test("acting + actionsDone -> idle and enqueues abletonChanged", () => {
@@ -172,6 +167,100 @@ describe("machine", () => {
     const r = step(initialState(), cmd({ type: "goalSet", text: "16ths at 90" }), opts);
     expect(r.state.kind).toBe("observing");
     expect(r.state.ctx.goal).toBe("16ths at 90");
+  });
+});
+
+describe("deferred requests", () => {
+  const late = (text: string) => cmd({ type: "userRequest", text });
+  const deferredTexts = (state: MachineState) => state.ctx.deferred.map((c) => (c.type === "userRequest" ? c.text : c.type));
+
+  function toActing(actions: Action[] = [{ type: "setTempo", bpm: 100 }]) {
+    const d = toDeciding();
+    if (d.state.kind !== "deciding") throw new Error("expected deciding");
+    const r = step(d.state, cmd({ type: "brainDecided", requestId: d.state.requestId, decision: { message: "set", actions } }, "loop"), opts);
+    if (r.state.kind !== "acting") throw new Error("expected acting");
+    return r.state;
+  }
+
+  test("a request during deciding waits in the context and emits no effect", () => {
+    const d = toDeciding();
+    const cmd1 = late("later");
+    const r = step(d.state, cmd1, opts);
+    expect(r.state.kind).toBe("deciding");
+    // The bug this replaces: an enqueue effect goes straight back through the synchronous drain.
+    expect(r.effects).toEqual([]);
+    expect(r.state.ctx.deferred).toEqual([cmd1]);
+  });
+
+  test("a request during acting waits in the context and emits no effect", () => {
+    const r = step(toActing(), late("later"), opts);
+    expect(r.state.kind).toBe("acting");
+    expect(r.effects).toEqual([]);
+    expect(deferredTexts(r.state)).toEqual(["later"]);
+  });
+
+  test("exactly one request is released per edge back to idle, oldest first", () => {
+    let state: MachineState = toActing();
+    state = step(state, late("a"), opts).state;
+    state = step(state, late("b"), opts).state;
+
+    const done = step(state, cmd({ type: "actionsDone", results: [] }, "loop"), opts);
+    expect(done.state.kind).toBe("idle");
+    const released = done.effects.filter((e) => e.type === "enqueue").map((e) => (e.type === "enqueue" ? e.cmd : null));
+    // Two: the loop's own snapshot refresh, then one request. Never two requests — stepObserving
+    // upgrades `pending` in place, so a second would be swallowed by the first.
+    expect(released.map((c) => c?.type)).toEqual(["abletonChanged", "userRequest"]);
+    expect(released[1] && released[1].type === "userRequest" ? released[1].text : "").toBe("a");
+    expect(deferredTexts(done.state)).toEqual(["b"]);
+
+    // "b" waits until the next time we come back to idle.
+    const observing = step(done.state, late("a"), opts);
+    const deciding = step(observing.state, cmd({ type: "snapshotReady", snapshot: makeSession({ tempo: 130 }, 9) }, "loop"), opts);
+    if (deciding.state.kind !== "deciding") throw new Error("expected deciding");
+    const idle = step(deciding.state, cmd({ type: "brainDecided", requestId: deciding.state.requestId, decision: { message: "ok", actions: [] } }, "loop"), opts);
+    expect(idle.state.kind).toBe("idle");
+    const next = idle.effects.find((e) => e.type === "enqueue");
+    expect(next && next.type === "enqueue" && next.cmd.type === "userRequest" ? next.cmd.text : "").toBe("b");
+    expect(idle.state.ctx.deferred).toEqual([]);
+  });
+
+  test("cancel stops what is in flight and releases one waiting request, from every phase", () => {
+    const fromActing = step(step(toActing(), late("a"), opts).state, cmd({ type: "cancel" }), opts);
+    expect(fromActing.state.kind).toBe("idle");
+    expect(types(fromActing.effects)).toEqual(["emitEvent", "enqueue"]);
+
+    const deciding = step(toDeciding().state, late("a"), opts).state;
+    const fromDeciding = step(deciding, cmd({ type: "cancel" }), opts);
+    expect(types(fromDeciding.effects)).toEqual(["abortBrain", "emitEvent", "enqueue"]);
+
+    // Observing never defers of its own accord (it upgrades `pending`), but it can be entered
+    // while a request from an earlier turn is still waiting.
+    const observing: MachineState = { kind: "observing", ctx: { history: [], retryCount: 0, deferred: [late("a")] }, pending: cmd({ type: "tick" }, "timer") };
+    expect(types(step(observing, cmd({ type: "cancel" }), opts).effects)).toEqual(["emitEvent", "enqueue"]);
+  });
+
+  test("a failed action set keeps the queue; resume releases one", () => {
+    const acting = step(toActing(), late("later"), opts).state;
+    const failed = step(acting, cmd({ type: "actionFailed", index: 0, error: "boom" }, "loop"), opts);
+    expect(failed.state.kind).toBe("error");
+    expect(deferredTexts(failed.state)).toEqual(["later"]);
+    const resumed = step(failed.state, cmd({ type: "resume" }), opts);
+    expect(resumed.state.kind).toBe("idle");
+    const enq = resumed.effects.find((e) => e.type === "enqueue");
+    expect(enq && enq.type === "enqueue" && enq.cmd.type === "userRequest" ? enq.cmd.text : "").toBe("later");
+  });
+
+  test("over the cap the oldest is dropped and mate says which one", () => {
+    let state: MachineState = toActing();
+    for (const text of ["a", "b", "c"]) state = step(state, late(text), opts).state;
+    expect(deferredTexts(state)).toEqual(["a", "b", "c"]);
+
+    const over = step(state, late("d"), opts);
+    expect(deferredTexts(over.state)).toEqual(["b", "c", "d"]);
+    const ev = over.effects[0];
+    expect(ev?.type === "emitEvent" && ev.event.type === "message" ? ev.event.text : "").toBe(
+      'I already have 3 messages waiting, so I let the oldest one go: "a". Say it again when I catch up.',
+    );
   });
 });
 

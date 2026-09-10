@@ -24,6 +24,8 @@ export interface IntelligenceDeps {
     retryBaseMs?: number;
     /** How many history entries to hand the brain. */
     historyLimit?: number;
+    /** How many mid-turn requests wait before the oldest is dropped. */
+    maxDeferred?: number;
   };
 }
 

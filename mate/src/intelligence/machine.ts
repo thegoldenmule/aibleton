@@ -12,6 +12,8 @@ export interface MachineContext {
   history: HistoryEntry[];
   /** Consecutive brain/snapshot failures for the current attempt. */
   retryCount: number;
+  /** Requests that arrived mid-turn, oldest first. Held here, never back in the mailbox. */
+  deferred: Command[];
 }
 
 export type MachineState =
@@ -35,6 +37,8 @@ export interface StepOptions {
   maxBrainRetries: number;
   retryBaseMs: number;
   historyLimit: number;
+  /** How many mid-turn requests wait in the context before the oldest is dropped. */
+  maxDeferred: number;
   newRequestId: () => string;
 }
 
@@ -42,6 +46,7 @@ export const DEFAULT_STEP_OPTIONS: StepOptions = {
   maxBrainRetries: 3,
   retryBaseMs: 1000,
   historyLimit: 20,
+  maxDeferred: 3,
   newRequestId: (() => {
     let n = 0;
     return () => `req_${Date.now().toString(36)}_${(++n).toString(36)}`;
@@ -54,7 +59,35 @@ export interface StepResult {
 }
 
 export function initialState(): MachineState {
-  return { kind: "idle", ctx: { history: [], retryCount: 0 } };
+  return { kind: "idle", ctx: { history: [], retryCount: 0, deferred: [] } };
+}
+
+/**
+ * Park a request that arrived mid-turn. It must never go back through the mailbox: `drain()` is
+ * synchronous, so an `enqueue` effect is pulled straight back out on the same stack and spins
+ * forever, and the in-flight brain promise never gets a turn to resolve.
+ */
+function defer(ctx: MachineContext, cmd: Command, opts: StepOptions): { ctx: MachineContext; effects: Effect[] } {
+  const deferred = [...ctx.deferred, cmd];
+  if (deferred.length <= opts.maxDeferred) return { ctx: { ...ctx, deferred }, effects: [] };
+  const dropped = deferred.shift();
+  const text =
+    dropped?.type === "userRequest"
+      ? `I already have ${opts.maxDeferred} messages waiting, so I let the oldest one go: "${dropped.text}". Say it again when I catch up.`
+      : `I already have ${opts.maxDeferred} messages waiting, so I let the oldest one go.`;
+  return { ctx: { ...ctx, deferred }, effects: [{ type: "emitEvent", event: { type: "message", text } }] };
+}
+
+/**
+ * Every edge back to idle releases exactly **one** waiting request. One, not all: `stepObserving`
+ * upgrades `pending` in place, so releasing two would silently merge two requests into one brain call.
+ */
+function settleIdle(ctx: MachineContext, effects: Effect[] = []): StepResult {
+  const [next, ...rest] = ctx.deferred;
+  if (!next) return { state: { kind: "idle", ctx }, effects };
+  // The original envelope, not a copy: AgentLoop.record() dedupes by id, so replaying it produces
+  // no second command.received and no duplicate transcript line.
+  return { state: { kind: "idle", ctx: { ...ctx, deferred: rest } }, effects: [...effects, { type: "enqueue", cmd: next }] };
 }
 
 export function phaseOf(state: MachineState): Phase {
@@ -101,28 +134,23 @@ export function step(state: MachineState, cmd: Command, opts: StepOptions = DEFA
     }
     case "resume": {
       if (state.kind === "paused" || state.kind === "error") {
-        return { state: { kind: "idle", ctx: { ...state.ctx, retryCount: 0 } }, effects: [] };
+        return settleIdle({ ...state.ctx, retryCount: 0 });
       }
       return same();
     }
     case "cancel": {
+      // Cancel stops the thing in flight, which is what it says: the waiting requests stay waiting.
       if (state.kind === "deciding") {
-        return {
-          state: { kind: "idle", ctx: { ...state.ctx, retryCount: 0 } },
-          effects: [
-            { type: "abortBrain", requestId: state.requestId },
-            { type: "emitEvent", event: { type: "cancelled", requestId: state.requestId } },
-          ],
-        };
+        return settleIdle({ ...state.ctx, retryCount: 0 }, [
+          { type: "abortBrain", requestId: state.requestId },
+          { type: "emitEvent", event: { type: "cancelled", requestId: state.requestId } },
+        ]);
       }
       if (state.kind === "acting") {
-        return {
-          state: { kind: "idle", ctx: { ...state.ctx, retryCount: 0 } },
-          effects: [{ type: "emitEvent", event: { type: "cancelled", requestId: state.requestId } }],
-        };
+        return settleIdle({ ...state.ctx, retryCount: 0 }, [{ type: "emitEvent", event: { type: "cancelled", requestId: state.requestId } }]);
       }
       if (state.kind === "observing") {
-        return { state: { kind: "idle", ctx: state.ctx }, effects: [{ type: "emitEvent", event: { type: "cancelled" } }] };
+        return settleIdle(state.ctx, [{ type: "emitEvent", event: { type: "cancelled" } }]);
       }
       return same();
     }
@@ -144,10 +172,14 @@ export function step(state: MachineState, cmd: Command, opts: StepOptions = DEFA
     case "deciding":
       return stepDeciding(state, cmd, opts);
     case "acting":
-      return stepActing(state, cmd);
-    case "paused":
-      // Everything except the lifecycle commands above is dropped while paused.
-      return same();
+      return stepActing(state, cmd, opts);
+    case "paused": {
+      // Everything except the lifecycle commands above is dropped while paused — except a typed
+      // request, which waits for resume rather than vanishing.
+      if (cmd.type !== "userRequest") return same();
+      const parked = defer(state.ctx, cmd, opts);
+      return { state: { ...state, ctx: parked.ctx }, effects: parked.effects };
+    }
     case "error":
       return stepError(state, cmd);
   }
@@ -283,41 +315,43 @@ function stepDeciding(state: Extract<MachineState, { kind: "deciding" }>, cmd: C
           ],
         };
       }
-      return { state: { kind: "idle", ctx }, effects: [message, ...followUpEffects(decision)] };
+      return settleIdle(ctx, [message, ...followUpEffects(decision)]);
     }
     case "brainFailed":
       if (cmd.requestId !== state.requestId) return { state, effects: [] };
       return fail(state.ctx, cmd.error, state.pending, opts);
-    case "userRequest":
-      return { state, effects: [{ type: "enqueue", cmd }] };
+    case "userRequest": {
+      const parked = defer(state.ctx, cmd, opts);
+      return { state: { ...state, ctx: parked.ctx }, effects: parked.effects };
+    }
     default:
       return { state, effects: [] };
   }
 }
 
-function stepActing(state: Extract<MachineState, { kind: "acting" }>, cmd: Command): StepResult {
+function stepActing(state: Extract<MachineState, { kind: "acting" }>, cmd: Command, opts: StepOptions): StepResult {
   switch (cmd.type) {
     case "actionsDone": {
       const history = state.ctx.history.slice();
       const last = history[history.length - 1];
       if (last && last.decision === state.decision) history[history.length - 1] = { ...last, results: cmd.results };
       const ctx = { ...state.ctx, history, retryCount: 0 };
-      return {
-        state: { kind: "idle", ctx },
-        effects: [
-          { type: "enqueue", cmd: { id: `${state.requestId}_refresh`, at: cmd.at, source: "loop", type: "abletonChanged", hint: "clips" } },
-          ...followUpEffects(state.decision),
-        ],
-      };
+      return settleIdle(ctx, [
+        { type: "enqueue", cmd: { id: `${state.requestId}_refresh`, at: cmd.at, source: "loop", type: "abletonChanged", hint: "clips" } },
+        ...followUpEffects(state.decision),
+      ]);
     }
     case "actionFailed":
-      // No auto-retry: actions may have been partially applied.
+      // No auto-retry: actions may have been partially applied. The waiting requests ride along
+      // in ctx and are released by the resume that follows.
       return {
         state: { kind: "error", ctx: state.ctx, error: `action ${cmd.index} failed: ${cmd.error}`, pending: state.pending },
         effects: [],
       };
-    case "userRequest":
-      return { state, effects: [{ type: "enqueue", cmd }] };
+    case "userRequest": {
+      const parked = defer(state.ctx, cmd, opts);
+      return { state: { ...state, ctx: parked.ctx }, effects: parked.effects };
+    }
     default:
       return { state, effects: [] };
   }

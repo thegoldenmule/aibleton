@@ -6,7 +6,7 @@ import { StateStore } from "../src/core/state.ts";
 import { silentLogger } from "../src/log.ts";
 import { ScriptedBrain } from "../src/intelligence/brain/scripted.ts";
 import type { Decision } from "../src/intelligence/brain/types.ts";
-import { createIntelligence } from "../src/intelligence/index.ts";
+import { AgentLoop } from "../src/intelligence/loop.ts";
 import { FakeAbleton, FakeSplice } from "./helpers/fakes.ts";
 
 function harness(script: Decision[] | ScriptedBrain = [], tickMs = 0) {
@@ -17,7 +17,7 @@ function harness(script: Decision[] | ScriptedBrain = [], tickMs = 0) {
   const ableton = new FakeAbleton();
   const splice = new FakeSplice();
   const brain = script instanceof ScriptedBrain ? script : new ScriptedBrain(script);
-  const loop = createIntelligence({ clock, mailbox, store, brain, ableton, splice, log: silentLogger, options: { tickMs, retryBaseMs: 100 } });
+  const loop = new AgentLoop({ clock, mailbox, store, brain, ableton, splice, log: silentLogger, options: { tickMs, retryBaseMs: 100 } });
   loop.start();
   return { clock, events, store, mailbox, ableton, splice, brain, loop };
 }
@@ -59,6 +59,34 @@ describe("AgentLoop", () => {
     expect(h.ableton.callsOf("setTempo")).toEqual([]);
     expect(h.loop.phase()).toBe("idle");
     expect(h.events.ofType("cancelled")).toHaveLength(1);
+  });
+
+  test("a second request while the brain is busy is answered after the first, not spun on the stack", async () => {
+    const brain = new ScriptedBrain([
+      { message: "first", actions: [] },
+      { message: "second", actions: [] },
+    ]);
+    brain.hold();
+    const h = harness(brain);
+    h.loop.submit({ type: "userRequest", text: "one" }, "api");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(h.loop.phase()).toBe("deciding");
+
+    // Before the deferral this re-enqueued itself inside the synchronous drain and hung the runner.
+    h.loop.submit({ type: "userRequest", text: "two" }, "api");
+    expect(h.brain.calls).toHaveLength(1);
+    expect(h.mailbox.size()).toBe(0);
+    expect(h.loop.machineState().ctx.deferred).toHaveLength(1);
+
+    brain.release();
+    await h.loop.settle();
+
+    expect(h.brain.calls.map((c) => c.userText)).toEqual(["one", "two"]);
+    expect(h.events.ofType("message").map((e) => e.text)).toEqual(["first", "second"]);
+    // The replayed envelope keeps its id, so the request is recorded once.
+    expect(h.store.recentCommands().filter((c) => c.type === "userRequest")).toHaveLength(2);
+    expect(h.loop.phase()).toBe("idle");
+    expect(h.loop.machineState().ctx.deferred).toEqual([]);
   });
 
   test("followUp with 500ms delay fires at 500, not 499", async () => {
