@@ -244,6 +244,12 @@ export default function BandsPage() {
         <span className="font-mono text-[10px] text-muted/70">{loading ? "loading…" : `${bands.length} saved`}</span>
         <span className="ml-auto flex items-center gap-1.5">
           <Link
+            href="/sessions"
+            className="rounded-sm border border-line bg-panel-2 px-2.5 py-1 text-xs font-medium text-muted hover:text-foreground"
+          >
+            sessions →
+          </Link>
+          <Link
             href="/templates"
             className="rounded-sm border border-line bg-panel-2 px-2.5 py-1 text-xs font-medium text-muted hover:text-foreground"
           >

@@ -161,6 +161,12 @@ export default function TemplatesPage() {
         </span>
         <span className="ml-auto flex items-center gap-1.5">
           <Link
+            href="/sessions"
+            className="rounded-sm border border-line bg-panel-2 px-2.5 py-1 text-xs font-medium text-muted hover:text-foreground"
+          >
+            sessions →
+          </Link>
+          <Link
             href="/bands"
             className="rounded-sm border border-line bg-panel-2 px-2.5 py-1 text-xs font-medium text-muted hover:text-foreground"
           >
