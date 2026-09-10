@@ -103,6 +103,11 @@ export class EffectRunner {
         this.timers.add(handle);
         return;
       }
+      default: {
+        // tsconfig has no noImplicitReturns, so without this a new Effect would silently do nothing.
+        const never: never = effect;
+        throw new Error(`runOne: unhandled effect ${JSON.stringify(never)}`);
+      }
     }
   }
 
@@ -160,6 +165,11 @@ export class EffectRunner {
       case "splicePromptToStack": {
         const stack = await splice.promptToStack(action.prompt, action.bpm);
         return `stack ${stack.name} (${stack.layers.length} layers)`;
+      }
+      default: {
+        // `Promise<string | undefined>` would otherwise let a missing case resolve to a silent success.
+        const never: never = action;
+        throw new Error(`applyOne: unhandled action ${JSON.stringify(never)}`);
       }
     }
   }

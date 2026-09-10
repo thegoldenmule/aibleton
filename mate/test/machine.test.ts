@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { envelope, type Command } from "../src/core/commands.ts";
-import { guardDecision, initialState, step, type Effect, type MachineState, type StepOptions } from "../src/intelligence/machine.ts";
+import { actionTrack, guardDecision, initialState, step, type Effect, type MachineState, type StepOptions } from "../src/intelligence/machine.ts";
+import type { Action } from "../src/intelligence/brain/types.ts";
 import { makeSession } from "./helpers/fakes.ts";
 
 const cmd = (body: Parameters<typeof envelope>[0], source: Command["source"] = "test"): Command => envelope(body, source, 0);
@@ -171,6 +172,23 @@ describe("machine", () => {
     const r = step(initialState(), cmd({ type: "goalSet", text: "16ths at 90" }), opts);
     expect(r.state.kind).toBe("observing");
     expect(r.state.ctx.goal).toBe("16ths at 90");
+  });
+});
+
+describe("actionTrack", () => {
+  test("classifies every action variant: track-carrying ones by track, the rest undefined", () => {
+    const cases: [Action, number | undefined][] = [
+      [{ type: "createClip", track: 2, slot: 0, lengthBeats: 4 }, 2],
+      [{ type: "addNotes", track: 3, slot: 0, notes: [] }, 3],
+      [{ type: "fireClip", track: 4, slot: 0 }, 4],
+      [{ type: "loadDrumKit", track: 5, rackUri: "u", kitPath: "p" }, 5],
+      [{ type: "createMidiTrack" }, undefined],
+      [{ type: "setTempo", bpm: 100 }, undefined],
+      [{ type: "startPlayback" }, undefined],
+      [{ type: "stopPlayback" }, undefined],
+      [{ type: "splicePromptToStack", prompt: "p", bpm: 90 }, undefined],
+    ];
+    for (const [action, expected] of cases) expect(actionTrack(action)).toBe(expected);
   });
 });
 

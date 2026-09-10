@@ -213,7 +213,12 @@ function stepObserving(state: Extract<MachineState, { kind: "observing" }>, cmd:
   }
 }
 
-/** The track an action changes, if it names one. Track-less actions (tempo, transport, new tracks) return undefined. */
+/**
+ * The track an action changes, if it names one. Track-less actions (tempo, transport, new tracks)
+ * return undefined. Every variant is spelled out and the default is `never`: a new Action that
+ * names a track must be classified here or `guardDecision` would wave it through onto the
+ * drummer's own tracks.
+ */
 export function actionTrack(action: Action): number | undefined {
   switch (action.type) {
     case "createClip":
@@ -221,8 +226,16 @@ export function actionTrack(action: Action): number | undefined {
     case "fireClip":
     case "loadDrumKit":
       return action.track;
-    default:
+    case "createMidiTrack":
+    case "setTempo":
+    case "startPlayback":
+    case "stopPlayback":
+    case "splicePromptToStack":
       return undefined;
+    default: {
+      const never: never = action;
+      throw new Error(`actionTrack: unhandled action ${JSON.stringify(never)}`);
+    }
   }
 }
 
