@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { readJournal } from "../src/core/journal.ts";
 import { SessionStore, isValidSessionId } from "../src/core/sessions.ts";
 
 let dir: string;
@@ -133,6 +134,32 @@ describe("SessionStore", () => {
     await expect(store.delete("../evil")).rejects.toThrow();
     await expect(store.setCurrent("a/b")).rejects.toThrow();
     expect(existsSync(join(dir, "..", "evil"))).toBe(false);
+  });
+
+  // `bun run --cwd mate dev` runs `--watch`, so a reload overlaps the outgoing
+  // process and two boots read a missing `current.json` at the same moment.
+  // Read-then-write let both mint and orphaned the loser's journal.
+  test("two concurrent openCurrent calls mint exactly one session", async () => {
+    const [a, b] = await Promise.all([store.openCurrent(), store.openCurrent()]);
+
+    expect(a.meta.id).toBe(b.meta.id);
+    expect(await store.currentId()).toBe(a.meta.id);
+    // The loser took its directory back with it, and left no `.tmp` behind.
+    expect((await readdir(dir)).filter((name) => name !== "current.json")).toEqual([a.meta.id]);
+  });
+
+  // The shape a watch reload actually takes: two stores, one directory.
+  test("two instances booting on one directory agree on one session", async () => {
+    const other = new SessionStore({ dir, now: () => (time += 1) });
+    const [a, b] = await Promise.all([store.openCurrent(), other.openCurrent()]);
+
+    expect(a.meta.id).toBe(b.meta.id);
+    expect((await store.list()).map((s) => s.id)).toEqual([a.meta.id]);
+    // Both journals are the same file, so the loser's events are not orphaned.
+    a.journal.append({ type: "goal.changed", goal: "one" }, 1);
+    b.journal.append({ type: "goal.changed", goal: "two" }, 2);
+    await Promise.all([a.journal.flush(), b.journal.flush()]);
+    expect((await readJournal(store.journalPath(a.meta.id))).entries).toHaveLength(2);
   });
 
   test("a current.json naming a traversal id is ignored", async () => {

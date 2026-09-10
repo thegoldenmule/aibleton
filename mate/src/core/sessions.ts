@@ -1,4 +1,4 @@
-import { mkdir, readdir, rm, stat } from "node:fs/promises";
+import { link, mkdir, readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { JournalEntry, SessionSummary, StateResponse } from "@aibleton/protocol";
 import { z } from "zod";
@@ -196,15 +196,67 @@ export class SessionStore {
   /**
    * The session mate left behind, or a new one when there is none. Always
    * leaves `current.json` naming what it returned.
+   *
+   * **Only one instance may mint.** `bun run --cwd mate dev` runs `--watch`, so
+   * a reload routinely overlaps the outgoing process and two boots read a
+   * missing `current.json` in the same millisecond. Read-then-write let both
+   * mint, and the loser's session was orphaned with its own journal. The claim
+   * below is therefore atomic in the filesystem, not a re-read: a loser opens
+   * the winner's session and takes its own directory back with it.
    */
   async openCurrent(): Promise<OpenSession> {
     await this.ensureDir();
     const id = await this.currentId();
     if (id && (await this.readMeta(id))) return this.open(id);
-    if (id) this.log.warn(`current session ${id} is gone; starting a new one`);
+    if (id) {
+      this.log.warn(`current session ${id} is gone; starting a new one`);
+      // The pointer names nothing, so it is not a claim anybody can lose to:
+      // drop it, or the exclusive create below would refuse forever.
+      await rm(join(this.dir, CURRENT_FILE), { force: true });
+    }
+
+    // Written in full *before* the claim, so whoever reads the pointer we are
+    // about to publish finds a session that already exists on disk.
     const meta = await this.create();
-    await this.setCurrent(meta.id);
-    return this.open(meta.id);
+    const winner = await this.claimCurrent(meta.id);
+    if (winner === meta.id) return this.open(meta.id);
+
+    this.log.warn(`another instance claimed session ${winner} first; discarding ${meta.id}`);
+    // `newId` is a millisecond plus a *per-process* counter, so two boots in
+    // the same millisecond can mint the same id. Guarded, because otherwise
+    // the loser's cleanup would delete the winner's directory.
+    if (meta.id !== winner) await rm(this.dirFor(meta.id), { recursive: true, force: true });
+    return this.open(winner);
+  }
+
+  /**
+   * Point `current.json` at `id` **only if nothing else already has**, and
+   * return whoever holds it afterwards.
+   *
+   * `link` is the atomic part: it either creates the destination or fails with
+   * `EEXIST`, never both, and it links a file that already holds the whole JSON
+   * — so a loser cannot read a pointer that was created but not yet written.
+   * `Bun.write` + `rename` would not do: rename overwrites, which is precisely
+   * the "last writer wins" this exists to stop.
+   */
+  private async claimCurrent(id: string): Promise<string> {
+    const target = join(this.dir, CURRENT_FILE);
+    const tmp = `${target}.${process.pid}.${Math.random().toString(36).slice(2, 10)}.tmp`;
+    await Bun.write(tmp, `${JSON.stringify({ id, at: this.now() }, null, 2)}\n`);
+    try {
+      await link(tmp, target);
+      return id;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+      const winner = await this.currentId();
+      if (winner && (await this.readMeta(winner))) return winner;
+      // Something wrote a pointer to nothing between our check and our claim.
+      // Nobody is resuming that, so take it rather than loop.
+      await this.setCurrent(id);
+      return id;
+    } finally {
+      await rm(tmp, { force: true });
+    }
   }
 
   /** The directory holding one session's files. */
