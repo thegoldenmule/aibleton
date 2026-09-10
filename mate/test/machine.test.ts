@@ -341,6 +341,14 @@ describe("actionTrack", () => {
       [{ type: "startPlayback" }, undefined],
       [{ type: "stopPlayback" }, undefined],
       [{ type: "splicePromptToStack", prompt: "p", bpm: 90 }, undefined],
+      // Song actions name no Live track: they change the plan, and arrange only touches [mate] tracks.
+      [{ type: "composeSong", text: "funky" }, undefined],
+      [{ type: "clearActiveSong" }, undefined],
+      [{ type: "resolveSong" }, undefined],
+      [{ type: "pickSlot", slotId: "bass-p:a", soundUuid: "u" }, undefined],
+      [{ type: "setPlacement", partId: "bass-p", occurrence: 1, plays: false }, undefined],
+      [{ type: "removeTrack", partId: "bass-p" }, undefined],
+      [{ type: "arrangeSong" }, undefined],
     ];
     for (const [action, expected] of cases) expect(actionTrack(action)).toBe(expected);
   });

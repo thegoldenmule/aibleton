@@ -66,6 +66,8 @@ async function main(): Promise<void> {
     log: createLogger("brain"),
     ableton: abletonResult.port,
     splice: spliceResult.port,
+    // The store, not the service: the brain is built first, and this is read per call anyway.
+    getSong: () => store.getSong(),
   });
   if (brainResult.fallbackReason) log.warn(`brain: using scripted (${brainResult.fallbackReason})`);
 
@@ -115,6 +117,8 @@ async function main(): Promise<void> {
     brain: brainResult.brain,
     ableton: abletonResult.port,
     splice: spliceResult.port,
+    // The same instance the routes use, so a typed request and a click do the same thing.
+    songs: songService,
     log: createLogger("loop"),
     options: { tickMs: config.tickMs, maxBrainRetries: config.maxBrainRetries },
   });

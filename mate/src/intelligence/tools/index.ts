@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Action } from "../brain/types.ts";
 import { ABLETON_ACTION_TOOLS, ABLETON_READ_TOOLS, abletonToolToAction } from "./ableton.tools.ts";
+import { SONG_ACTION_TOOLS, SONG_COMPOSE_TOOLS, SONG_READ_TOOLS, songToolToAction } from "./song.tools.ts";
 import { SPLICE_ACTION_TOOLS, SPLICE_READ_TOOLS, spliceToolToAction } from "./splice.tools.ts";
 
 export type Tool = Anthropic.Beta.BetaTool;
@@ -18,10 +19,28 @@ export const FOLLOW_UP_TOOL: Tool = {
   strict: true,
 };
 
-const READ_ONLY = new Set([...ABLETON_READ_TOOLS, ...SPLICE_READ_TOOLS].map((t) => t.name));
+const READ_ONLY = new Set([...ABLETON_READ_TOOLS, ...SPLICE_READ_TOOLS, ...SONG_READ_TOOLS].map((t) => t.name));
 
-export function toolDefinitions(): Tool[] {
-  return [...ABLETON_READ_TOOLS, ...SPLICE_READ_TOOLS, ...ABLETON_ACTION_TOOLS, ...SPLICE_ACTION_TOOLS, FOLLOW_UP_TOOL];
+/** What the brain is allowed to reach for this turn. Live tools are always on offer; the song plan is not. */
+export interface ToolContext {
+  /**
+   * Whether the song plan is on the table at all. It is offered only for a request the drummer
+   * typed: ticks, abletonChanged and MIDI may talk and use the Live tools, but a background idea
+   * must never compose, re-cast or rebuild the song behind their back.
+   */
+  songTools: boolean;
+  /** A song is active: the six editing tools, no compose. With none it is the other way round. */
+  hasSong: boolean;
+}
+
+/**
+ * The tool list for one call. Computed per call, never cached: it depends on this turn's trigger
+ * and on whether a song is active. Downloading is in no list at any time — it spends a credit, so
+ * it stays behind the drummer's own confirm.
+ */
+export function toolDefinitions(ctx: ToolContext = { songTools: false, hasSong: false }): Tool[] {
+  const song = !ctx.songTools ? [] : ctx.hasSong ? [...SONG_READ_TOOLS, ...SONG_ACTION_TOOLS] : SONG_COMPOSE_TOOLS;
+  return [...ABLETON_READ_TOOLS, ...SPLICE_READ_TOOLS, ...ABLETON_ACTION_TOOLS, ...SPLICE_ACTION_TOOLS, ...song, FOLLOW_UP_TOOL];
 }
 
 export function isReadOnlyTool(name: string): boolean {
@@ -30,5 +49,5 @@ export function isReadOnlyTool(name: string): boolean {
 
 /** Map a mutating tool call onto a domain Action. Returns null for unknown or read-only tools. */
 export function toolToAction(name: string, input: Record<string, unknown>): Action | null {
-  return abletonToolToAction(name, input) ?? spliceToolToAction(name, input);
+  return abletonToolToAction(name, input) ?? spliceToolToAction(name, input) ?? songToolToAction(name, input);
 }

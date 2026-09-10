@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { isMateTrack } from "@aibleton/protocol";
-import type { SessionState } from "@aibleton/protocol";
+import type { SessionState, Song } from "@aibleton/protocol";
 import type { Logger } from "../../log.ts";
 import type { AbletonPort } from "../../ports/ableton/types.ts";
 import type { SplicePort } from "../../ports/splice/types.ts";
@@ -13,6 +13,11 @@ export interface AnthropicBrainOptions {
   log: Logger;
   ableton: AbletonPort;
   splice: SplicePort;
+  /**
+   * The active song, read fresh on every call. A getter rather than the service because the brain
+   * is built before the song library is; absent means no song tools are offered at all.
+   */
+  getSong?: () => Song | null;
   maxIterations?: number;
   maxTokens?: number;
 }
@@ -33,13 +38,16 @@ Your final message is spoken to the drummer. Keep it short, concrete and friendl
 /** Brain backed by the Anthropic API. Manual tool loop; mutating tools become queued Actions. */
 export class AnthropicBrain implements Brain {
   readonly kind = "anthropic" as const;
-  private readonly tools = toolDefinitions();
 
   constructor(private readonly opts: AnthropicBrainOptions) {}
 
   async decide(input: BrainInput, signal: AbortSignal): Promise<Decision> {
     const { client, model, log } = this.opts;
     const maxIterations = this.opts.maxIterations ?? 8;
+    // Per call, not once in the field: which song tools apply depends on this turn's trigger and
+    // on whether a song is active right now.
+    const song = this.opts.getSong?.() ?? null;
+    const tools = toolDefinitions({ songTools: this.opts.getSong !== undefined && input.trigger === "userRequest", hasSong: song !== null });
     const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: renderInput(input) }];
     const actions: Action[] = [];
     let followUp: Decision["followUp"];
@@ -51,7 +59,7 @@ export class AnthropicBrain implements Brain {
           model,
           max_tokens: this.opts.maxTokens ?? 16000,
           system: SYSTEM_PROMPT,
-          tools: this.tools,
+          tools,
           messages,
           // Server-side refusal fallbacks: route by refusal category without maintaining a model list.
           betas: ["server-side-fallback-2026-07-01"],
@@ -111,6 +119,27 @@ export class AnthropicBrain implements Brain {
 
   private async runReadOnly(name: string, args: Record<string, unknown>): Promise<string> {
     if (name === "get_session") return JSON.stringify(compactSession(await this.opts.ableton.getSnapshot()));
+    if (name === "get_slot_candidates") {
+      // The song in the prompt carries only a count per slot: the arrays are 30 KB of a 56 KB song.
+      const song = this.opts.getSong?.() ?? null;
+      if (!song) return "no song is active";
+      const id = String(args.slot_id ?? "");
+      const slot = song.plan.slots.find((s) => s.id === id);
+      if (!slot) return `no slot ${JSON.stringify(id)}; this song's slots are ${song.plan.slots.map((s) => s.id).join(", ")}`;
+      return JSON.stringify(
+        slot.candidates.slice(0, 10).map((c) => ({
+          uuid: c.uuid,
+          fileName: c.fileName,
+          pack: c.pack,
+          bpm: c.bpm,
+          key: c.key,
+          bars: c.bars,
+          durationSec: c.durationSec,
+          score: c.score,
+          picked: c.uuid === slot.pickedUuid,
+        })),
+      );
+    }
     if (name === "splice_search") {
       const sounds = await this.opts.splice.searchSounds(String(args.query ?? ""), {
         bpmMin: numOrUndefined(args.bpm_min),

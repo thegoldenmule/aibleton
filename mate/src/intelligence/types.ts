@@ -6,6 +6,7 @@ import type { StateStore } from "../core/state.ts";
 import type { Logger } from "../log.ts";
 import type { AbletonPort } from "../ports/ableton/types.ts";
 import type { SplicePort } from "../ports/splice/types.ts";
+import type { SongService } from "../songwriting/service.ts";
 import type { Brain } from "./brain/types.ts";
 
 export interface IntelligenceDeps {
@@ -15,6 +16,11 @@ export interface IntelligenceDeps {
   brain: Brain;
   ableton: AbletonPort;
   splice: SplicePort;
+  /**
+   * The single implementation of every song operation, shared with the REST routes. Optional:
+   * without it the loop runs exactly as before, minus the song actions.
+   */
+  songs?: SongService;
   log: Logger;
   options?: {
     /** How often the loop enqueues a tick. */

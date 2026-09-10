@@ -12,7 +12,19 @@ export type Action =
   | { type: "startPlayback" }
   | { type: "stopPlayback" }
   | { type: "loadDrumKit"; track: number; rackUri: string; kitPath: string }
-  | { type: "splicePromptToStack"; prompt: string; bpm: number };
+  | { type: "splicePromptToStack"; prompt: string; bpm: number }
+  /**
+   * The song plan, applied through `SongService`. None of these carries a song id: the loop always
+   * means the active song, and which one that is is read when the action is applied, not when the
+   * brain decided on it — that is what lets a compose and an edit of it queue in the same turn.
+   */
+  | { type: "composeSong"; text: string; name?: string }
+  | { type: "clearActiveSong" }
+  | { type: "resolveSong" }
+  | { type: "pickSlot"; slotId: string; soundUuid: string }
+  | { type: "setPlacement"; partId: string; occurrence: number; plays: boolean }
+  | { type: "removeTrack"; partId: string }
+  | { type: "arrangeSong" };
 
 export type ActionType = Action["type"];
 

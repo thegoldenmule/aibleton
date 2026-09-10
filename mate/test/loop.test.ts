@@ -8,7 +8,8 @@ import { ScriptedBrain } from "../src/intelligence/brain/scripted.ts";
 import type { Decision } from "../src/intelligence/brain/types.ts";
 import { AgentLoop } from "../src/intelligence/loop.ts";
 import { FakeAbleton, FakeSplice } from "./helpers/fakes.ts";
-import { fixtureSong } from "./helpers/song.ts";
+import { denseBriefer, fixtureSong } from "./helpers/song.ts";
+import { seedLibrary, songServiceHarness } from "./helpers/song-service.ts";
 
 function harness(script: Decision[] | ScriptedBrain = [], tickMs = 0) {
   const clock = new ManualClock(1_000);
@@ -203,6 +204,93 @@ describe("AgentLoop song digest", () => {
     await h.loop.stop();
     h.store.setSong(await fixtureSong());
     expect(h.mailbox.size()).toBe(0);
+  });
+});
+
+describe("AgentLoop song actions", () => {
+  /** A loop and a `SongService` over the same store and clock, the way `index.ts` wires them. */
+  async function songHarness(script: Decision[]) {
+    const sh = songServiceHarness({ briefer: denseBriefer() });
+    await seedLibrary(sh);
+    const brain = new ScriptedBrain(script);
+    const loop = new AgentLoop({
+      clock: sh.clock,
+      mailbox: new Mailbox(),
+      store: sh.store,
+      brain,
+      ableton: new FakeAbleton(),
+      splice: new FakeSplice(),
+      songs: sh.service,
+      log: silentLogger,
+      options: { tickMs: 0 },
+    });
+    loop.start();
+    return { ...sh, brain, loop };
+  }
+
+  test("compose and an edit of it in one turn, and the digest that follows carries the edit", async () => {
+    const h = await songHarness([
+      {
+        message: "Writing you something dusty.",
+        actions: [
+          { type: "composeSong", text: "something dusty and funky" },
+          // Applied after the compose, against the song it just made: `requireActive()` is read
+          // when the action runs, not when the brain decided on it.
+          { type: "setPlacement", partId: "bass-p", occurrence: 1, plays: false },
+        ],
+      },
+      { message: "Sparser now.", actions: [] },
+    ]);
+
+    h.loop.submit({ type: "userRequest", text: "something dusty and funky, bass out of the second bit" }, "api");
+    await h.loop.settle();
+
+    const song = h.store.getSong();
+    expect(song).not.toBeNull();
+    expect(h.loop.phase()).toBe("idle");
+    const applied = h.events.ofType("action.applied");
+    expect(applied.map((e) => e.ok)).toEqual([true, true]);
+    expect(applied[0]?.detail).toMatch(/^“.+”: 3 parts, \d+\/\d+ slots with sounds$/);
+    expect(applied[1]?.detail).toBe("bass-p rests in occurrence 1");
+
+    // The compose queued no resolve of its own: the service already searched Splice.
+    expect(song!.plan.slots.some((s) => s.candidates.length > 0)).toBe(true);
+
+    // Second turn: the brain is told about the song, with the rest already in it.
+    h.loop.submit({ type: "userRequest", text: "how does that look" }, "api");
+    await h.loop.settle();
+    const digest = h.brain.calls[1]?.song;
+    expect(h.brain.calls[0]?.song).toBeUndefined();
+    expect(digest?.id).toBe(song!.id);
+    expect(digest?.tracks.find((t) => t.partId === "bass-p")?.plays).toBe("0, 2-3");
+  });
+
+  test("clearing the active song takes the plan away from the brain and puts compose back on the table", async () => {
+    const h = await songHarness([
+      { message: "Here you go.", actions: [{ type: "composeSong", text: "funky" }] },
+      { message: "Gone.", actions: [{ type: "clearActiveSong" }] },
+      { message: "What next?", actions: [] },
+    ]);
+    h.loop.submit({ type: "userRequest", text: "write me something" }, "api");
+    await h.loop.settle();
+    const name = h.store.getSong()?.name;
+
+    h.loop.submit({ type: "userRequest", text: "scrap it" }, "api");
+    await h.loop.settle();
+    expect(h.store.getSong()).toBeNull();
+    expect(h.events.ofType("action.applied").at(-1)?.detail).toBe(`put “${name}” away`);
+
+    h.loop.submit({ type: "userRequest", text: "still there?" }, "api");
+    await h.loop.settle();
+    expect(h.brain.calls[2]?.song).toBeUndefined();
+  });
+
+  test("a song action with no library fails the set instead of silently doing nothing", async () => {
+    const h = harness([{ message: "ok", actions: [{ type: "resolveSong" }] }]);
+    h.loop.submit({ type: "userRequest", text: "find sounds" }, "api");
+    await h.loop.settle();
+    expect(h.loop.phase()).toBe("error");
+    expect(h.events.ofType("action.applied").at(-1)).toMatchObject({ ok: false, detail: expect.stringContaining("no song library") });
   });
 });
 

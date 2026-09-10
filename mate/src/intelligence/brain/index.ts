@@ -1,4 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
+import type { Song } from "@aibleton/protocol";
 import type { BrainMode } from "../../config.ts";
 import type { Logger } from "../../log.ts";
 import type { AbletonPort } from "../../ports/ableton/types.ts";
@@ -16,6 +17,8 @@ export interface CreateBrainOptions {
   log: Logger;
   ableton: AbletonPort;
   splice: SplicePort;
+  /** The active song, read fresh per call. Without it the brain is offered no song tools. */
+  getSong?: () => Song | null;
 }
 
 export interface BrainResult {
@@ -40,7 +43,17 @@ export async function createBrain(mode: BrainMode, opts: CreateBrainOptions): Pr
 
   const { client } = opts;
   if (client) {
-    return { brain: new AnthropicBrain({ client, model: opts.model, log: opts.log, ableton: opts.ableton, splice: opts.splice }), live: true };
+    return {
+      brain: new AnthropicBrain({
+        client,
+        model: opts.model,
+        log: opts.log,
+        ableton: opts.ableton,
+        splice: opts.splice,
+        ...(opts.getSong ? { getSong: opts.getSong } : {}),
+      }),
+      live: true,
+    };
   }
   const reason = opts.clientError ?? "no Anthropic client";
   if (mode === "anthropic") throw new Error(`MATE_BRAIN=anthropic but the client could not be created: ${reason}`);

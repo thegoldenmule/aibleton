@@ -6,6 +6,7 @@ import type { StateStore } from "../core/state.ts";
 import type { Logger } from "../log.ts";
 import type { AbletonPort } from "../ports/ableton/types.ts";
 import type { SplicePort } from "../ports/splice/types.ts";
+import type { SongService } from "../songwriting/service.ts";
 import type { Action, ActionResult, Brain } from "./brain/types.ts";
 import type { Effect } from "./machine.ts";
 
@@ -17,6 +18,11 @@ export interface EffectRunnerDeps {
   store: StateStore;
   clock: Clock;
   log: Logger;
+  /**
+   * The one implementation of every song operation, shared with the REST routes. Optional: a loop
+   * built without it simply cannot run song actions, which is what most tests want.
+   */
+  songs?: SongService;
 }
 
 /** The only impure part of the intelligence module. Executes effects and feeds completions back as commands. */
@@ -194,12 +200,60 @@ export class EffectRunner {
         const stack = await splice.promptToStack(action.prompt, action.bpm);
         return `stack ${stack.name} (${stack.layers.length} layers)`;
       }
+      // The song plan. Each of these goes through the service the drummer's buttons call, and each
+      // reads the active song when it runs, so a compose and an edit of it can queue in one turn.
+      case "composeSong": {
+        const out = await this.songs().compose({ text: action.text, ...(action.name ? { name: action.name } : {}), signal });
+        const { plan } = out.song;
+        const found = plan.slots.filter((s) => s.candidates.length > 0).length;
+        return `“${out.song.name}”: ${plan.tracks.length} parts, ${found}/${plan.slots.length} slots with sounds${out.resolveError ? `; the Splice search failed (${out.resolveError})` : ""}`;
+      }
+      case "clearActiveSong": {
+        const was = this.songs().clearActive();
+        return was ? `put “${was.name}” away` : "no song was active";
+      }
+      case "resolveSong": {
+        const songs = this.songs();
+        const out = await songs.resolve(songs.requireActive(), signal);
+        const found = out.song.plan.slots.filter((s) => s.candidates.length > 0).length;
+        return `${found}/${out.song.plan.slots.length} slots have sounds${out.failedSlotIds.length ? `, ${out.failedSlotIds.length} found nothing` : ""}`;
+      }
+      case "pickSlot": {
+        const songs = this.songs();
+        const song = await songs.pick(songs.requireActive(), action.slotId, action.soundUuid);
+        const slot = song.plan.slots.find((s) => s.id === action.slotId);
+        const name = slot?.candidates.find((c) => c.uuid === action.soundUuid)?.fileName ?? action.soundUuid;
+        return `${action.slotId}: ${name}`;
+      }
+      case "setPlacement": {
+        const songs = this.songs();
+        await songs.setPlacement(songs.requireActive(), action.partId, action.occurrence, action.plays);
+        return `${action.partId} ${action.plays ? "plays" : "rests"} in occurrence ${action.occurrence}`;
+      }
+      case "removeTrack": {
+        const songs = this.songs();
+        const song = await songs.removeTrack(songs.requireActive(), action.partId);
+        return `dropped ${action.partId}, ${song.plan.tracks.length} parts left`;
+      }
+      case "arrangeSong": {
+        const songs = this.songs();
+        const out = await songs.arrange(songs.requireActive(), signal);
+        // `arrange` already says the sentence to the drummer; this is the trail line, not a repeat.
+        return `${out.applied.length} applied${out.failed.length ? `, ${out.failed.length} failed` : ""}`;
+      }
       default: {
         // `Promise<string | undefined>` would otherwise let a missing case resolve to a silent success.
         const never: never = action;
         throw new Error(`applyOne: unhandled action ${JSON.stringify(never)}`);
       }
     }
+  }
+
+  /** The song library, or a failure that names the reason. Wired in `index.ts`; absent in most tests. */
+  private songs(): SongService {
+    const { songs } = this.deps;
+    if (!songs) throw new Error("no song library is wired up, so song actions cannot run");
+    return songs;
   }
 
   private post(body: CommandBody): void {

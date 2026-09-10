@@ -302,6 +302,17 @@ export function actionTrack(action: Action): number | undefined {
     case "stopPlayback":
     case "splicePromptToStack":
       return undefined;
+    case "composeSong":
+    case "clearActiveSong":
+    case "resolveSong":
+    case "pickSlot":
+    case "setPlacement":
+    case "removeTrack":
+    case "arrangeSong":
+      // Song actions name no Live track on purpose: they change mate's plan, and the one that does
+      // reach Live (arrange) only ever touches tracks mate made itself, by construction in
+      // `dawStatus`. Their guard is the service, not the ownership filter below.
+      return undefined;
     default: {
       const never: never = action;
       throw new Error(`actionTrack: unhandled action ${JSON.stringify(never)}`);
