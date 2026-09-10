@@ -145,11 +145,15 @@ describe("machine", () => {
       cmd({ type: "brainDecided", requestId: d.state.requestId, decision: { message: "set", actions: [{ type: "setTempo", bpm: 100 }] } }, "loop"),
       opts,
     ).state;
-    const done = step(acting, cmd({ type: "actionsDone", results: [{ action: { type: "setTempo", bpm: 100 }, ok: true }] }, "loop"), opts);
+    if (acting.kind !== "acting") throw new Error("expected acting");
+    const results = [{ action: { type: "setTempo" as const, bpm: 100 }, ok: true }];
+    const done = step(acting, cmd({ type: "actionsDone", requestId: acting.requestId, results }, "loop"), opts);
     expect(done.state.kind).toBe("idle");
     const enq = done.effects.find((e) => e.type === "enqueue");
     expect(enq && enq.type === "enqueue" && enq.cmd.type).toBe("abletonChanged");
     expect(done.state.ctx.history.at(-1)?.results?.length).toBe(1);
+    // A result set from an abandoned turn never touches the history of the current one.
+    expect(step(acting, cmd({ type: "actionsDone", requestId: "stale", results }, "loop"), opts).state).toBe(acting);
   });
 
   test("loop-sourced abletonChanged refreshes the snapshot without calling the brain", () => {
@@ -167,6 +171,65 @@ describe("machine", () => {
     const r = step(initialState(), cmd({ type: "goalSet", text: "16ths at 90" }), opts);
     expect(r.state.kind).toBe("observing");
     expect(r.state.ctx.goal).toBe("16ths at 90");
+  });
+});
+
+describe("cancelling an action set", () => {
+  function toActing() {
+    const d = toDeciding();
+    if (d.state.kind !== "deciding") throw new Error("expected deciding");
+    const decision = { message: "set", actions: [{ type: "setTempo" as const, bpm: 100 }] };
+    const r = step(d.state, cmd({ type: "brainDecided", requestId: d.state.requestId, decision }, "loop"), opts);
+    if (r.state.kind !== "acting") throw new Error("expected acting");
+    return r.state;
+  }
+
+  test("cancel and pause both stop the set in flight", () => {
+    const acting = toActing();
+    const cancelled = step(acting, cmd({ type: "cancel" }), opts);
+    expect(cancelled.state.kind).toBe("idle");
+    expect(cancelled.effects).toContainEqual({ type: "abortActions", requestId: acting.requestId });
+
+    const paused = step(acting, cmd({ type: "pause" }), opts);
+    expect(paused.state.kind).toBe("paused");
+    expect(paused.effects).toEqual([{ type: "abortActions", requestId: acting.requestId }]);
+  });
+
+  test("a failed set records what did land", () => {
+    const acting = toActing();
+    const results = [{ action: { type: "setTempo" as const, bpm: 100 }, ok: true }];
+    const failed = step(acting, cmd({ type: "actionFailed", requestId: acting.requestId, index: 1, error: "boom", results }, "loop"), opts);
+    expect(failed.state.kind).toBe("error");
+    expect(failed.state.ctx.history.at(-1)?.results).toEqual(results);
+    // A failure from an abandoned turn is not this turn's failure.
+    expect(step(acting, cmd({ type: "actionFailed", requestId: "stale", index: 0, error: "boom", results: [] }, "loop"), opts).state).toBe(acting);
+  });
+
+  test("an aborted set that lands after the machine reached idle still files its results", () => {
+    const acting = toActing();
+    const idle = step(acting, cmd({ type: "cancel" }), opts).state;
+    expect(idle.kind).toBe("idle");
+    const results = [{ action: { type: "setTempo" as const, bpm: 100 }, ok: true }];
+    const late = step(idle, cmd({ type: "actionsDone", requestId: acting.requestId, results, aborted: true }, "loop"), opts);
+    expect(late.state.kind).toBe("idle");
+    expect(late.effects).toEqual([]);
+    expect(late.state.ctx.history.at(-1)?.results).toEqual(results);
+  });
+
+  test("an aborted set does not fire the decision's followUp", () => {
+    const d = toDeciding();
+    if (d.state.kind !== "deciding") throw new Error("expected deciding");
+    const decision = {
+      message: "set",
+      actions: [{ type: "setTempo" as const, bpm: 100 }],
+      followUp: { cmd: { type: "userRequest" as const, text: "how was that?" }, delayMs: 500 },
+    };
+    const acting = step(d.state, cmd({ type: "brainDecided", requestId: d.state.requestId, decision }, "loop"), opts).state;
+    if (acting.kind !== "acting") throw new Error("expected acting");
+    const finished = step(acting, cmd({ type: "actionsDone", requestId: acting.requestId, results: [] }, "loop"), opts);
+    expect(types(finished.effects)).toEqual(["enqueue", "scheduleCommand"]);
+    const stopped = step(acting, cmd({ type: "actionsDone", requestId: acting.requestId, results: [], aborted: true }, "loop"), opts);
+    expect(types(stopped.effects)).toEqual(["enqueue"]);
   });
 });
 
@@ -200,11 +263,11 @@ describe("deferred requests", () => {
   });
 
   test("exactly one request is released per edge back to idle, oldest first", () => {
-    let state: MachineState = toActing();
-    state = step(state, late("a"), opts).state;
+    const acting = toActing();
+    let state: MachineState = step(acting, late("a"), opts).state;
     state = step(state, late("b"), opts).state;
 
-    const done = step(state, cmd({ type: "actionsDone", results: [] }, "loop"), opts);
+    const done = step(state, cmd({ type: "actionsDone", requestId: acting.requestId, results: [] }, "loop"), opts);
     expect(done.state.kind).toBe("idle");
     const released = done.effects.filter((e) => e.type === "enqueue").map((e) => (e.type === "enqueue" ? e.cmd : null));
     // Two: the loop's own snapshot refresh, then one request. Never two requests — stepObserving
@@ -227,7 +290,7 @@ describe("deferred requests", () => {
   test("cancel stops what is in flight and releases one waiting request, from every phase", () => {
     const fromActing = step(step(toActing(), late("a"), opts).state, cmd({ type: "cancel" }), opts);
     expect(fromActing.state.kind).toBe("idle");
-    expect(types(fromActing.effects)).toEqual(["emitEvent", "enqueue"]);
+    expect(types(fromActing.effects)).toEqual(["abortActions", "emitEvent", "enqueue"]);
 
     const deciding = step(toDeciding().state, late("a"), opts).state;
     const fromDeciding = step(deciding, cmd({ type: "cancel" }), opts);
@@ -240,8 +303,9 @@ describe("deferred requests", () => {
   });
 
   test("a failed action set keeps the queue; resume releases one", () => {
-    const acting = step(toActing(), late("later"), opts).state;
-    const failed = step(acting, cmd({ type: "actionFailed", index: 0, error: "boom" }, "loop"), opts);
+    const acting = toActing();
+    const parked = step(acting, late("later"), opts).state;
+    const failed = step(parked, cmd({ type: "actionFailed", requestId: acting.requestId, index: 0, error: "boom", results: [] }, "loop"), opts);
     expect(failed.state.kind).toBe("error");
     expect(deferredTexts(failed.state)).toEqual(["later"]);
     const resumed = step(failed.state, cmd({ type: "resume" }), opts);

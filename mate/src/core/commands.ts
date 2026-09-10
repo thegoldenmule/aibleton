@@ -12,8 +12,10 @@ export type InternalCommand =
   | { type: "snapshotFailed"; error: string }
   | { type: "brainDecided"; requestId: string; decision: Decision }
   | { type: "brainFailed"; requestId: string; error: string }
-  | { type: "actionsDone"; results: ActionResult[] }
-  | { type: "actionFailed"; index: number; error: string };
+  /** `aborted` when the set stopped early: cancel, pause or shutdown. */
+  | { type: "actionsDone"; requestId: string; results: ActionResult[]; aborted?: boolean }
+  /** `results` are the actions that landed before this one; Live has no delete, so they stand. */
+  | { type: "actionFailed"; requestId: string; index: number; error: string; results: ActionResult[] };
 
 export type CommandBody = ExternalCommand | InternalCommand;
 export type CommandType = CommandBody["type"];
@@ -57,7 +59,7 @@ export function summarize(cmd: Command): CommandSummary {
       summary = cmd.error;
       break;
     case "actionsDone":
-      summary = `${cmd.results.length} result(s)`;
+      summary = cmd.aborted ? `${cmd.results.length} result(s), stopped early` : `${cmd.results.length} result(s)`;
       break;
     default:
       summary = "";

@@ -22,7 +22,13 @@ export interface EffectRunnerDeps {
 /** The only impure part of the intelligence module. Executes effects and feeds completions back as commands. */
 export class EffectRunner {
   private inflight = new Set<Promise<void>>();
-  private controllers = new Map<string, AbortController>();
+  /**
+   * Brain calls and action sets share a requestId but need separate maps. `post("brainDecided")`
+   * drains the mailbox synchronously inside the `.then`, so `applyActions` registers its controller
+   * *before* `callBrain`'s `.finally(delete)` runs — one map and that delete silently disarms cancel.
+   */
+  private brainControllers = new Map<string, AbortController>();
+  private actionControllers = new Map<string, AbortController>();
   private timers = new Set<number>();
 
   constructor(private readonly deps: EffectRunnerDeps) {}
@@ -41,8 +47,9 @@ export class EffectRunner {
   }
 
   abortAll(): void {
-    for (const c of this.controllers.values()) c.abort();
-    this.controllers.clear();
+    for (const c of [...this.brainControllers.values(), ...this.actionControllers.values()]) c.abort();
+    this.brainControllers.clear();
+    this.actionControllers.clear();
     for (const t of this.timers) this.deps.clock.clearTimeout(t);
     this.timers.clear();
   }
@@ -63,7 +70,7 @@ export class EffectRunner {
         return;
       case "callBrain": {
         const controller = new AbortController();
-        this.controllers.set(effect.requestId, controller);
+        this.brainControllers.set(effect.requestId, controller);
         this.track(
           deps.brain
             .decide(effect.input, controller.signal)
@@ -77,16 +84,20 @@ export class EffectRunner {
                 this.post({ type: "brainFailed", requestId: effect.requestId, error: message(err) });
               },
             )
-            .finally(() => this.controllers.delete(effect.requestId)),
+            .finally(() => this.brainControllers.delete(effect.requestId)),
         );
         return;
       }
       case "abortBrain":
-        this.controllers.get(effect.requestId)?.abort();
-        this.controllers.delete(effect.requestId);
+        this.brainControllers.get(effect.requestId)?.abort();
+        this.brainControllers.delete(effect.requestId);
+        return;
+      case "abortActions":
+        this.actionControllers.get(effect.requestId)?.abort();
+        this.actionControllers.delete(effect.requestId);
         return;
       case "applyActions":
-        this.track(this.applyActions(effect.actions, effect.userPrompt));
+        this.track(this.applyActions(effect.requestId, effect.actions, effect.userPrompt));
         return;
       case "emitEvent":
         if (effect.event.type === "message") deps.store.setLastMessage(effect.event.text, deps.clock.now(), effect.event.requestId);
@@ -111,26 +122,43 @@ export class EffectRunner {
     }
   }
 
-  private async applyActions(actions: Action[], userPrompt?: string): Promise<void> {
+  private async applyActions(requestId: string, actions: Action[], userPrompt?: string): Promise<void> {
+    const controller = new AbortController();
+    this.actionControllers.set(requestId, controller);
     const results: ActionResult[] = [];
-    for (let i = 0; i < actions.length; i++) {
-      const action = actions[i]!;
-      try {
-        const detail = await this.applyOne(action, userPrompt);
-        results.push({ action, ok: true, detail });
-        this.deps.store.events.emit({ type: "action.applied", action: action.type, ok: true, detail });
-      } catch (err) {
-        const detail = message(err);
-        this.deps.log.warn(`action ${action.type} failed`, detail);
-        this.deps.store.events.emit({ type: "action.applied", action: action.type, ok: false, detail });
-        this.post({ type: "actionFailed", index: i, error: detail });
-        return;
+    try {
+      for (let i = 0; i < actions.length; i++) {
+        // Checked between actions, never mid-action: an Ableton call already sent has landed.
+        if (controller.signal.aborted) {
+          this.post({ type: "actionsDone", requestId, results, aborted: true });
+          return;
+        }
+        const action = actions[i]!;
+        try {
+          const detail = await this.applyOne(action, controller.signal, userPrompt);
+          results.push({ action, ok: true, detail });
+          this.deps.store.events.emit({ type: "action.applied", action: action.type, ok: true, detail });
+        } catch (err) {
+          const detail = message(err);
+          this.deps.log.warn(`action ${action.type} failed`, detail);
+          this.deps.store.events.emit({ type: "action.applied", action: action.type, ok: false, detail });
+          // The successful results go with it: they are already in the set and cannot be undone.
+          this.post({ type: "actionFailed", requestId, index: i, error: detail, results });
+          return;
+        }
       }
+      this.post({ type: "actionsDone", requestId, results });
+    } finally {
+      this.actionControllers.delete(requestId);
     }
-    this.post({ type: "actionsDone", results });
   }
 
-  private async applyOne(action: Action, userPrompt?: string): Promise<string | undefined> {
+  /**
+   * One action against the ports. `signal` is the set's: no port call takes one yet, so the check
+   * that stops a cancelled set is the one between actions, but a case that makes several calls or
+   * runs long should re-check it here.
+   */
+  private async applyOne(action: Action, signal: AbortSignal, userPrompt?: string): Promise<string | undefined> {
     const { ableton, splice } = this.deps;
     const ctx = userPrompt ? { userPrompt } : undefined;
     switch (action.type) {

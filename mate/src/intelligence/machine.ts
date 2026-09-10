@@ -1,7 +1,7 @@
 import { ownedTrackIndexes } from "@aibleton/protocol";
 import type { MateEvent, Phase, SessionState } from "@aibleton/protocol";
 import type { Command, CommandBody, CommandType } from "../core/commands.ts";
-import type { Action, BrainInput, Decision, HistoryEntry } from "./brain/types.ts";
+import type { Action, ActionResult, BrainInput, Decision, HistoryEntry } from "./brain/types.ts";
 
 /** Everything the machine remembers across phases. */
 export interface MachineContext {
@@ -31,7 +31,8 @@ export type Effect =
   | { type: "emitEvent"; event: MateEvent }
   | { type: "enqueue"; cmd: Command }
   | { type: "scheduleCommand"; cmd: CommandBody; delayMs: number }
-  | { type: "abortBrain"; requestId: string };
+  | { type: "abortBrain"; requestId: string }
+  | { type: "abortActions"; requestId: string };
 
 export interface StepOptions {
   maxBrainRetries: number;
@@ -129,6 +130,10 @@ export function step(state: MachineState, cmd: Command, opts: StepOptions = DEFA
       if (state.kind === "deciding") {
         effects.push({ type: "abortBrain", requestId: state.requestId });
         abortedRequestId = state.requestId;
+      } else if (state.kind === "acting") {
+        // Otherwise the machine parks in paused while the actions go on mutating Live.
+        effects.push({ type: "abortActions", requestId: state.requestId });
+        abortedRequestId = state.requestId;
       }
       return { state: { kind: "paused", ctx: state.ctx, abortedRequestId }, effects };
     }
@@ -147,7 +152,10 @@ export function step(state: MachineState, cmd: Command, opts: StepOptions = DEFA
         ]);
       }
       if (state.kind === "acting") {
-        return settleIdle({ ...state.ctx, retryCount: 0 }, [{ type: "emitEvent", event: { type: "cancelled", requestId: state.requestId } }]);
+        return settleIdle({ ...state.ctx, retryCount: 0 }, [
+          { type: "abortActions", requestId: state.requestId },
+          { type: "emitEvent", event: { type: "cancelled", requestId: state.requestId } },
+        ]);
       }
       if (state.kind === "observing") {
         return settleIdle(state.ctx, [{ type: "emitEvent", event: { type: "cancelled" } }]);
@@ -200,9 +208,27 @@ function stepIdle(state: Extract<MachineState, { kind: "idle" }>, cmd: Command):
       return { state, effects: [] };
     case "snapshotReady":
       return { state: { ...state, ctx: { ...state.ctx, snapshot: cmd.snapshot } }, effects: [] };
+    case "actionsDone":
+      // A cancelled or paused set finishes after the machine has moved on. Nothing changes phase;
+      // the results are filed so the record of what reached Live stays honest.
+      return { state: { ...state, ctx: { ...state.ctx, history: withResults(state.ctx.history, cmd.results) } }, effects: [] };
     default:
       return { state, effects: [] };
   }
+}
+
+/**
+ * File an action set's results onto the history entry its decision created. In `acting` the
+ * decision identifies the entry; a set that lands late attaches to the last entry still missing
+ * results, which is the one it belonged to.
+ */
+function withResults(history: HistoryEntry[], results: ActionResult[], decision?: Decision): HistoryEntry[] {
+  const next = history.slice();
+  const last = next[next.length - 1];
+  if (!last) return next;
+  if (decision ? last.decision !== decision : last.results !== undefined) return next;
+  next[next.length - 1] = { ...last, results };
+  return next;
 }
 
 function stepObserving(state: Extract<MachineState, { kind: "observing" }>, cmd: Command, opts: StepOptions): StepResult {
@@ -332,22 +358,24 @@ function stepDeciding(state: Extract<MachineState, { kind: "deciding" }>, cmd: C
 function stepActing(state: Extract<MachineState, { kind: "acting" }>, cmd: Command, opts: StepOptions): StepResult {
   switch (cmd.type) {
     case "actionsDone": {
-      const history = state.ctx.history.slice();
-      const last = history[history.length - 1];
-      if (last && last.decision === state.decision) history[history.length - 1] = { ...last, results: cmd.results };
-      const ctx = { ...state.ctx, history, retryCount: 0 };
+      if (cmd.requestId !== state.requestId) return { state, effects: [] };
+      const ctx = { ...state.ctx, history: withResults(state.ctx.history, cmd.results, state.decision), retryCount: 0 };
+      // An aborted set still refreshes: some of it landed, and Live has no delete.
       return settleIdle(ctx, [
         { type: "enqueue", cmd: { id: `${state.requestId}_refresh`, at: cmd.at, source: "loop", type: "abletonChanged", hint: "clips" } },
-        ...followUpEffects(state.decision),
+        ...(cmd.aborted ? [] : followUpEffects(state.decision)),
       ]);
     }
-    case "actionFailed":
-      // No auto-retry: actions may have been partially applied. The waiting requests ride along
-      // in ctx and are released by the resume that follows.
+    case "actionFailed": {
+      if (cmd.requestId !== state.requestId) return { state, effects: [] };
+      // No auto-retry: actions may have been partially applied. What landed is recorded so the
+      // brain can see it, and the waiting requests ride along in ctx until the resume.
+      const ctx = { ...state.ctx, history: withResults(state.ctx.history, cmd.results, state.decision) };
       return {
-        state: { kind: "error", ctx: state.ctx, error: `action ${cmd.index} failed: ${cmd.error}`, pending: state.pending },
+        state: { kind: "error", ctx, error: `action ${cmd.index} failed: ${cmd.error}`, pending: state.pending },
         effects: [],
       };
+    }
     case "userRequest": {
       const parked = defer(state.ctx, cmd, opts);
       return { state: { ...state, ctx: parked.ctx }, effects: parked.effects };

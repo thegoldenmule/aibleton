@@ -22,9 +22,12 @@ export class FakeAbleton implements AbletonPort {
   session: SessionState = makeSession();
   failSnapshot: Error | null = null;
   failNext: Error | null = null;
+  /** Methods that always throw. `failNext` can only fail the very next call, whichever it is. */
+  readonly failOn = new Set<string>();
 
   private rec(method: string, args: unknown[], ctx?: CallContext) {
     this.calls.push(ctx ? { method, args, ctx } : { method, args });
+    if (this.failOn.has(method)) throw new Error(`${method} failed`);
     if (this.failNext) {
       const e = this.failNext;
       this.failNext = null;
