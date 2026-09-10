@@ -124,11 +124,14 @@ describe("POST /songs/compose", () => {
     expect(h.store.getSong()).toEqual(song);
     expect(h.events.ofType("song.changed").map((e) => e.song?.id)).toEqual([song.id]);
     expect(h.events.ofType("message").map((e) => e.text)).toEqual([song.brief.summary]);
-    expect(h.store.getTranscript().map((t) => [t.role, t.kind, t.text])).toEqual([
-      ["user", "compose", "something funky and upbeat"],
-      ["mate", "reply", song.brief.summary],
-    ]);
-    expect(h.events.ofType("transcript.appended")).toHaveLength(2);
+    // The request, then the trail of steps, then the brief's summary as the reply.
+    const conversation = h.store.getTranscript().map((t) => [t.role, t.kind, t.text] as const);
+    expect(conversation.at(0)).toEqual(["user", "compose", "something funky and upbeat"]);
+    expect(conversation.at(-1)).toEqual(["mate", "reply", song.brief.summary]);
+    const steps = conversation.slice(1, -1);
+    expect(steps.every(([role, kind]) => role === "mate" && kind === "step")).toBe(true);
+    expect(steps.map(([, , text]) => text)).toEqual(h.events.ofType("compose.progress").filter((e) => e.progress.stage !== "done").map((e) => e.progress.message));
+    expect(h.events.ofType("transcript.appended")).toHaveLength(conversation.length);
     expect(h.briefer.calls[0]!.text).toBe("something funky and upbeat");
 
     const state = StateResponseSchema.parse(await (await h.app.request("/state")).json());
@@ -487,18 +490,26 @@ describe("compose.progress", () => {
     const res = await post(h.app, "/songs/compose", { text: "funk" });
     expect(res.status).toBe(200);
     const steps = h.events.ofType("compose.progress").map((e) => e.progress);
-    expect(steps.map((p) => p.stage)).toEqual(["picking", "briefing", "briefing", "layout", "done"]);
+    expect(steps.map((p) => p.stage)).toEqual(["picking", "picking", "briefing", "briefing", "briefing", "briefing", "feedback", "layout", "layout", "done"]);
     expect(steps.every((p) => p.request === "funk" && p.message.length > 0)).toBe(true);
     expect(steps.map((p) => p.fraction)).toEqual([...steps.map((p) => p.fraction)].sort((a, b) => a - b));
     expect(steps[0]!.message).toContain("Tuesday jam");
-    expect(steps.at(-2)!.message).toMatch(/3 tracks and \d+ sample slots/);
+    // The musical decisions the drummer cares about are spelled out, not just "briefing".
+    expect(steps[1]!.message).toMatch(/3 parts: /);
+    expect(steps.map((p) => p.message).join("\n")).toMatch(/key [A-G][#b]? \w+ · \d+ bpm \(\d+–\d+\) · 4\/4/);
+    expect(steps[6]!.message).toMatch(/^(edited the form and the band|kept the form and the line-up)/);
+    expect(steps.at(-3)!.message).toMatch(/3 tracks and \d+ sample slots/);
   });
 
   test("covers the new-genre detour and reports a failure", async () => {
     const h = await build({ briefer: new ScriptedBriefer((input) => ({ ...defaultBrief(input), genres: ["gospel", "soul"] })) });
     await post(h.app, "/songs/compose", { text: "gospel please" });
     const stages = h.events.ofType("compose.progress").map((e) => e.progress.stage);
-    expect(stages).toEqual(["picking", "briefing", "briefing", "recipe", "bands", "bands", "bands", "rebriefing", "rebriefing", "layout", "done"]);
+    // prettier-ignore
+    expect(stages).toEqual([
+      "picking", "picking", "briefing", "briefing", "briefing", "briefing", "recipe", "bands", "bands", "bands",
+      "rebriefing", "rebriefing", "rebriefing", "rebriefing", "feedback", "layout", "layout", "done",
+    ]);
 
     h.briefer.rejectNext(new Error("model down"));
     expect((await post(h.app, "/songs/compose", { text: "again" })).status).toBe(502);

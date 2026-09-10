@@ -17,8 +17,8 @@ interface Props {
   clearSong: () => Promise<void>;
 }
 
-/** Full class strings only — Tailwind cannot see interpolated names. */
-const KIND_CLASS: Record<TranscriptEntry["kind"], string> = {
+/** Full class strings only — Tailwind cannot see interpolated names. Steps are not bubbles; see StepLine. */
+const KIND_CLASS: Record<Exclude<TranscriptEntry["kind"], "step">, string> = {
   compose: "border-accent/50 bg-accent/10",
   request: "border-accent-2/50 bg-accent-2/10",
   reply: "border-line bg-panel-2",
@@ -103,20 +103,24 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
             {song ? "Tell your bandmate what to change." : "Say what you want to play and mate will lay out a song."}
           </p>
         ) : null}
-        {transcript.map((entry) => (
-          <div
-            key={entry.id}
-            className={`flex max-w-[92%] flex-col gap-0.5 rounded-sm border px-2 py-1.5 ${KIND_CLASS[entry.kind]} ${
-              entry.role === "user" ? "self-end" : "self-start"
-            }`}
-          >
-            <span className="flex items-baseline justify-between gap-3 text-[10px] text-muted">
-              <span className="font-mono">{entry.role === "user" ? (entry.kind === "compose" ? "you · compose" : "you") : "bandmate"}</span>
-              <span className="font-mono text-muted/70">{relative(entry.at, now)}</span>
-            </span>
-            <span className="whitespace-pre-wrap text-sm leading-snug">{entry.text}</span>
-          </div>
-        ))}
+        {transcript.map((entry, i) =>
+          entry.kind === "step" ? (
+            <StepLine key={entry.id} text={entry.text} live={composing && i === transcript.length - 1} />
+          ) : (
+            <div
+              key={entry.id}
+              className={`flex max-w-[92%] flex-col gap-0.5 rounded-sm border px-2 py-1.5 ${KIND_CLASS[entry.kind]} ${
+                entry.role === "user" ? "self-end" : "self-start"
+              }`}
+            >
+              <span className="flex items-baseline justify-between gap-3 text-[10px] text-muted">
+                <span className="font-mono">{entry.role === "user" ? (entry.kind === "compose" ? "you · compose" : "you") : "bandmate"}</span>
+                <span className="font-mono text-muted/70">{relative(entry.at, now)}</span>
+              </span>
+              <span className="whitespace-pre-wrap text-sm leading-snug">{entry.text}</span>
+            </div>
+          ),
+        )}
         {working ? (
           <div className="flex items-center gap-2 self-start rounded-sm border border-dashed border-line px-2 py-1.5 text-xs text-muted" role="status">
             <span className="flex gap-0.5" aria-hidden>
@@ -179,6 +183,20 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
         </div>
       </form>
     </section>
+  );
+}
+
+/**
+ * One step of a compose: what mate picked, what the model decided, what it
+ * edited. Not a bubble — the trail sits under the request that started it,
+ * and reads as history once the song is done.
+ */
+function StepLine({ text, live }: { text: string; live: boolean }) {
+  return (
+    <div className={`flex items-baseline gap-1.5 self-start pl-1 font-mono text-[11px] leading-snug ${live ? "text-foreground" : "text-muted"}`}>
+      <span className={`h-1 w-1 shrink-0 translate-y-[-2px] rounded-full ${live ? "animate-pulse bg-accent" : "bg-line"}`} aria-hidden />
+      <span className="whitespace-pre-wrap">{text}</span>
+    </div>
   );
 }
 

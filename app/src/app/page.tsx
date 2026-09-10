@@ -127,32 +127,26 @@ export default function Home() {
 
 /**
  * The session column while a song is being composed: the lanes it will fill,
- * pulsing, under the bandmate's running account of what it is doing.
+ * pulsing, under where the compose has got to. Only the stage it is on — the
+ * conversation pane keeps the full account of what the bandmate decided.
  */
 function ComposingState({ steps }: { steps: ComposeProgress[] }) {
   const latest = steps.at(-1) ?? null;
   const fraction = latest?.fraction ?? 0.05;
+  const done = latest !== null && (latest.stage === "done" || latest.stage === "failed");
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3" role="status" aria-live="polite">
       <div className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
         <div className="h-1 overflow-hidden rounded-full bg-line">
           <div className="h-full bg-accent transition-[width] duration-500" style={{ width: `${Math.round(fraction * 100)}%` }} />
         </div>
-        <ol className="flex flex-col gap-0.5 font-mono text-[11px]">
-          {steps.length === 0 ? <li className="text-muted">sending the request to your bandmate…</li> : null}
-          {steps.map((step, i) => {
-            const current = i === steps.length - 1 && step.stage !== "done" && step.stage !== "failed";
-            return (
-              <li key={`${step.at}-${i}`} className={current ? "flex items-center gap-1.5 text-foreground" : "flex items-center gap-1.5 text-muted"}>
-                <span className={current ? "h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" : "h-1.5 w-1.5 shrink-0 rounded-full bg-line"} />
-                <span className="w-16 shrink-0 uppercase tracking-wider text-muted/70">{step.stage}</span>
-                <span className="truncate" title={step.message}>
-                  {step.message}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
+        <p className="flex items-center gap-1.5 font-mono text-[11px]">
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${done ? "bg-line" : "animate-pulse bg-accent"}`} />
+          <span className="w-16 shrink-0 uppercase tracking-wider text-muted/70">{latest?.stage ?? "sending"}</span>
+          <span className="truncate text-foreground" title={latest?.message}>
+            {latest?.message ?? "sending the request to your bandmate…"}
+          </span>
+        </p>
       </div>
       <div className="flex flex-col gap-1.5">
         {[0, 1, 2, 3].map((i) => (

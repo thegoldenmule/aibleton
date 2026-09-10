@@ -56,6 +56,7 @@ const COMPOSE_FRACTION: Record<ComposeStage, number> = {
   recipe: 0.4,
   bands: 0.55,
   rebriefing: 0.7,
+  feedback: 0.85,
   layout: 0.9,
   done: 1,
   failed: 1,
@@ -102,8 +103,14 @@ export function songRoutes(deps: SongRouteDeps): Hono {
     const [templates, bands] = await Promise.all([deps.templates.list(), deps.bands.list()]);
     // The request goes into the conversation before the slow part, so the app shows it while composing.
     deps.store.appendTranscript({ role: "user", kind: "compose", text: opts.text, at: deps.now() });
-    const narrate = (stage: ComposeStage, message: string) =>
-      deps.store.events.emit({ type: "compose.progress", progress: { request: opts.text, stage, message, fraction: COMPOSE_FRACTION[stage], at: deps.now() } });
+    // Two audiences: the session column's bar reads the stage and fraction, the
+    // conversation keeps the words. "done" is left out of the trail because the
+    // brief's summary lands there as the bandmate's reply a moment later.
+    const narrate = (stage: ComposeStage, message: string) => {
+      const at = deps.now();
+      deps.store.events.emit({ type: "compose.progress", progress: { request: opts.text, stage, message, fraction: COMPOSE_FRACTION[stage], at } });
+      if (stage !== "done") deps.store.appendTranscript({ role: "mate", kind: "step", text: message, at });
+    };
     try {
       const song = await composeSong({
         onProgress: narrate,
