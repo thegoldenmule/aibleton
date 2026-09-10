@@ -52,3 +52,9 @@ export const MateEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("queue.changed"), queued: z.array(CommandSummarySchema) }),
 ]);
 export type MateEvent = z.infer<typeof MateEventSchema>;
+
+/**
+ * Every `MateEvent` type, derived from the union so it cannot fall behind it.
+ * The app subscribes one SSE listener per name.
+ */
+export const MATE_EVENT_TYPES: readonly MateEvent["type"][] = MateEventSchema.options.map((o) => o.shape.type.value);

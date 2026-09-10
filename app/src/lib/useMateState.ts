@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  applyMateEvent,
+  MATE_EVENT_TYPES,
   MateEventSchema,
   StateResponseSchema,
   type Activity,
   type CommandSummary,
   type DownloadProgress,
   type ExternalCommand,
-  type MateEvent,
   type Song,
   type StateResponse,
 } from "@aibleton/protocol";
@@ -49,60 +50,6 @@ export interface MateView {
   setPlaying: (songId: string, partId: string, occurrence: number, plays: boolean) => Promise<void>;
   /** Builds what the song has on disk into Live. Adds only; safe to repeat. */
   buildInLive: (songId: string) => Promise<void>;
-}
-
-const EVENT_TYPES: MateEvent["type"][] = [
-  "state.changed",
-  "phase.changed",
-  "command.received",
-  "message",
-  "cancelled",
-  "action.applied",
-  "adapters",
-  "goal.changed",
-  "song.changed",
-  "transcript.appended",
-  "download.progress",
-  "activity.changed",
-  "queue.changed",
-];
-
-const RECENT_LIMIT = 50;
-
-function applyEvent(prev: StateResponse | null, event: MateEvent): StateResponse | null {
-  if (!prev) return prev;
-  switch (event.type) {
-    case "state.changed":
-      return { ...prev, daw: event.daw };
-    case "phase.changed":
-      return { ...prev, phase: event.phase, error: event.error ?? null };
-    case "command.received":
-      return {
-        ...prev,
-        recentCommands: [event.command, ...prev.recentCommands.filter((c) => c.id !== event.command.id)].slice(
-          0,
-          RECENT_LIMIT,
-        ),
-      };
-    case "message":
-      return { ...prev, lastMessage: event.text };
-    case "adapters":
-      return { ...prev, adapters: event.status };
-    case "goal.changed":
-      return { ...prev, goal: event.goal };
-    case "song.changed":
-      return { ...prev, song: event.song };
-    case "transcript.appended":
-      return prev.transcript.some((t) => t.id === event.entry.id) ? prev : { ...prev, transcript: [...prev.transcript, event.entry] };
-    case "activity.changed":
-      return { ...prev, activity: event.activity };
-    case "queue.changed":
-      return { ...prev, queued: event.queued };
-    case "cancelled":
-    case "action.applied":
-    case "download.progress":
-      return prev;
-  }
 }
 
 /**
@@ -163,7 +110,7 @@ export function useMateState(): MateView {
         const parsed = StateResponseSchema.safeParse(JSON.parse(e.data));
         if (parsed.success) setState(parsed.data);
       });
-      for (const type of EVENT_TYPES) {
+      for (const type of MATE_EVENT_TYPES) {
         source.addEventListener(type, (e: MessageEvent<string>) => {
           const parsed = MateEventSchema.safeParse(JSON.parse(e.data));
           if (!parsed.success) return;
@@ -173,7 +120,7 @@ export function useMateState(): MateView {
             // went wrong reaches the drummer as the bandmate's reply in the transcript.
             if (parsed.data.type === "action.applied" && !parsed.data.ok) setLastError(`${parsed.data.action}: ${parsed.data.detail ?? "failed"}`);
             if (parsed.data.type === "activity.changed" && parsed.data.activity === null) setDownloadProgress(null);
-            setState((prev) => applyEvent(prev, parsed.data));
+            setState((prev) => (prev ? applyMateEvent(prev, parsed.data) : prev));
           }
         });
       }
