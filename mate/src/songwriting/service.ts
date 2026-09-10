@@ -53,6 +53,13 @@ export interface ComposeOptions {
   replaceActive?: boolean;
   /** The machine request this belongs to, when the loop asked for it. Makes the activity cancellable. */
   requestId?: string;
+  /**
+   * Put the request into the conversation first. The compose route does, since
+   * nothing else speaks for a call straight to the endpoint; the loop does not,
+   * because `recordCommand` already wrote the drummer's line when the command
+   * arrived, and writing it again says the same thing twice.
+   */
+  announce?: boolean;
 }
 
 export interface ComposeOutcome {
@@ -175,7 +182,7 @@ export class SongService {
       async (update) => {
         const [templates, bands] = await Promise.all([this.deps.templates.list(), this.deps.bands.list()]);
         // The request goes into the conversation before the slow part, so the app shows it while composing.
-        this.deps.store.appendTranscript({ role: "user", kind: "compose", text: opts.text, at: this.deps.now() });
+        if (opts.announce) this.deps.store.appendTranscript({ role: "user", kind: "compose", text: opts.text, at: this.deps.now() });
         // Two audiences: the activity carries the step the session column's bar is on, the
         // conversation keeps every step. That trail is the record of how the song was made,
         // so it stays in the transcript long after the activity is gone.

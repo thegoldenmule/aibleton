@@ -6,7 +6,7 @@ import type { AbletonPort } from "../../ports/ableton/types.ts";
 import type { SplicePort } from "../../ports/splice/types.ts";
 import { AnthropicBrain } from "./anthropic.ts";
 import { ScriptedBrain } from "./scripted.ts";
-import type { Brain, Decision } from "./types.ts";
+import type { Brain, BrainInput, Decision } from "./types.ts";
 
 export interface CreateBrainOptions {
   /** Shared client, or null when no credentials resolved (see core/anthropic.ts). */
@@ -27,15 +27,27 @@ export interface BrainResult {
   fallbackReason?: string;
 }
 
-/** Demo script used when no LLM is available: greets, then answers every call without acting. */
-export function demoScript(): Decision[] {
-  return [
-    {
-      message:
-        "Hey, I'm mate. I'm running without an LLM right now, so I'll just watch the session. Set MATE_BRAIN=anthropic with credentials to let me play along.",
+/**
+ * Demo brain used when no LLM is available. It does the one thing the drummer
+ * always means when they type with nothing laid out — compose — so the all-stub
+ * stack still gets you a song end to end; everything else it just watches.
+ */
+export function demoScript(): (input: BrainInput) => Decision {
+  return (input) => {
+    if (input.trigger !== "userRequest" || !input.userText) {
+      return { message: "Running without an LLM, so I'm just watching the session. Set MATE_BRAIN=anthropic with credentials to let me play along.", actions: [] };
+    }
+    if (!input.song) {
+      return {
+        message: `Laying out “${input.userText}”. I'm running without an LLM, so the brief is the scripted one — set MATE_BRAIN=anthropic to have the model write it.`,
+        actions: [{ type: "composeSong", text: input.userText }],
+      };
+    }
+    return {
+      message: `“${input.song.name}” is up: ${input.song.counts.tracks} tracks, ${input.song.counts.downloaded}/${input.song.counts.slots} sounds downloaded. Without an LLM I can't act on that — set MATE_BRAIN=anthropic and ask again.`,
       actions: [],
-    },
-  ];
+    };
+  };
 }
 
 export async function createBrain(mode: BrainMode, opts: CreateBrainOptions): Promise<BrainResult> {

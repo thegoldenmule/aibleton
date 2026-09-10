@@ -66,6 +66,7 @@ export function songRoutes(deps: SongRouteDeps): Hono {
     const opts = parsed.data;
     try {
       const outcome = await deps.songs.compose({
+        announce: true,
         text: opts.text,
         ...(opts.seed !== undefined ? { seed: opts.seed } : {}),
         ...(opts.name !== undefined ? { name: opts.name } : {}),

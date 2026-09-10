@@ -15,6 +15,19 @@ async function ready(opts: Parameters<typeof songServiceHarness>[0] = {}) {
   return h;
 }
 
+describe("announce", () => {
+  test("only the route's compose writes the drummer's line; the loop's would say it twice", async () => {
+    const h = await ready();
+    // The loop path: recordCommand already put the request in the conversation.
+    await h.service.compose({ text: "something funky", signal: never });
+    expect(h.store.getTranscript().filter((t) => t.kind === "compose")).toHaveLength(0);
+
+    h.service.clearActive();
+    await h.service.compose({ text: "something else", signal: never, announce: true });
+    expect(h.store.getTranscript().filter((t) => t.kind === "compose").map((t) => t.text)).toEqual(["something else"]);
+  });
+});
+
 describe("SongService.compose", () => {
   test("saves the song, makes it active and searches Splice for every slot", async () => {
     const h = await ready();
