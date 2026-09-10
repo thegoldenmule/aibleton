@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import fixture from "../src/ports/ableton/fixtures/snapshot_v2.json";
-import { parseSnapshotV2, toSessionState } from "../src/ports/ableton/snapshot.schema.ts";
+import { parseSnapshotV2, toDawState } from "../src/ports/ableton/snapshot.schema.ts";
 
 describe("ableton snapshot v2", () => {
   test("parses the captured live snapshot", () => {
@@ -11,7 +11,7 @@ describe("ableton snapshot v2", () => {
   });
 
   test("maps to DawState", () => {
-    const state = toSessionState(parseSnapshotV2(fixture), 1234);
+    const state = toDawState(parseSnapshotV2(fixture), 1234);
     expect(state.capturedAt).toBe(1234);
     expect(state.transport.tempo).toBe(120);
     expect(state.transport.signatureNumerator).toBe(4);
@@ -37,7 +37,7 @@ describe("ableton snapshot v2", () => {
         notes: [{ pitch: 36, start_time: 0, duration: 0.25, velocity: 100, mute: false }],
       },
     } as never;
-    const state = toSessionState(parseSnapshotV2(raw), 0);
+    const state = toDawState(parseSnapshotV2(raw), 0);
     const clip = state.tracks[0]!.clipSlots[1]!.clip;
     expect(clip).toEqual({
       name: "Groove",
@@ -61,7 +61,7 @@ describe("ableton snapshot v2 audio clips and cue points", () => {
       { name: "midi thing", start_time: 16, end_time: 20, length: 4, is_midi_clip: true },
     ];
     (raw as { cue_points: unknown[] }).cue_points = [{ name: "a1", time: 0 }, { name: "b1", time: 32 }];
-    const state = toSessionState(parseSnapshotV2(raw), 0);
+    const state = toDawState(parseSnapshotV2(raw), 0);
     expect(state.tracks[2]!.clipSlots[0]!.clip).toEqual({ name: "a · loop", length: 16, isPlaying: false, isAudio: true, filePath: "/dl/loop.wav" });
     expect(state.tracks[2]!.arrangementClips).toEqual([
       { name: "a · loop", startTime: 0, endTime: 16, length: 16, type: "audio", filePath: "/dl/loop.wav" },

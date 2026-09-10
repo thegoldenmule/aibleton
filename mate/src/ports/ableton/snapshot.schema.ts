@@ -125,7 +125,7 @@ function toTrack(t: z.infer<typeof RawTrackSchema>): Track {
 }
 
 /** Map a validated v2 snapshot onto the protocol DawState the UI renders. */
-export function toSessionState(raw: SnapshotV2, capturedAt: number): DawState {
+export function toDawState(raw: SnapshotV2, capturedAt: number): DawState {
   return {
     transport: {
       tempo: raw.session.tempo,

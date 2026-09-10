@@ -1,7 +1,7 @@
 import type { DawState } from "@aibleton/protocol";
 import type { Logger } from "../../log.ts";
 import { McpConnection } from "../mcp/client.ts";
-import { parseSnapshotV2, parseToolJson, toSessionState } from "./snapshot.schema.ts";
+import { parseSnapshotV2, parseToolJson, toDawState } from "./snapshot.schema.ts";
 import type { AbletonPort, CallContext, MidiNote } from "./types.ts";
 
 export interface McpAbletonOptions {
@@ -70,7 +70,7 @@ export class McpAbletonAdapter implements AbletonPort {
 
   async getSnapshot(ctx?: CallContext): Promise<DawState> {
     const raw = await this.call("get_session_snapshot", { include_notes: true, include_params: false }, ctx);
-    return toSessionState(parseSnapshotV2(raw), this.now());
+    return toDawState(parseSnapshotV2(raw), this.now());
   }
 
   async createMidiTrack(index = -1, ctx?: CallContext): Promise<number> {
