@@ -64,9 +64,9 @@ export default function Home() {
 
       <div className="grid min-h-0 flex-1 auto-rows-[minmax(0,1fr)] grid-cols-1 gap-3 lg:grid-cols-[1fr_360px_320px]">
         <section className="flex min-h-0 flex-col gap-2 overflow-hidden rounded-md border border-line bg-panel p-3">
-          {/* The bandmate's picture of the session: the active song. Ableton shows Ableton's. */}
+          {/* The bandmate's picture of the song it is working on. Ableton shows Ableton's. */}
           <div className="flex items-baseline justify-between">
-            <h2 className="text-[10px] uppercase tracking-wider text-muted">session</h2>
+            <h2 className="text-[10px] uppercase tracking-wider text-muted">song</h2>
             {song ? (
               <span className="font-mono text-[10px] text-muted/70">
                 {song.plan.tracks.length} tracks · composed {new Date(song.createdAt).toLocaleTimeString()}

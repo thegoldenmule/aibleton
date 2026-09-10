@@ -54,8 +54,14 @@ export function TransportBar({ transport, phase, error, adapters, connection, go
         <Badge label="splice" value={adapters.splice} live={adapters.splice === "mcp"} />
         <Badge label="brain" value={adapters.brain} live={adapters.brain === "anthropic"} />
         <Link
-          href="/templates"
+          href="/sessions"
           className="ml-1.5 rounded-sm border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-foreground"
+        >
+          sessions →
+        </Link>
+        <Link
+          href="/templates"
+          className="rounded-sm border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-foreground"
         >
           templates →
         </Link>
