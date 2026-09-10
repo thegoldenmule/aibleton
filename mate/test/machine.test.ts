@@ -432,6 +432,61 @@ describe("ownership guard", () => {
     return s;
   };
 
+  test("a compose while a song is on the go is dropped, and it costs a sentence, not the turn", () => {
+    const song = digest({ name: "Tuesday jam" });
+    const decision = { message: "Writing you one.", actions: [{ type: "composeSong" as const, text: "funky" }, { type: "setTempo" as const, bpm: 100 }] };
+    const guarded = guardDecision(decision, owned(), song);
+    expect(guarded.actions).toEqual([{ type: "setTempo", bpm: 100 }]);
+    expect(guarded.message).toContain("Writing you one.");
+    expect(guarded.message).toContain("“Tuesday jam”");
+  });
+
+  test("editing tools with no song on the go are dropped and named", () => {
+    const decision = {
+      message: "On it.",
+      actions: [{ type: "arrangeSong" as const }, { type: "setPlacement" as const, partId: "bass-p", occurrence: 0, plays: false }],
+    };
+    const guarded = guardDecision(decision, owned());
+    expect(guarded.actions).toEqual([]);
+    expect(guarded.message).toContain("no song on the go");
+    expect(guarded.message).toContain("arrangeSong, setPlacement");
+  });
+
+  test("the set is walked in order: a compose earlier in it leaves a song for the edits that follow", () => {
+    const decision = {
+      message: "Writing it.",
+      actions: [
+        { type: "composeSong" as const, text: "funky" },
+        { type: "setPlacement" as const, partId: "bass-p", occurrence: 1, plays: false },
+        { type: "arrangeSong" as const },
+      ],
+    };
+    const guarded = guardDecision(decision, owned());
+    expect(guarded.actions).toHaveLength(3);
+    expect(guarded.message).toBe("Writing it.");
+  });
+
+  test("clear then compose is one turn; anything after the clear is not", () => {
+    const guarded = guardDecision(
+      { message: "Starting over.", actions: [{ type: "clearActiveSong" }, { type: "composeSong", text: "slower" }] },
+      owned(),
+      digest(),
+    );
+    expect(guarded.actions.map((a) => a.type)).toEqual(["clearActiveSong", "composeSong"]);
+
+    const late = guardDecision({ message: "", actions: [{ type: "clearActiveSong" }, { type: "arrangeSong" }] }, owned(), digest());
+    expect(late.actions.map((a) => a.type)).toEqual(["clearActiveSong"]);
+    expect(late.message).toContain("no song on the go");
+  });
+
+  test("the matching song actions pass either way", () => {
+    const compose = guardDecision({ message: "", actions: [{ type: "composeSong", text: "funky" }] }, owned());
+    expect(compose.actions).toHaveLength(1);
+    const edit = guardDecision({ message: "", actions: [{ type: "arrangeSong" }] }, owned(), digest());
+    expect(edit.actions).toHaveLength(1);
+    expect(edit.message).toBe("");
+  });
+
   test("actions on the drummer's tracks are dropped and named; track-less and owned ones pass", () => {
     const decision = {
       message: "Done.",

@@ -287,6 +287,7 @@ describe("AgentLoop song actions", () => {
 
   test("a song action with no library fails the set instead of silently doing nothing", async () => {
     const h = harness([{ message: "ok", actions: [{ type: "resolveSong" }] }]);
+    h.store.setSong(await fixtureSong()); // a song to act on, but this loop was built without the service
     h.loop.submit({ type: "userRequest", text: "find sounds" }, "api");
     await h.loop.settle();
     expect(h.loop.phase()).toBe("error");

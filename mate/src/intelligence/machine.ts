@@ -2,7 +2,7 @@ import { ownedTrackIndexes } from "@aibleton/protocol";
 import type { MateEvent, Phase, SessionState } from "@aibleton/protocol";
 import type { Command, CommandBody, CommandType } from "../core/commands.ts";
 import type { SongDigest } from "../songwriting/digest.ts";
-import type { Action, ActionResult, BrainInput, Decision, HistoryEntry } from "./brain/types.ts";
+import type { Action, ActionResult, ActionType, BrainInput, Decision, HistoryEntry } from "./brain/types.ts";
 
 /** Everything the machine remembers across phases. */
 export interface MachineContext {
@@ -320,23 +320,71 @@ export function actionTrack(action: Action): number | undefined {
   }
 }
 
+/** The song actions that only make sense with a song on the go. `composeSong` is the mirror image. */
+const SONG_EDIT_ACTIONS: ReadonlySet<ActionType> = new Set<ActionType>([
+  "clearActiveSong",
+  "resolveSong",
+  "pickSlot",
+  "setPlacement",
+  "removeTrack",
+  "arrangeSong",
+]);
+
 /**
- * Keep only the actions that touch tracks mate created (or no track at all).
- * The drummer's own tracks are never changed, whatever the brain asked for;
- * refused actions are named in the message so the drummer knows.
+ * Keep only the actions that touch tracks mate created (or no track at all), and only the song
+ * actions that match whether a song is on the go. The drummer's own tracks are never changed,
+ * whatever the brain asked for; refused actions are named in the message so the drummer knows.
+ *
+ * The tool list already withholds the wrong tools (`toolDefinitions`), so this is a backstop, and
+ * it is deliberately not fatal: throwing would become an `actionFailed`, which drives the machine
+ * to `error` and abandons the rest of the turn. A misdirected compose should cost a sentence.
  */
-export function guardDecision(decision: Decision, snapshot: SessionState | undefined): Decision {
+export function guardDecision(decision: Decision, snapshot: SessionState | undefined, song?: SongDigest): Decision {
   const owned = ownedTrackIndexes(snapshot);
   const refused: Action[] = [];
+  const composeOverSong: Action[] = [];
+  const editWithoutSong: Action[] = [];
+  // Walked in the order the actions will be applied, not judged one at a time: a compose earlier in
+  // the same set leaves a song to edit, and a clear leaves none. That is the whole point of the
+  // service reading the active song when an action runs — "write me one and take the bass out of
+  // the second verse" is one turn, and so is "scrap it and start over".
+  let onTheGo = song !== undefined;
   const actions = decision.actions.filter((a) => {
+    if (a.type === "composeSong") {
+      if (onTheGo) {
+        composeOverSong.push(a);
+        return false;
+      }
+      onTheGo = true;
+      return true;
+    }
+    if (SONG_EDIT_ACTIONS.has(a.type)) {
+      if (!onTheGo) {
+        editWithoutSong.push(a);
+        return false;
+      }
+      if (a.type === "clearActiveSong") onTheGo = false;
+      return true;
+    }
     const track = actionTrack(a);
     if (track === undefined || owned.has(track)) return true;
     refused.push(a);
     return false;
   });
-  if (refused.length === 0) return decision;
-  const named = refused.map((a) => `${a.type} on track ${actionTrack(a)}`).join(", ");
-  const note = `I left ${refused.length === 1 ? "one thing" : `${refused.length} things`} alone (${named}): I only change the tracks I made, the ones ending in "[mate]".`;
+  const notes: string[] = [];
+  if (refused.length > 0) {
+    const named = refused.map((a) => `${a.type} on track ${actionTrack(a)}`).join(", ");
+    notes.push(`I left ${refused.length === 1 ? "one thing" : `${refused.length} things`} alone (${named}): I only change the tracks I made, the ones ending in "[mate]".`);
+  }
+  if (composeOverSong.length > 0) {
+    notes.push(`We already have “${song!.name}” on the go, so I didn't start another one. Say the word and I'll put it away first.`);
+  }
+  if (editWithoutSong.length > 0) {
+    const named = [...new Set(editWithoutSong.map((a) => a.type))].join(", ");
+    notes.push(`There's no song on the go yet, so there was nothing to change (${named}). Tell me what you want and I'll write one.`);
+  }
+  if (notes.length === 0) return decision;
+  const note = notes.join(" ");
   return { ...decision, actions, message: decision.message ? `${decision.message} ${note}` : note };
 }
 
@@ -344,7 +392,7 @@ function stepDeciding(state: Extract<MachineState, { kind: "deciding" }>, cmd: C
   switch (cmd.type) {
     case "brainDecided": {
       if (cmd.requestId !== state.requestId) return { state, effects: [] };
-      const decision = guardDecision(cmd.decision, state.ctx.snapshot);
+      const decision = guardDecision(cmd.decision, state.ctx.snapshot, state.ctx.song);
       const entry: HistoryEntry = { at: cmd.at, command: state.pending, decision };
       const ctx: MachineContext = {
         ...state.ctx,
