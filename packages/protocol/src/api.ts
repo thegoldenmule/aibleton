@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AdapterStatusSchema, PhaseSchema, SessionStateSchema, TranscriptEntrySchema } from "./state.ts";
+import { ActivitySchema, AdapterStatusSchema, PhaseSchema, SessionStateSchema, TranscriptEntrySchema } from "./state.ts";
 import { CommandSummarySchema, ExternalCommandSchema } from "./commands.ts";
 import { TemplateSchema } from "./templates.ts";
 import { BandSchema, RecipeSummarySchema } from "./bands.ts";
@@ -20,6 +20,10 @@ export const StateResponseSchema = z.object({
   song: SongSchema.nullable(),
   /** The conversation so far, oldest first. */
   transcript: z.array(TranscriptEntrySchema),
+  /** The one slow thing mate is doing, or null at rest. The app's only busy signal. */
+  activity: ActivitySchema.nullable(),
+  /** Requests that arrived mid-turn and are waiting their turn, oldest first. */
+  queued: z.array(CommandSummarySchema),
 });
 export type StateResponse = z.infer<typeof StateResponseSchema>;
 

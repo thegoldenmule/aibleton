@@ -113,3 +113,37 @@ export const TranscriptEntrySchema = z.object({
   fields: z.array(TranscriptFieldSchema).default([]),
 });
 export type TranscriptEntry = z.infer<typeof TranscriptEntrySchema>;
+
+export const ACTIVITY_KINDS = ["think", "compose", "resolve", "arrange", "download", "edit"] as const;
+export const ActivityKindSchema = z.enum(ACTIVITY_KINDS);
+export type ActivityKind = z.infer<typeof ActivityKindSchema>;
+
+/**
+ * The one slow thing mate is doing right now, or null. Server-owned on
+ * purpose: a browser that reloads mid-compose, or a second tab, sees the same
+ * work in flight, which a per-request flag in the page could never do. `phase`
+ * cannot stand in for it — `acting` covers both a 200 ms setTempo and a
+ * three-minute compose.
+ */
+export const ActivitySchema = z.object({
+  /**
+   * The machine request this belongs to, when the loop started it; a private
+   * id when a route did. Also the key the app matches `action.applied` and
+   * `cancelled` events on — the request *text* cannot be, now that the brain
+   * writes it.
+   */
+  requestId: z.string(),
+  kind: ActivityKindSchema,
+  /** What was asked for, in the drummer's words where there are any. */
+  request: z.string(),
+  /** The headline for the step it is on; the detail is in `fields`. */
+  message: z.string(),
+  fields: z.array(TranscriptFieldSchema).default([]),
+  /** Coarse 0..1 for a bar, or null when the work has no known length. */
+  fraction: z.number().min(0).max(1).nullable(),
+  startedAt: z.number(),
+  at: z.number(),
+  /** True when `cancel` would actually stop it: the loop owns it, so the machine can abort it. */
+  cancellable: z.boolean(),
+});
+export type Activity = z.infer<typeof ActivitySchema>;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { ComposeProgress } from "@aibleton/protocol";
+import type { Activity } from "@aibleton/protocol";
 import { ConversationPane } from "../components/ConversationPane";
 import { EmptyState } from "../components/EmptyState";
 import { MailboxPanel } from "../components/MailboxPanel";
@@ -29,7 +29,7 @@ export default function Home() {
     connection,
     lastError,
     composing,
-    composeProgress,
+    activity,
     resolving,
     downloading,
     arranging,
@@ -75,7 +75,7 @@ export default function Home() {
           {!state ? (
             <EmptyState error={lastError} />
           ) : composing ? (
-            <ComposingState steps={composeProgress} />
+            <ComposingState activity={activity} />
           ) : song ? (
             <SongView
               key={song.id}
@@ -130,10 +130,9 @@ export default function Home() {
  * pulsing, under where the compose has got to. Only the stage it is on — the
  * conversation pane keeps the full account of what the bandmate decided.
  */
-function ComposingState({ steps }: { steps: ComposeProgress[] }) {
-  const latest = steps.at(-1) ?? null;
-  const fraction = latest?.fraction ?? 0.05;
-  const done = latest !== null && (latest.stage === "done" || latest.stage === "failed");
+function ComposingState({ activity }: { activity: Activity | null }) {
+  const fraction = activity?.fraction ?? 0.05;
+  const done = activity === null;
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3" role="status" aria-live="polite">
       <div className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
@@ -142,9 +141,9 @@ function ComposingState({ steps }: { steps: ComposeProgress[] }) {
         </div>
         <p className="flex items-center gap-1.5 font-mono text-[11px]">
           <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${done ? "bg-line" : "animate-pulse bg-accent"}`} />
-          <span className="w-16 shrink-0 uppercase tracking-wider text-muted/70">{latest?.stage ?? "sending"}</span>
-          <span className="truncate text-foreground" title={latest?.message}>
-            {latest?.message ?? "sending the request to your bandmate…"}
+          <span className="w-16 shrink-0 uppercase tracking-wider text-muted/70">{activity?.kind ?? "sending"}</span>
+          <span className="truncate text-foreground" title={activity?.message}>
+            {activity?.message ?? "sending the request to your bandmate…"}
           </span>
         </p>
       </div>

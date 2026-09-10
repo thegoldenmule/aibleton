@@ -22,6 +22,11 @@ export interface ArrangeDeps {
   onProgress: (song: Song) => Promise<void>;
   /** Called with every snapshot taken, so the app sees Live change round by round. */
   onSnapshot?: (session: SessionState) => void;
+  /**
+   * Called before each step is run, with its position in this round's list. One step is one call
+   * into Live, so this is the only honest measure of how far a build has got.
+   */
+  onStep?: (step: ArrangeStep, index: number, total: number) => void;
   /** Forwarded to the Ableton server's telemetry field on every call. */
   userPrompt?: string;
   /** Snapshot-and-step rounds before giving up; tracks, clips and placements each need one. */
@@ -112,12 +117,13 @@ export async function arrangeSong(song: Song, deps: ArrangeDeps): Promise<Arrang
 
   let status = await look();
   for (let round = 0; round < maxRounds && status.steps.length > 0 && failed.length === 0; round++) {
-    for (const step of status.steps) {
+    for (const [index, step] of status.steps.entries()) {
       if (deps.signal.aborted) {
         deps.log.warn(`client gone; not starting more Live steps (${describeStep(step)} and later skipped)`);
         return { song: current, status: await look(), applied, failed };
       }
       try {
+        deps.onStep?.(step, index, status.steps.length);
         await run(step);
         applied.push(step);
       } catch (err) {

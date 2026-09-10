@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AdapterStatusSchema, PhaseSchema, SessionStateSchema, TranscriptEntrySchema, TranscriptFieldSchema } from "./state.ts";
+import { ActivitySchema, AdapterStatusSchema, PhaseSchema, SessionStateSchema, TranscriptEntrySchema } from "./state.ts";
 import { CommandSummarySchema } from "./commands.ts";
 import { SongSchema } from "./songs.ts";
 
@@ -18,28 +18,13 @@ export const DownloadProgressSchema = z.object({
 });
 export type DownloadProgress = z.infer<typeof DownloadProgressSchema>;
 
+/**
+ * Where a compose has got to. Not an event of its own: the trail lands in the
+ * transcript as `step` entries and the stage drives the `Activity` bar.
+ */
 export const COMPOSE_STAGES = ["picking", "briefing", "recipe", "bands", "rebriefing", "feedback", "layout", "done", "failed"] as const;
 export const ComposeStageSchema = z.enum(COMPOSE_STAGES);
 export type ComposeStage = z.infer<typeof ComposeStageSchema>;
-
-/**
- * One step of composing a song, in words: "asking the model for a brief",
- * "rolled band 2 of 3 for hip hop". Sent as the compose runs so the app can
- * narrate it; `fraction` is a coarse 0..1 for a bar. Every step but the last
- * also lands in the transcript as a `step` entry, so the conversation keeps
- * the trail of how a song was made.
- */
-export const ComposeProgressSchema = z.object({
-  /** The request text, so the app can match events to the compose it started. */
-  request: z.string(),
-  stage: ComposeStageSchema,
-  /** The headline for this step; the detail is in `fields`. */
-  message: z.string(),
-  fields: z.array(TranscriptFieldSchema).default([]),
-  fraction: z.number().min(0).max(1),
-  at: z.number(),
-});
-export type ComposeProgress = z.infer<typeof ComposeProgressSchema>;
 
 /** Events mate pushes to the app over SSE. */
 export const MateEventSchema = z.discriminatedUnion("type", [
@@ -53,12 +38,17 @@ export const MateEventSchema = z.discriminatedUnion("type", [
     action: z.string(),
     ok: z.boolean(),
     detail: z.string().optional(),
+    /** The machine request the action set belongs to; absent for anything not run by the loop. */
+    requestId: z.string().optional(),
   }),
   z.object({ type: z.literal("adapters"), status: AdapterStatusSchema }),
   z.object({ type: z.literal("goal.changed"), goal: z.string().nullable() }),
   z.object({ type: z.literal("song.changed"), song: SongSchema.nullable() }),
   z.object({ type: z.literal("transcript.appended"), entry: TranscriptEntrySchema }),
   z.object({ type: z.literal("download.progress"), progress: DownloadProgressSchema }),
-  z.object({ type: z.literal("compose.progress"), progress: ComposeProgressSchema }),
+  /** The one slow thing mate is doing, or null when it is at rest. */
+  z.object({ type: z.literal("activity.changed"), activity: ActivitySchema.nullable() }),
+  /** Requests that arrived while mate was working and are waiting their turn, oldest first. */
+  z.object({ type: z.literal("queue.changed"), queued: z.array(CommandSummarySchema) }),
 ]);
 export type MateEvent = z.infer<typeof MateEventSchema>;

@@ -1,4 +1,4 @@
-import type { AdapterStatus, CommandSummary, Phase, SessionState, Song, StateResponse, TranscriptEntry, TranscriptField } from "@aibleton/protocol";
+import type { Activity, AdapterStatus, CommandSummary, Phase, SessionState, Song, StateResponse, TranscriptEntry, TranscriptField } from "@aibleton/protocol";
 import { EventBus } from "./events.ts";
 import { newId, summarize, type Command } from "./commands.ts";
 
@@ -13,6 +13,8 @@ export class StateStore {
   private adapters: AdapterStatus = { ableton: "stub", splice: "stub", brain: "scripted" };
   private song: Song | null = null;
   private transcript: TranscriptEntry[] = [];
+  private activity: Activity | null = null;
+  private queued: CommandSummary[] = [];
 
   constructor(
     readonly events: EventBus,
@@ -36,6 +38,28 @@ export class StateStore {
     this.phase = phase;
     this.error = error ?? null;
     this.events.emit(error ? { type: "phase.changed", phase, error } : { type: "phase.changed", phase });
+    // A run that crashed between setting an activity and clearing it would otherwise leave a
+    // permanent spinner. Only the loop's own activities: `cancellable` marks those, and a
+    // route-driven compose runs while the loop sits idle, so its phase says nothing about it.
+    if ((phase === "idle" || phase === "paused" || phase === "error") && this.activity?.cancellable) this.setActivity(null);
+  }
+
+  /** The one slow thing mate is doing, or null. Server-owned: a reload mid-compose still sees it. */
+  getActivity(): Activity | null {
+    return this.activity;
+  }
+  setActivity(activity: Activity | null): void {
+    this.activity = activity;
+    this.events.emit({ type: "activity.changed", activity });
+  }
+
+  /** What arrived while mate was working and is waiting its turn, oldest first. */
+  getQueued(): readonly CommandSummary[] {
+    return this.queued;
+  }
+  setQueued(queued: CommandSummary[]): void {
+    this.queued = queued;
+    this.events.emit({ type: "queue.changed", queued });
   }
 
   getGoal(): string | null {
@@ -107,6 +131,8 @@ export class StateStore {
       lastMessage: this.lastMessage,
       song: this.song,
       transcript: [...this.transcript],
+      activity: this.activity,
+      queued: [...this.queued],
     };
   }
 }

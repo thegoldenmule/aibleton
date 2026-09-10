@@ -14,7 +14,7 @@ import {
   dawStatus,
   pendingDownloadUuids,
 } from "@aibleton/protocol";
-import type { Song } from "@aibleton/protocol";
+import type { Activity, Song } from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
 import { BandStore } from "../src/core/bands.ts";
 import { ManualClock } from "../src/core/clock.ts";
@@ -145,7 +145,9 @@ describe("POST /songs/compose", () => {
     expect(conversation.at(-1)).toEqual(["mate", "reply", song.brief.summary]);
     const steps = conversation.slice(1, -1);
     expect(steps.every(([role, kind]) => role === "mate" && kind === "step")).toBe(true);
-    expect(steps.map(([, , text]) => text)).toEqual(h.events.ofType("compose.progress").filter((e) => e.progress.stage !== "done").map((e) => e.progress.message));
+    // Every line of the trail was the activity's headline while it ran, in the same order.
+    const headlines = h.events.ofType("activity.changed").map((e) => e.activity?.message ?? "");
+    expect(steps.map(([, , text]) => text)).toEqual(headlines.slice(1, 1 + steps.length));
     expect(h.events.ofType("transcript.appended")).toHaveLength(conversation.length);
     expect(h.briefer.calls[0]!.text).toBe("something funky and upbeat");
 
@@ -500,42 +502,94 @@ describe("POST /songs/:id/resolve, /pick and /download", () => {
   });
 });
 
-describe("compose.progress", () => {
-  test("narrates the steps in order, ending with done", async () => {
+describe("activity", () => {
+  test("narrates a compose as it runs, then clears", async () => {
     const h = await build();
     const res = await post(h.app, "/songs/compose", { text: "funk" });
     expect(res.status).toBe(200);
-    const steps = h.events.ofType("compose.progress").map((e) => e.progress);
-    expect(steps.map((p) => p.stage)).toEqual(["picking", "briefing", "briefing", "feedback", "layout", "done"]);
-    expect(steps.every((p) => p.request === "funk" && p.message.length > 0)).toBe(true);
-    expect(steps.map((p) => p.fraction)).toEqual([...steps.map((p) => p.fraction)].sort((a, b) => a - b));
+    const seen = h.events.ofType("activity.changed").map((e) => e.activity);
+    // Cleared at the end: nothing left spinning in the app once the work is done.
+    expect(seen.at(-1)).toBeNull();
+    expect(h.store.getActivity()).toBeNull();
+
+    const live = seen.filter((a) => a !== null);
+    expect(live.every((a) => a.kind === "compose" && a.request === "funk" && a.message.length > 0)).toBe(true);
+    // One activity moving along, not a new one per step; a click is not cancellable from the machine.
+    expect(new Set(live.map((a) => a.requestId)).size).toBe(1);
+    expect(live.every((a) => a.cancellable === false && a.startedAt === live[0]!.startedAt)).toBe(true);
+    expect(live.map((a) => a.fraction)).toEqual([...live.map((a) => a.fraction)].sort((x, y) => (x ?? 0) - (y ?? 0)));
+    expect(live[0]!.message).toBe("starting a song");
+    // The free Splice search runs on the end of the compose, under the same activity.
+    expect(live.at(-1)!.message).toMatch(/^searched Splice for \d+ of \d+ slots$/);
+
     // Every decision is a labelled field, not a sentence: the pane renders them as a list.
-    const value = (i: number, label: string) => steps[i]!.fields.find((f) => f.label === label)?.value;
-    expect(value(0, "form")).toContain("Tuesday jam");
-    expect(value(0, "parts")).toBe("kit (drums), p bass (bass), strat (guitar)");
-    expect(value(1, "about")).toContain("“Tuesday jam”");
-    expect(value(2, "key")).toMatch(/^[A-G][#b]? \w+$/);
-    expect(value(2, "tempo")).toMatch(/^\d+ bpm \(\d+–\d+\)$/);
-    expect(value(2, "meter")).toBe("4/4");
-    expect(steps[3]!.message).toMatch(/^(changed the form and the band|the brief left the form)/);
-    expect(value(4, "tracks")).toBe("3");
-    expect(value(4, "resting")).toBeDefined();
+    const value = (i: number, label: string) => live[i]!.fields.find((f) => f.label === label)?.value;
+    expect(value(1, "form")).toContain("Tuesday jam");
+    expect(value(1, "parts")).toBe("kit (drums), p bass (bass), strat (guitar)");
+    expect(value(2, "about")).toContain("“Tuesday jam”");
+    expect(value(3, "key")).toMatch(/^[A-G][#b]? \w+$/);
+    expect(value(3, "tempo")).toMatch(/^\d+ bpm \(\d+–\d+\)$/);
+    expect(value(3, "meter")).toBe("4/4");
+    expect(live[4]!.message).toMatch(/^(changed the form and the band|the brief left the form)/);
+    expect(value(5, "tracks")).toBe("3");
+    expect(value(5, "resting")).toBeDefined();
   });
 
-  test("covers the new-genre detour and reports a failure", async () => {
+  test("covers the new-genre detour and clears when the compose fails", async () => {
     const h = await build({ briefer: new ScriptedBriefer((input) => ({ ...defaultBrief(input), genres: ["gospel", "soul"] })) });
     await post(h.app, "/songs/compose", { text: "gospel please" });
-    const stages = h.events.ofType("compose.progress").map((e) => e.progress.stage);
-    // prettier-ignore
-    expect(stages).toEqual([
-      "picking", "briefing", "briefing", "recipe", "bands", "bands", "bands",
-      "rebriefing", "rebriefing", "feedback", "layout", "done",
-    ]);
+    const trail = h.store.getTranscript().filter((t) => t.kind === "step").map((t) => t.text);
+    // picking, briefing x2, recipe, bands x3, rebriefing x2, feedback, layout.
+    expect(trail).toHaveLength(11);
+    expect(trail[3]).toBe("no saved band plays gospel");
+    expect(trail.filter((t) => t.startsWith("rolled gospel band"))).toHaveLength(3);
+    expect(trail.filter((t) => t.startsWith("briefing again"))).toHaveLength(1);
 
     h.briefer.rejectNext(new Error("model down"));
     expect((await post(h.app, "/songs/compose", { text: "again" })).status).toBe(502);
-    const last = h.events.ofType("compose.progress").at(-1)!.progress;
-    expect(last).toMatchObject({ stage: "failed", message: "model down", request: "again" });
+    // A failure clears it too, or the app would spin forever on a compose that died.
+    expect(h.events.ofType("activity.changed").at(-1)!.activity).toBeNull();
+    expect(h.store.getActivity()).toBeNull();
+  });
+
+  test("a resolve, a download, an arrange and an edit each get one, and the state carries it", async () => {
+    const h = await build();
+    const song = SongResponseSchema.parse(await (await post(h.app, "/songs/compose", { text: "funk" })).json()).song;
+    // Subscribed rather than read back from the bus: its history is capped, and a compose fills it.
+    const seen: (Activity | null)[] = [];
+    h.events.subscribe((e) => {
+      if (e.type === "activity.changed") seen.push(e.activity);
+    });
+    const kindsOf = () => {
+      const kinds = seen.map((a) => a?.kind ?? null);
+      seen.length = 0;
+      return kinds;
+    };
+
+    await post(h.app, `/songs/${song.id}/resolve`);
+    expect(kindsOf()).toEqual(expect.arrayContaining(["resolve", null]));
+
+    await post(h.app, `/songs/${song.id}/download`);
+    const download = kindsOf();
+    expect(download).toContain("download");
+    expect(download.at(-1)).toBeNull();
+
+    await post(h.app, `/songs/${song.id}/arrange`);
+    const arrange = kindsOf();
+    expect(arrange).toContain("arrange");
+    expect(arrange.at(-1)).toBeNull();
+
+    await h.app.request(`/songs/${song.id}/placements`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ partId: "bass-p", occurrence: 0, plays: false }),
+    });
+    expect(kindsOf()).toEqual(["edit", null]);
+
+    // At rest the state says so, and nothing is waiting.
+    const state = StateResponseSchema.parse(await (await h.app.request("/state")).json());
+    expect(state.activity).toBeNull();
+    expect(state.queued).toEqual([]);
   });
 });
 
