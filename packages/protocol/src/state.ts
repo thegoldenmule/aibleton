@@ -88,6 +88,13 @@ export const AdapterStatusSchema = z.object({
 export type AdapterStatus = z.infer<typeof AdapterStatusSchema>;
 
 /** One line of the conversation between the drummer and mate, as the app shows it. */
+/** One labelled fact under a transcript line: "key" / "F# minor". */
+export const TranscriptFieldSchema = z.object({
+  label: z.string().min(1),
+  value: z.string(),
+});
+export type TranscriptField = z.infer<typeof TranscriptFieldSchema>;
+
 export const TranscriptEntrySchema = z.object({
   id: z.string(),
   at: z.number(),
@@ -98,5 +105,11 @@ export const TranscriptEntrySchema = z.object({
    * a bandmate reply, or one step of a compose narrating itself as it runs.
    */
   kind: z.enum(["compose", "request", "reply", "step"]),
+  /**
+   * The structured half of the line, rendered as a list under `text`. What
+   * mate picked, decided or changed is data, not prose, so it stays data all
+   * the way to the pane. Empty for anything the drummer typed.
+   */
+  fields: z.array(TranscriptFieldSchema).default([]),
 });
 export type TranscriptEntry = z.infer<typeof TranscriptEntrySchema>;

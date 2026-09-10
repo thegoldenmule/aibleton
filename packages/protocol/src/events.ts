@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AdapterStatusSchema, PhaseSchema, SessionStateSchema, TranscriptEntrySchema } from "./state.ts";
+import { AdapterStatusSchema, PhaseSchema, SessionStateSchema, TranscriptEntrySchema, TranscriptFieldSchema } from "./state.ts";
 import { CommandSummarySchema } from "./commands.ts";
 import { SongSchema } from "./songs.ts";
 
@@ -33,7 +33,9 @@ export const ComposeProgressSchema = z.object({
   /** The request text, so the app can match events to the compose it started. */
   request: z.string(),
   stage: ComposeStageSchema,
+  /** The headline for this step; the detail is in `fields`. */
   message: z.string(),
+  fields: z.array(TranscriptFieldSchema).default([]),
   fraction: z.number().min(0).max(1),
   at: z.number(),
 });

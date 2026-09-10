@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { ExternalCommand, Phase, Song, TranscriptEntry } from "@aibleton/protocol";
+import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
+import type { ExternalCommand, Phase, Song, TranscriptEntry, TranscriptField } from "@aibleton/protocol";
 
 interface Props {
   phase: Phase;
@@ -105,7 +105,7 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
         ) : null}
         {transcript.map((entry, i) =>
           entry.kind === "step" ? (
-            <StepLine key={entry.id} text={entry.text} live={composing && i === transcript.length - 1} />
+            <StepLine key={entry.id} text={entry.text} fields={entry.fields} live={composing && i === transcript.length - 1} />
           ) : (
             <div
               key={entry.id}
@@ -118,6 +118,11 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
                 <span className="font-mono text-muted/70">{relative(entry.at, now)}</span>
               </span>
               <span className="whitespace-pre-wrap text-sm leading-snug">{entry.text}</span>
+              {entry.fields.length > 0 ? (
+                <div className="mt-1 border-t border-line/70 pt-1">
+                  <Fields fields={entry.fields} />
+                </div>
+              ) : null}
             </div>
           ),
         )}
@@ -187,15 +192,38 @@ export function ConversationPane({ phase, disabled, song, transcript, composing,
 }
 
 /**
- * One step of a compose: what mate picked, what the model decided, what it
- * edited. Not a bubble — the trail sits under the request that started it,
- * and reads as history once the song is done.
+ * Labelled facts as a two-column list: the label column sizes to the longest
+ * label so the values line up, and long values wrap under their own label.
  */
-function StepLine({ text, live }: { text: string; live: boolean }) {
+function Fields({ fields }: { fields: TranscriptField[] }) {
+  if (fields.length === 0) return null;
   return (
-    <div className={`flex items-baseline gap-1.5 self-start pl-1 font-mono text-[11px] leading-snug ${live ? "text-foreground" : "text-muted"}`}>
-      <span className={`h-1 w-1 shrink-0 translate-y-[-2px] rounded-full ${live ? "animate-pulse bg-accent" : "bg-line"}`} aria-hidden />
-      <span className="whitespace-pre-wrap">{text}</span>
+    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-0.5 font-mono text-[11px] leading-snug">
+      {fields.map((field, i) => (
+        <Fragment key={`${field.label}-${i}`}>
+          <dt className="whitespace-nowrap text-muted/70">{field.label}</dt>
+          <dd className="min-w-0 break-words text-foreground/90">{field.value}</dd>
+        </Fragment>
+      ))}
+    </dl>
+  );
+}
+
+/**
+ * One step of a compose: a headline for what mate did, then the facts behind
+ * it. Not a bubble — the trail sits under the request that started it, and
+ * reads as history once the song is done.
+ */
+function StepLine({ text, fields, live }: { text: string; fields: TranscriptField[]; live: boolean }) {
+  return (
+    <div className="flex w-full max-w-[92%] flex-col gap-0.5 self-start pl-1">
+      <p className={`flex items-baseline gap-1.5 font-mono text-[11px] leading-snug ${live ? "text-foreground" : "text-muted"}`}>
+        <span className={`h-1 w-1 shrink-0 translate-y-[-2px] rounded-full ${live ? "animate-pulse bg-accent" : "bg-line"}`} aria-hidden />
+        <span>{text}</span>
+      </p>
+      <div className="pl-3.5">
+        <Fields fields={fields} />
+      </div>
     </div>
   );
 }

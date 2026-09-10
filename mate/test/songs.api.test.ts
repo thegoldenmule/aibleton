@@ -490,15 +490,20 @@ describe("compose.progress", () => {
     const res = await post(h.app, "/songs/compose", { text: "funk" });
     expect(res.status).toBe(200);
     const steps = h.events.ofType("compose.progress").map((e) => e.progress);
-    expect(steps.map((p) => p.stage)).toEqual(["picking", "picking", "briefing", "briefing", "briefing", "briefing", "feedback", "layout", "layout", "done"]);
+    expect(steps.map((p) => p.stage)).toEqual(["picking", "briefing", "briefing", "feedback", "layout", "done"]);
     expect(steps.every((p) => p.request === "funk" && p.message.length > 0)).toBe(true);
     expect(steps.map((p) => p.fraction)).toEqual([...steps.map((p) => p.fraction)].sort((a, b) => a - b));
-    expect(steps[0]!.message).toContain("Tuesday jam");
-    // The musical decisions the drummer cares about are spelled out, not just "briefing".
-    expect(steps[1]!.message).toMatch(/3 parts: /);
-    expect(steps.map((p) => p.message).join("\n")).toMatch(/key [A-G][#b]? \w+ · \d+ bpm \(\d+–\d+\) · 4\/4/);
-    expect(steps[6]!.message).toMatch(/^(edited the form and the band|kept the form and the line-up)/);
-    expect(steps.at(-3)!.message).toMatch(/3 tracks and \d+ sample slots/);
+    // Every decision is a labelled field, not a sentence: the pane renders them as a list.
+    const value = (i: number, label: string) => steps[i]!.fields.find((f) => f.label === label)?.value;
+    expect(value(0, "form")).toContain("Tuesday jam");
+    expect(value(0, "parts")).toBe("kit (drums), p bass (bass), strat (guitar)");
+    expect(value(1, "about")).toContain("“Tuesday jam”");
+    expect(value(2, "key")).toMatch(/^[A-G][#b]? \w+$/);
+    expect(value(2, "tempo")).toMatch(/^\d+ bpm \(\d+–\d+\)$/);
+    expect(value(2, "meter")).toBe("4/4");
+    expect(steps[3]!.message).toMatch(/^(changed the form and the band|the brief left the form)/);
+    expect(value(4, "tracks")).toBe("3");
+    expect(value(4, "resting")).toBeDefined();
   });
 
   test("covers the new-genre detour and reports a failure", async () => {
@@ -507,8 +512,8 @@ describe("compose.progress", () => {
     const stages = h.events.ofType("compose.progress").map((e) => e.progress.stage);
     // prettier-ignore
     expect(stages).toEqual([
-      "picking", "picking", "briefing", "briefing", "briefing", "briefing", "recipe", "bands", "bands", "bands",
-      "rebriefing", "rebriefing", "rebriefing", "rebriefing", "feedback", "layout", "layout", "done",
+      "picking", "briefing", "briefing", "recipe", "bands", "bands", "bands",
+      "rebriefing", "rebriefing", "feedback", "layout", "done",
     ]);
 
     h.briefer.rejectNext(new Error("model down"));

@@ -1,4 +1,4 @@
-import type { AdapterStatus, CommandSummary, Phase, SessionState, Song, StateResponse, TranscriptEntry } from "@aibleton/protocol";
+import type { AdapterStatus, CommandSummary, Phase, SessionState, Song, StateResponse, TranscriptEntry, TranscriptField } from "@aibleton/protocol";
 import { EventBus } from "./events.ts";
 import { newId, summarize, type Command } from "./commands.ts";
 
@@ -46,16 +46,16 @@ export class StateStore {
     this.events.emit({ type: "goal.changed", goal });
   }
 
-  /** A message from mate to the drummer, stamped `at`. Also lands in the transcript. */
-  setLastMessage(text: string, at: number, requestId?: string): void {
+  /** A message from mate to the drummer, stamped `at`. Also lands in the transcript, with any facts behind it. */
+  setLastMessage(text: string, at: number, requestId?: string, fields: TranscriptField[] = []): void {
     this.lastMessage = text;
     this.events.emit(requestId ? { type: "message", text, requestId } : { type: "message", text });
-    this.appendTranscript({ role: "mate", kind: "reply", text, at });
+    this.appendTranscript({ role: "mate", kind: "reply", text, at, fields });
   }
 
   /** Append a line to the conversation; capped at `keepTranscript`, oldest dropped first. */
-  appendTranscript(entry: Omit<TranscriptEntry, "id">): TranscriptEntry {
-    const full: TranscriptEntry = { id: newId("tx"), at: entry.at, role: entry.role, kind: entry.kind, text: entry.text };
+  appendTranscript(entry: Omit<TranscriptEntry, "id" | "fields"> & { fields?: TranscriptField[] }): TranscriptEntry {
+    const full: TranscriptEntry = { id: newId("tx"), at: entry.at, role: entry.role, kind: entry.kind, text: entry.text, fields: entry.fields ?? [] };
     this.transcript.push(full);
     if (this.transcript.length > this.keepTranscript) this.transcript.shift();
     this.events.emit({ type: "transcript.appended", entry: full });

@@ -12,6 +12,7 @@ import {
   type Song,
   type SongListResponse,
   type SongResponse,
+  type TranscriptField,
 } from "@aibleton/protocol";
 import type { BandStore } from "../../core/bands.ts";
 import type { RecipeBook } from "../../core/recipes.ts";
@@ -25,6 +26,7 @@ import type { SplicePort } from "../../ports/splice/types.ts";
 import type { Briefer } from "../../songwriting/briefer/index.ts";
 import { arrangeSong, describeStep } from "../../songwriting/arrange.ts";
 import { composeSong } from "../../songwriting/compose.ts";
+import { songFields } from "../../songwriting/narrate.ts";
 import { downloadPicks, downloadPlan, reuseDownloaded } from "../../songwriting/download.ts";
 import { LastTrackError, OccurrenceNotFoundError, TrackNotFoundError, removeTrack, setPlacement } from "../../songwriting/edit.ts";
 import { EmptyLibraryError } from "../../songwriting/pick.ts";
@@ -106,10 +108,10 @@ export function songRoutes(deps: SongRouteDeps): Hono {
     // Two audiences: the session column's bar reads the stage and fraction, the
     // conversation keeps the words. "done" is left out of the trail because the
     // brief's summary lands there as the bandmate's reply a moment later.
-    const narrate = (stage: ComposeStage, message: string) => {
+    const narrate = (stage: ComposeStage, message: string, fields: TranscriptField[] = []) => {
       const at = deps.now();
-      deps.store.events.emit({ type: "compose.progress", progress: { request: opts.text, stage, message, fraction: COMPOSE_FRACTION[stage], at } });
-      if (stage !== "done") deps.store.appendTranscript({ role: "mate", kind: "step", text: message, at });
+      deps.store.events.emit({ type: "compose.progress", progress: { request: opts.text, stage, message, fields, fraction: COMPOSE_FRACTION[stage], at } });
+      if (stage !== "done") deps.store.appendTranscript({ role: "mate", kind: "step", text: message, at, fields });
     };
     try {
       const song = await composeSong({
@@ -127,7 +129,8 @@ export function songRoutes(deps: SongRouteDeps): Hono {
       });
       await deps.songs.save(song);
       deps.store.setSong(song);
-      deps.store.setLastMessage(song.brief.summary, deps.now());
+      // The closing reply carries the same facts the trail built up, so the song is legible at a glance later.
+      deps.store.setLastMessage(song.brief.summary, deps.now(), undefined, songFields(song.template, song.band, song.brief, song.plan));
       narrate("done", `composed “${song.name}”`);
       const body: SongResponse = { song };
       return c.json(body);
