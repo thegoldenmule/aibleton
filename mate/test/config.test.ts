@@ -16,6 +16,15 @@ describe("loadConfig", () => {
     expect(c.spliceMcpToken).toBe("t");
   });
 
+  test("session storage defaults and env overrides", () => {
+    const c = loadConfig({});
+    expect(c.sessionsDir).toBe(".mate/sessions");
+    expect(c.journalCompactBytes).toBe(0);
+    const over = loadConfig({ MATE_SESSIONS_DIR: "/tmp/sessions", MATE_JOURNAL_COMPACT_BYTES: "2048" });
+    expect(over.sessionsDir).toBe("/tmp/sessions");
+    expect(over.journalCompactBytes).toBe(2048);
+  });
+
   test("rejects a non-numeric callback port", () => {
     expect(() => loadConfig({ SPLICE_OAUTH_CALLBACK_PORT: "nope" })).toThrow();
   });

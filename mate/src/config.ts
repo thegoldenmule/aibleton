@@ -25,6 +25,17 @@ const ConfigSchema = z.object({
   templatesDir: z.string().min(1).default(".mate/templates"),
   bandsDir: z.string().min(1).default(".mate/bands"),
   songsDir: z.string().min(1).default(".mate/songs"),
+  /** Where saved sessions live: one subdirectory per session, plus `current.json`. */
+  sessionsDir: z.string().min(1).default(".mate/sessions"),
+  /**
+   * Compact a session journal once it passes this many bytes; `0` never
+   * compacts, which is the default and today the only behaviour. Compaction is
+   * deliberately deferred — the fold caps the transcript at 200 entries and
+   * commands at 50, so an oversized journal costs disk and a linear pass on
+   * replay, never correctness. The knob is here so the decision can be made
+   * from `SessionJournal.bytesWritten()` rather than from a guess.
+   */
+  journalCompactBytes: z.coerce.number().int().min(0).default(0),
   recipesDir: z.string().min(1).default(".mate/recipes"),
   /** Where downloaded Splice files land. Resolved to an absolute path per file, which is what Ableton gets. */
   downloadsDir: z.string().min(1).default(".mate/downloads"),
@@ -50,6 +61,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     templatesDir: env.MATE_TEMPLATES_DIR,
     bandsDir: env.MATE_BANDS_DIR,
     songsDir: env.MATE_SONGS_DIR,
+    sessionsDir: env.MATE_SESSIONS_DIR,
+    journalCompactBytes: env.MATE_JOURNAL_COMPACT_BYTES,
     recipesDir: env.MATE_RECIPES_DIR,
     downloadsDir: env.MATE_DOWNLOADS_DIR,
   });
