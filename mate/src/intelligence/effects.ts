@@ -1,4 +1,5 @@
 import { mateTrackName } from "@aibleton/protocol";
+import type { Activity } from "@aibleton/protocol";
 import type { Clock } from "../core/clock.ts";
 import { envelope, type CommandBody } from "../core/commands.ts";
 import type { Mailbox } from "../core/mailbox.ts";
@@ -77,6 +78,9 @@ export class EffectRunner {
       case "callBrain": {
         const controller = new AbortController();
         this.brainControllers.set(effect.requestId, controller);
+        // The brain can take half a minute. Without this the app has nothing to show between the
+        // drummer pressing send and the first action landing.
+        const thinking = this.startThinking(effect.requestId, effect.input.userText ?? effect.input.goal ?? "");
         this.track(
           deps.brain
             .decide(effect.input, controller.signal)
@@ -90,7 +94,12 @@ export class EffectRunner {
                 this.post({ type: "brainFailed", requestId: effect.requestId, error: message(err) });
               },
             )
-            .finally(() => this.brainControllers.delete(effect.requestId)),
+            .finally(() => {
+              this.brainControllers.delete(effect.requestId);
+              // By identity: posting `brainDecided` drains synchronously, so by the time this runs
+              // the actions it decided on may already have an activity of their own in the store.
+              if (deps.store.getActivity() === thinking) deps.store.setActivity(null);
+            }),
         );
         return;
       }
@@ -141,13 +150,13 @@ export class EffectRunner {
         }
         const action = actions[i]!;
         try {
-          const detail = await this.applyOne(action, controller.signal, userPrompt);
+          const detail = await this.applyOne(action, controller.signal, requestId, userPrompt);
           results.push({ action, ok: true, detail });
-          this.deps.store.events.emit({ type: "action.applied", action: action.type, ok: true, detail });
+          this.deps.store.events.emit({ type: "action.applied", action: action.type, ok: true, detail, requestId });
         } catch (err) {
           const detail = message(err);
           this.deps.log.warn(`action ${action.type} failed`, detail);
-          this.deps.store.events.emit({ type: "action.applied", action: action.type, ok: false, detail });
+          this.deps.store.events.emit({ type: "action.applied", action: action.type, ok: false, detail, requestId });
           // The successful results go with it: they are already in the set and cannot be undone.
           this.post({ type: "actionFailed", requestId, index: i, error: detail, results });
           return;
@@ -164,7 +173,7 @@ export class EffectRunner {
    * that stops a cancelled set is the one between actions, but a case that makes several calls or
    * runs long should re-check it here.
    */
-  private async applyOne(action: Action, signal: AbortSignal, userPrompt?: string): Promise<string | undefined> {
+  private async applyOne(action: Action, signal: AbortSignal, requestId: string, userPrompt?: string): Promise<string | undefined> {
     const { ableton, splice } = this.deps;
     const ctx = userPrompt ? { userPrompt } : undefined;
     switch (action.type) {
@@ -203,7 +212,7 @@ export class EffectRunner {
       // The song plan. Each of these goes through the service the drummer's buttons call, and each
       // reads the active song when it runs, so a compose and an edit of it can queue in one turn.
       case "composeSong": {
-        const out = await this.songs().compose({ text: action.text, ...(action.name ? { name: action.name } : {}), signal });
+        const out = await this.songs().compose({ text: action.text, ...(action.name ? { name: action.name } : {}), signal, requestId });
         const { plan } = out.song;
         const found = plan.slots.filter((s) => s.candidates.length > 0).length;
         return `“${out.song.name}”: ${plan.tracks.length} parts, ${found}/${plan.slots.length} slots with sounds${out.resolveError ? `; the Splice search failed (${out.resolveError})` : ""}`;
@@ -214,30 +223,30 @@ export class EffectRunner {
       }
       case "resolveSong": {
         const songs = this.songs();
-        const out = await songs.resolve(songs.requireActive(), signal);
+        const out = await songs.resolve(songs.requireActive(), signal, requestId);
         const found = out.song.plan.slots.filter((s) => s.candidates.length > 0).length;
         return `${found}/${out.song.plan.slots.length} slots have sounds${out.failedSlotIds.length ? `, ${out.failedSlotIds.length} found nothing` : ""}`;
       }
       case "pickSlot": {
         const songs = this.songs();
-        const song = await songs.pick(songs.requireActive(), action.slotId, action.soundUuid);
+        const song = await songs.pick(songs.requireActive(), action.slotId, action.soundUuid, requestId);
         const slot = song.plan.slots.find((s) => s.id === action.slotId);
         const name = slot?.candidates.find((c) => c.uuid === action.soundUuid)?.fileName ?? action.soundUuid;
         return `${action.slotId}: ${name}`;
       }
       case "setPlacement": {
         const songs = this.songs();
-        await songs.setPlacement(songs.requireActive(), action.partId, action.occurrence, action.plays);
+        await songs.setPlacement(songs.requireActive(), action.partId, action.occurrence, action.plays, requestId);
         return `${action.partId} ${action.plays ? "plays" : "rests"} in occurrence ${action.occurrence}`;
       }
       case "removeTrack": {
         const songs = this.songs();
-        const song = await songs.removeTrack(songs.requireActive(), action.partId);
+        const song = await songs.removeTrack(songs.requireActive(), action.partId, requestId);
         return `dropped ${action.partId}, ${song.plan.tracks.length} parts left`;
       }
       case "arrangeSong": {
         const songs = this.songs();
-        const out = await songs.arrange(songs.requireActive(), signal);
+        const out = await songs.arrange(songs.requireActive(), signal, requestId);
         // `arrange` already says the sentence to the drummer; this is the trail line, not a repeat.
         return `${out.applied.length} applied${out.failed.length ? `, ${out.failed.length} failed` : ""}`;
       }
@@ -247,6 +256,24 @@ export class EffectRunner {
         throw new Error(`applyOne: unhandled action ${JSON.stringify(never)}`);
       }
     }
+  }
+
+  /** Publishes "the bandmate is thinking" and hands back the record, so only that one is cleared later. */
+  private startThinking(requestId: string, request: string): Activity {
+    const at = this.deps.clock.now();
+    const activity: Activity = {
+      requestId,
+      kind: "think",
+      request,
+      message: "thinking it over",
+      fields: [],
+      fraction: null,
+      startedAt: at,
+      at,
+      cancellable: true,
+    };
+    this.deps.store.setActivity(activity);
+    return activity;
   }
 
   /** The song library, or a failure that names the reason. Wired in `index.ts`; absent in most tests. */

@@ -1,4 +1,4 @@
-import { envelope, type Command, type CommandBody, type CommandSource } from "../core/commands.ts";
+import { envelope, summarize, type Command, type CommandBody, type CommandSource } from "../core/commands.ts";
 import type { Phase, Song } from "@aibleton/protocol";
 import { songDigest } from "../songwriting/digest.ts";
 import { EffectRunner } from "./effects.ts";
@@ -26,6 +26,7 @@ export class AgentLoop implements Intelligence {
   private draining = false;
   private seen = new Set<string>();
   private lastGoal: string | undefined;
+  private lastQueued = "";
   private unsubscribeSong: (() => void) | null = null;
 
   constructor(private readonly deps: IntelligenceDeps) {
@@ -163,6 +164,14 @@ export class AgentLoop implements Intelligence {
     if (goal !== this.lastGoal) {
       this.lastGoal = goal;
       this.deps.store.setGoal(goal ?? null);
+    }
+    // What arrived mid-turn and is waiting. Change-detected the way the goal is: `sync` runs on
+    // every command, and the queue only moves when one is parked or released.
+    const deferred = this.state.ctx.deferred;
+    const fingerprint = deferred.map((c) => c.id).join(",");
+    if (fingerprint !== this.lastQueued) {
+      this.lastQueued = fingerprint;
+      this.deps.store.setQueued(deferred.map(summarize));
     }
   }
 }

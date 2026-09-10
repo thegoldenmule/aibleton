@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { Activity } from "@aibleton/protocol";
 import { ManualClock } from "../src/core/clock.ts";
 import { EventBus } from "../src/core/events.ts";
 import { Mailbox } from "../src/core/mailbox.ts";
@@ -35,7 +36,10 @@ describe("AgentLoop", () => {
     expect(h.brain.calls).toHaveLength(1);
     expect(h.brain.calls[0]?.userText).toBe("120 bpm");
     expect(h.events.ofType("message").map((e) => e.text)).toEqual(["Setting 120."]);
-    expect(h.events.ofType("action.applied")).toEqual([{ type: "action.applied", action: "setTempo", ok: true, detail: "120 bpm" }]);
+    const applied = h.events.ofType("action.applied");
+    expect(applied).toMatchObject([{ action: "setTempo", ok: true, detail: "120 bpm" }]);
+    // Tied to the turn that decided on it, so the app can match it to the activity it is watching.
+    expect(applied[0]!.requestId).toBe(h.events.ofType("activity.changed")[0]!.activity!.requestId);
     expect(h.store.snapshot().lastMessage).toBe("Setting 120.");
     // After acting, the loop refreshed the snapshot again so the store sees the new tempo.
     expect(h.store.getSession()?.transport.tempo).toBe(120);
@@ -89,6 +93,45 @@ describe("AgentLoop", () => {
     expect(h.store.recentCommands().filter((c) => c.type === "userRequest")).toHaveLength(2);
     expect(h.loop.phase()).toBe("idle");
     expect(h.loop.machineState().ctx.deferred).toEqual([]);
+  });
+
+  test("the brain thinking is an activity, and it is gone by the time the turn ends", async () => {
+    const brain = new ScriptedBrain([{ message: "ok", actions: [] }]);
+    brain.hold();
+    const h = harness(brain);
+    h.loop.submit({ type: "userRequest", text: "120 bpm" }, "api");
+    await new Promise((r) => setTimeout(r, 0));
+
+    // The brain can take half a minute; this is what the app shows in the meantime.
+    expect(h.store.getActivity()).toMatchObject({ kind: "think", request: "120 bpm", cancellable: true, fraction: null });
+    expect(h.store.snapshot().activity?.message).toBe("thinking it over");
+
+    brain.release();
+    await h.loop.settle();
+    expect(h.store.getActivity()).toBeNull();
+    expect(h.events.ofType("activity.changed").at(-1)?.activity).toBeNull();
+  });
+
+  test("what is waiting is published, and empties as each one is answered", async () => {
+    const brain = new ScriptedBrain([
+      { message: "first", actions: [] },
+      { message: "second", actions: [] },
+    ]);
+    brain.hold();
+    const h = harness(brain);
+    h.loop.submit({ type: "userRequest", text: "one" }, "api");
+    await new Promise((r) => setTimeout(r, 0));
+    h.loop.submit({ type: "userRequest", text: "two" }, "api");
+
+    // The drummer can see what is waiting instead of guessing whether the message landed.
+    expect(h.store.snapshot().queued.map((c) => c.summary)).toEqual(["two"]);
+    expect(h.events.ofType("queue.changed").at(-1)?.queued.map((c) => c.summary)).toEqual(["two"]);
+
+    brain.release();
+    await h.loop.settle();
+    expect(h.loop.machineState().ctx.deferred).toEqual([]);
+    expect(h.store.snapshot().queued).toEqual([]);
+    expect(h.events.ofType("queue.changed").at(-1)?.queued).toEqual([]);
   });
 
   test("followUp with 500ms delay fires at 500, not 499", async () => {
@@ -283,6 +326,30 @@ describe("AgentLoop song actions", () => {
     h.loop.submit({ type: "userRequest", text: "still there?" }, "api");
     await h.loop.settle();
     expect(h.brain.calls[2]?.song).toBeUndefined();
+  });
+
+  test("a compose the loop runs is one cancellable activity, gone by the end of the turn", async () => {
+    const h = await songHarness([{ message: "Writing you something dusty.", actions: [{ type: "composeSong", text: "something dusty and funky" }] }]);
+    const seen: (Activity | null)[] = [];
+    h.events.subscribe((e) => {
+      if (e.type === "activity.changed") seen.push(e.activity);
+    });
+
+    h.loop.submit({ type: "userRequest", text: "write me something dusty" }, "api");
+    await h.loop.settle();
+
+    const kinds = seen.map((a) => a?.kind ?? null);
+    expect(kinds[0]).toBe("think");
+    expect(kinds).toContain("compose");
+    expect(kinds.at(-1)).toBeNull();
+    const composing = seen.find((a) => a?.kind === "compose")!;
+    // The loop owns it, so `cancel` really would stop it, and it carries the turn's request id —
+    // which is also on every action.applied the app sees for this turn.
+    expect(composing.cancellable).toBe(true);
+    expect(composing.requestId).toBe(seen[0]!.requestId);
+    expect(h.events.ofType("action.applied").at(-1)?.requestId).toBe(composing.requestId);
+    expect(h.store.getActivity()).toBeNull();
+    expect(h.store.snapshot().activity).toBeNull();
   });
 
   test("a song action with no library fails the set instead of silently doing nothing", async () => {
