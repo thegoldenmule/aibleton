@@ -98,7 +98,7 @@ async function build(
     startedAt: 0,
     now: () => clock.now(),
   });
-  return { app, service, store, events, songs, bands, briefer, writer, recipes, clock, splice, ableton, downloadsDir: config.downloadsDir };
+  return { app, service, store, events, songs, templates, bands, briefer, writer, recipes, clock, splice, ableton, downloadsDir: config.downloadsDir };
 }
 
 type App = Awaited<ReturnType<typeof build>>["app"];
@@ -162,15 +162,38 @@ describe("POST /songs/compose", () => {
     expect(song.name).toBe("My song");
   });
 
-  test("an empty library is a 409 that names the missing library", async () => {
+  test("an empty library is seeded and composed from, not refused", async () => {
     const h = await build({ seedLibrary: false });
-    const res = await post(h.app, "/songs/compose", { text: "funky" });
-    expect(res.status).toBe(409);
-    const body = (await res.json()) as { error: string; library: string };
-    expect(body.library).toBe("templates");
-    expect(body.error).toContain("/templates");
-    expect(h.store.getSong()).toBeNull();
-    expect(await h.songs.list()).toEqual([]);
+    const res = await post(h.app, "/songs/compose", { text: "funky", seed: 7 });
+    expect(res.status).toBe(200);
+    const { song } = SongResponseSchema.parse(await res.json());
+
+    // Seeded through the libraries, so the next compose finds them saved.
+    const templates = await h.templates.list();
+    const bands = await h.bands.list();
+    expect(templates.map((t) => t.id)).toEqual([song.templateId]);
+    // Named for the compose's own seed, which tells it apart from any band the
+    // new-genre detour rolled afterwards (those carry seed + 1, + 2, + 3).
+    const seeded = bands.filter((b) => b.name.endsWith(" band 7"));
+    expect(seeded).toHaveLength(1);
+    expect(seeded[0]!.parts.length).toBeGreaterThan(0);
+    // The song embeds what it used, so the seeded form is the one it was built on.
+    expect(song.template.form).toBe(templates[0]!.form);
+
+    // And the drummer is told why a form and a band turned up unasked.
+    const trail = h.store.getTranscript().filter((t) => t.kind === "step").map((t) => t.text);
+    expect(trail[0]).toBe("no saved forms yet, so laid one out to start from");
+    expect(trail[1]).toBe("no saved bands yet, so staffed one to start from");
+    expect(h.store.getSong()?.id).toBe(song.id);
+  });
+
+  test("a second compose reuses the seeded library rather than growing it", async () => {
+    const h = await build({ seedLibrary: false });
+    expect((await post(h.app, "/songs/compose", { text: "funky", seed: 7 })).status).toBe(200);
+    expect((await post(h.app, "/songs/compose", { text: "funky again", seed: 7 })).status).toBe(200);
+    expect(await h.templates.list()).toHaveLength(1);
+    const second = h.store.getTranscript().filter((t) => t.kind === "step").map((t) => t.text);
+    expect(second.filter((t) => t.startsWith("no saved forms yet"))).toHaveLength(1);
   });
 
   test("a refusal is a 422", async () => {

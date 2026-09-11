@@ -10,6 +10,7 @@ import type { Briefer } from "./briefer/index.ts";
 import { arrangeSong, describeStep, type ArrangeOutcome } from "./arrange.ts";
 import { composeSong } from "./compose.ts";
 import { downloadPicks, reuseDownloaded, type DownloadOutcome } from "./download.ts";
+import { layTemplate, staffBand } from "./library.ts";
 import { removeTrack, setPlacement } from "./edit.ts";
 import { songFields } from "./narrate.ts";
 import { pickCandidate, resolveSong } from "./resolve.ts";
@@ -73,8 +74,12 @@ export interface ResolveOutcome {
 
 export interface SongServiceDeps {
   songs: SongStore;
-  /** The template library: the forms compose chooses from. Read-only from here. */
-  templates: { list(): Promise<Template[]> };
+  /**
+   * The template library: the forms compose chooses from, and where the one it
+   * lays out for a drummer who has none yet is saved. Structural rather than
+   * nominal so anything that lists and saves satisfies it.
+   */
+  templates: { list(): Promise<Template[]>; save(template: Template): Promise<Template> };
   /**
    * The band library: the roster compose chooses from, and the one place the
    * bands it rolls are added. Structural rather than nominal so anything that
@@ -174,8 +179,9 @@ export class SongService {
   /**
    * Runs the whole flow, persists the song, makes it active, then searches
    * Splice for every slot. Slow: it waits on the model, so an aborted signal
-   * abandons the brief.
-   * @throws SongAlreadyActiveError, EmptyLibraryError, ModelRefusedError, or whatever the briefer throws.
+   * abandons the brief. An empty library is seeded here rather than refused, so
+   * the fix reaches the brain's `compose_song` and the app's button alike.
+   * @throws SongAlreadyActiveError, ModelRefusedError, or whatever the briefer throws.
    */
   async compose(opts: ComposeOptions): Promise<ComposeOutcome> {
     const active = this.deps.store.getSong();
@@ -185,7 +191,7 @@ export class SongService {
     return this.withActivity(
       { kind: "compose", request: opts.text, message: "starting a song", fraction: 0.05, ...(opts.requestId ? { requestId: opts.requestId } : {}) },
       async (update) => {
-        const [templates, bands] = await Promise.all([this.deps.templates.list(), this.deps.bands.list()]);
+        let [templates, bands] = await Promise.all([this.deps.templates.list(), this.deps.bands.list()]);
         // The request goes into the conversation before the slow part, so the app shows it while composing.
         if (opts.announce) this.deps.store.appendTranscript({ role: "user", kind: "compose", text: opts.text, at: this.deps.now() });
         // Two audiences: the activity carries the step the session column's bar is on, the
@@ -195,6 +201,14 @@ export class SongService {
           update(message, { fields, fraction: COMPOSE_FRACTION[stage] });
           this.deps.store.appendTranscript({ role: "mate", kind: "step", text: message, at: this.deps.now(), fields });
         };
+
+        // A fresh install has nothing to pick from, and "write me a funk tune"
+        // failing on a library the drummer never knew they had to fill is not an
+        // answer. Both seeds run off the compose's own seed, so the same request
+        // twice on two fresh installs lands in the same place, and both are
+        // narrated: a form and a band appearing unasked needs explaining.
+        if (templates.length === 0) templates = [await this.seedTemplate(seed, narrate)];
+        if (bands.length === 0) bands = [await this.seedBand(seed, opts.signal, narrate)];
 
         const song = await composeSong({
           onProgress: narrate,
@@ -232,6 +246,33 @@ export class SongService {
         }
       },
     );
+  }
+
+  /**
+   * The first form in an empty library. Free and instant — no model is in the
+   * loop — so it is laid out rather than refused.
+   */
+  private async seedTemplate(seed: number, narrate: (stage: ComposeStage, message: string, fields?: TranscriptField[]) => void): Promise<Template> {
+    const template = await this.deps.templates.save(layTemplate({ seed }, { now: this.deps.now }));
+    narrate("picking", "no saved forms yet, so laid one out to start from", [
+      { label: "form", value: `${template.name} — ${template.form.toUpperCase()}` },
+    ]);
+    return template;
+  }
+
+  /**
+   * The first band in an empty library. The genre comes off the seed rather
+   * than the request: a genre the request names but no built-in recipe covers
+   * would put the model in the way of the very first song, and `composeSong`'s
+   * new-genre detour already rolls the right bands once the brief names them.
+   */
+  private async seedBand(seed: number, signal: AbortSignal, narrate: (stage: ComposeStage, message: string, fields?: TranscriptField[]) => void): Promise<Band> {
+    const [band] = await this.deps.bands.saveAll([await staffBand({ seed }, { recipes: this.deps.recipes, now: this.deps.now, signal })]);
+    narrate("picking", "no saved bands yet, so staffed one to start from", [
+      { label: "band", value: band!.name },
+      { label: "parts", value: band!.parts.map((p) => `${p.name} (${p.role})`).join(", ") },
+    ]);
+    return band!;
   }
 
   // ---- slots --------------------------------------------------------------
