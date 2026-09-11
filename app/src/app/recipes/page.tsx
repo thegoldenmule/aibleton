@@ -67,7 +67,7 @@ export default function RecipesPage() {
         // use. Narrow, the sample sits under the grid; wide, it sits beside it.
         <div className="@container flex min-h-0 flex-1 flex-col">
           <div className="flex min-h-0 flex-1 flex-col gap-2 @min-[40rem]:flex-row">
-            <ul className="grid min-w-0 flex-1 auto-rows-min grid-cols-1 gap-2 @min-[47rem]:grid-cols-2 @min-[62rem]:grid-cols-3">
+            <ul className="grid min-h-0 min-w-0 flex-1 auto-rows-min grid-cols-1 gap-2 overflow-y-auto @min-[47rem]:grid-cols-2 @min-[62rem]:grid-cols-3">
               {recipes.map((recipe) => (
                 <RecipeCard
                   key={recipe.id}
@@ -139,7 +139,10 @@ function Inspector({ recipe, seed, onRoll }: { recipe: BandRecipe; seed: number;
     <aside className="flex shrink-0 flex-col overflow-hidden rounded-md border border-line bg-panel @min-[40rem]:w-72">
       <PanelHeader title="inspector" />
 
-      <div className="flex flex-col">
+      {/* The pane's own scroller, under a header that stays put — the same shape
+          `ConversationPane` has. It only ever engages when something above gives
+          this a definite height, so the stacked layout still flows. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="flex flex-col gap-0.5 border-b border-line px-3 py-2.5">
           <h3 className="truncate text-sm font-medium text-accent" title={recipe.genre}>
             {recipe.genre}
