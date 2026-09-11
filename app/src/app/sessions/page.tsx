@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { SessionSummary } from "@aibleton/protocol";
 import { useSessions } from "../../lib/useSessions";
+import { ErrorNote } from "../../components/ui/ErrorNote";
 
 /** The current session is marked, not styled differently in kind — same row, one accent border. */
 const ROW_CLASS: Record<"current" | "other", string> = {
@@ -77,11 +78,7 @@ export default function SessionsPage() {
         </span>
       </header>
 
-      {lastError ? (
-        <p className="rounded-sm border border-audio/40 bg-audio/10 px-3 py-1.5 font-mono text-[11px] text-audio">
-          {lastError}
-        </p>
-      ) : null}
+      <ErrorNote message={lastError} />
 
       <section className="flex flex-col gap-2 rounded-md border border-line bg-panel p-3">
         <h2 className="text-[10px] uppercase tracking-wider text-muted">start a session</h2>
