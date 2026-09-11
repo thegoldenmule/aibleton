@@ -1,6 +1,5 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import type { Activity } from "@aibleton/protocol";
 import { ConversationPane } from "../components/ConversationPane";
 import { EmptyState } from "../components/EmptyState";
@@ -8,18 +7,7 @@ import { MailboxPanel } from "../components/MailboxPanel";
 import { SongView } from "../components/SongView";
 import { TransportBar } from "../components/TransportBar";
 import { useMateState } from "../lib/useMateState";
-
-/** Coarse wall clock for relative timestamps; 0 on the server so SSR and hydration agree. */
-function useNow(intervalMs: number): number {
-  return useSyncExternalStore(
-    (onChange) => {
-      const t = setInterval(onChange, intervalMs);
-      return () => clearInterval(t);
-    },
-    () => Math.floor(Date.now() / intervalMs) * intervalMs,
-    () => 0,
-  );
-}
+import { useNow } from "../lib/useNow";
 
 const FALLBACK_ADAPTERS = { ableton: "stub", splice: "stub", brain: "scripted" } as const;
 
