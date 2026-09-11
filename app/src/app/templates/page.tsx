@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import {
   TemplateSchema,
@@ -14,6 +13,7 @@ import { FormStrip, letterClass } from "../../components/FormStrip";
 import { useTemplates } from "../../lib/useTemplates";
 import { errorMessage } from "../../lib/errors";
 import { ErrorNote } from "../../components/ui/ErrorNote";
+import { WorkspacePanel } from "../../components/WorkspacePanel";
 import { TextField } from "../../components/ui/TextField";
 
 /** Letters the generator can use, in order; `home` must be one of the ones in play. */
@@ -151,40 +151,12 @@ export default function TemplatesPage() {
   const draftBars = draft ? totalBars(draft.form) : null;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-line bg-panel px-4 py-2.5">
-        <span className="text-sm font-semibold tracking-tight">aibleton</span>
-        <span className="text-xs text-muted">templates</span>
-        <span className="font-mono text-[10px] text-muted/70">
-          {loading ? "loading…" : `${templates.length} saved`}
-        </span>
-        <span className="ml-auto flex items-center gap-1.5">
-          <Link
-            href="/sessions"
-            className="rounded-sm border border-line bg-panel-2 px-2.5 py-1 text-xs font-medium text-muted hover:text-foreground"
-          >
-            sessions →
-          </Link>
-          <Link
-            href="/bands"
-            className="rounded-sm border border-line bg-panel-2 px-2.5 py-1 text-xs font-medium text-muted hover:text-foreground"
-          >
-            bands →
-          </Link>
-          <Link
-            href="/"
-            className="rounded-sm border border-line bg-panel-2 px-2.5 py-1 text-xs font-medium text-muted hover:text-foreground"
-          >
-            ← bandmate
-          </Link>
-        </span>
-      </header>
-
+    <WorkspacePanel title="templates" meta={loading ? "loading…" : `${templates.length} saved`}>
       <ErrorNote message={lastError} />
 
-      <section className="flex flex-col gap-2 rounded-md border border-line bg-panel p-3">
+      <section className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
         <h2 className="text-[10px] uppercase tracking-wider text-muted">generator</h2>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           <TextField id="gen-name" label="name" value={options.name} onChange={set("name")} placeholder="auto" />
           <TextField
             id="gen-seed"
@@ -264,7 +236,7 @@ export default function TemplatesPage() {
       </section>
 
       {draft ? (
-        <section className="flex flex-col gap-3 rounded-md border border-accent/50 bg-panel p-3">
+        <section className="flex flex-col gap-3 rounded-sm border border-accent/50 bg-panel-2 p-2.5">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2 className="text-[10px] uppercase tracking-wider text-muted">preview</h2>
             <span className="rounded-sm bg-accent/20 px-1.5 py-0.5 font-mono text-[10px] text-accent">unsaved</span>
@@ -327,7 +299,7 @@ export default function TemplatesPage() {
         </section>
       ) : null}
 
-      <section className="flex flex-col gap-2 rounded-md border border-line bg-panel p-3">
+      <section className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
         <h2 className="text-[10px] uppercase tracking-wider text-muted">saved templates</h2>
         {loading ? (
           <p className="text-xs text-muted">Loading…</p>
@@ -387,7 +359,7 @@ export default function TemplatesPage() {
           </ul>
         )}
       </section>
-    </div>
+    </WorkspacePanel>
   );
 }
 
