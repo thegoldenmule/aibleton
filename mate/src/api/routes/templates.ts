@@ -1,18 +1,14 @@
 import { Hono } from "hono";
 import {
   GenerateTemplateRequestSchema,
-  formLabels,
-  parseForm,
   PutTemplateRequestSchema,
-  TemplateSchema,
   type DeleteTemplateResponse,
   type Template,
   type TemplateListResponse,
   type TemplateResponse,
 } from "@aibleton/protocol";
-import { newId } from "../../core/commands.ts";
-import { defaultSections, generateForm } from "../../core/generator.ts";
 import { isValidTemplateId, type TemplateLibrary } from "../../core/templates.ts";
+import { GenerateOptionsError, GeneratedInvalidError, layTemplate } from "../../songwriting/library.ts";
 
 export interface TemplateRouteDeps {
   /** The log-backed library. Reads come off its fold; a save that cannot reach the log rejects. */
@@ -74,37 +70,17 @@ export function templateRoutes(deps: TemplateRouteDeps): Hono {
     }
     const parsed = GenerateTemplateRequestSchema.safeParse(raw ?? {});
     if (!parsed.success) return c.json({ error: "invalid options", issues: parsed.error.issues }, 400);
-    const opts = parsed.data;
-    const at = deps.now();
-    const seed = opts.seed ?? at;
 
-    let form: string;
+    let template: Template;
     try {
-      form = generateForm({
-        seed,
-        ...(opts.alphabet !== undefined ? { alphabet: opts.alphabet } : {}),
-        ...(opts.count !== undefined ? { count: opts.count } : {}),
-        ...(opts.home !== undefined ? { home: opts.home } : {}),
-        ...(opts.maxRun !== undefined ? { maxRun: opts.maxRun } : {}),
-        ...(opts.bars !== undefined ? { bars: opts.bars } : {}),
-      });
+      template = layTemplate(parsed.data, { now: deps.now });
     } catch (err) {
-      return c.json({ error: err instanceof Error ? err.message : String(err) }, 400);
+      if (err instanceof GenerateOptionsError) return c.json({ error: err.message }, 400);
+      if (err instanceof GeneratedInvalidError) return c.json({ error: err.message, issues: err.issues }, 500);
+      throw err;
     }
 
-    const draft: Template = {
-      id: newId("tpl"),
-      name: opts.name ?? `Form ${seed}`,
-      form,
-      sections: defaultSections(formLabels(parseForm(form))),
-      ...(opts.bpm !== undefined ? { bpm: opts.bpm } : {}),
-      createdAt: at,
-    };
-    const checked = TemplateSchema.safeParse(draft);
-    if (!checked.success) {
-      return c.json({ error: "generator produced an invalid template", issues: checked.error.issues }, 500);
-    }
-    const body: TemplateResponse = { template: checked.data };
+    const body: TemplateResponse = { template };
     return c.json(body);
   });
 
