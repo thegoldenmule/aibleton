@@ -1,36 +1,30 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { generateBand, oneRecipe, recipeRoles, type BandRecipe } from "@aibleton/protocol";
+import { generateBand, oneRecipe, recipeRoles, type BandPart, type BandRecipe } from "@aibleton/protocol";
+import { BandRoster, roleClass } from "../../components/BandRoster";
 import { ErrorNote } from "../../components/ui/ErrorNote";
+import { PanelHeader } from "../../components/ui/PanelHeader";
 import { WorkspacePanel } from "../../components/WorkspacePanel";
 import { useRecipes } from "../../lib/useRecipes";
 
 /**
- * How each genre staffs a band.
+ * How each genre staffs a band, one card per genre.
  *
- * A recipe is a *generator*, not a document, so the page leads with what it
- * produces — a band rolled from it, and the shape of the roster — and keeps the
- * briefs folded away. They are Splice search prompts: the thing you want when a
- * search came back wrong, not while you are looking for a genre. Rendering all
- * of them at once was ~1,500 words on one screen.
+ * A recipe is a *generator*, not a document, so the card leads with what it
+ * produces: the lineup, and a band actually rolled from it — rendered with the
+ * same `BandRoster` a saved band wears, because that is what this recipe turns
+ * into. The briefs stay folded away. They are Splice search prompts, wanted
+ * when a search came back wrong rather than while you are looking for a genre,
+ * and all of them at once is ~1,500 words on one screen.
  *
  * Read-only but for the forget. Nothing here writes a recipe — they arrive on
  * the stream when something asks for a band in a genre mate has none for, which
- * is why the list can grow while you are looking at it.
+ * is why the grid can grow while you are looking at it.
  */
 export default function RecipesPage() {
   const { recipes, loading, busy, lastError, remove } = useRecipes();
-  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const [confirmId, setConfirmId] = useState<string | null>(null);
-
-  function toggle(id: string) {
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
-  }
 
   async function destroy(id: string) {
     setConfirmId(null);
@@ -48,39 +42,42 @@ export default function RecipesPage() {
     >
       <ErrorNote message={lastError} />
 
-      {loading ? (
-        <p className="text-xs text-muted">Loading…</p>
-      ) : recipes.length === 0 ? (
-        <p className="text-xs text-muted">
-          {lastError
-            ? "Could not load recipes — see the error above."
-            : "Nothing written yet. Mate ships no recipes: ask for a band in a genre on the bands page, or ask the bandmate for one, and its recipe is written here first."}
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-1.5">
-          {recipes.map((recipe) => (
-            <RecipeRow
-              key={recipe.id}
-              recipe={recipe}
-              open={open.has(recipe.id)}
-              onToggle={() => toggle(recipe.id)}
-              busy={busy}
-              confirming={confirmId === recipe.id}
-              onConfirm={() => setConfirmId(recipe.id)}
-              onCancel={() => setConfirmId(null)}
-              onDelete={() => void destroy(recipe.id)}
-            />
-          ))}
-        </ul>
-      )}
+      <section className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
+        <PanelHeader title="written recipes" level={3} count={recipes.length > 0 ? recipes.length : undefined} />
+        {loading ? (
+          <p className="text-xs text-muted">Loading…</p>
+        ) : recipes.length === 0 ? (
+          <p className="text-xs text-muted">
+            {lastError
+              ? "Could not load recipes — see the error above."
+              : "Nothing written yet. Mate ships no recipes: ask for a band in a genre on the bands page, or ask the bandmate for one, and its recipe is written here first."}
+          </p>
+        ) : (
+          // The column is a third of the page, so the grid measures itself, not
+          // the viewport — the same container query the band cards use.
+          <div className="@container">
+            <ul className="grid grid-cols-1 gap-2 @min-[34rem]:grid-cols-2 @min-[54rem]:grid-cols-3">
+              {recipes.map((recipe) => (
+                <RecipeCard
+                  key={recipe.id}
+                  recipe={recipe}
+                  busy={busy}
+                  confirming={confirmId === recipe.id}
+                  onConfirm={() => setConfirmId(recipe.id)}
+                  onCancel={() => setConfirmId(null)}
+                  onDelete={() => void destroy(recipe.id)}
+                />
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
     </WorkspacePanel>
   );
 }
 
-interface RowProps {
+interface CardProps {
   recipe: BandRecipe;
-  open: boolean;
-  onToggle: () => void;
   busy: boolean;
   confirming: boolean;
   onConfirm: () => void;
@@ -88,228 +85,197 @@ interface RowProps {
   onDelete: () => void;
 }
 
-function RecipeRow({ recipe, open, onToggle, busy, confirming, onConfirm, onCancel, onDelete }: RowProps) {
+function RecipeCard({ recipe, busy, confirming, onConfirm, onCancel, onDelete }: CardProps) {
+  const [bench, setBench] = useState(false);
+  const roles = recipeRoles(recipe);
   const min = recipe.core.length;
   const max = min + recipe.optional.length;
 
   /**
    * One band actually rolled from this recipe. Free — `generateBand` is pure —
-   * and it says in four words what the prose below cannot: what you get.
-   * A fixed seed so it does not reshuffle on every render.
+   * and it says in four names what the briefs below cannot: what you get. A
+   * fixed seed, so it does not reshuffle on every render.
    */
-  const sample = useMemo(() => {
+  const sample = useMemo<BandPart[]>(() => {
     try {
-      return generateBand({ seed: 0, genre: recipe.id }, oneRecipe(recipe)).parts.map((p) => p.name);
+      return generateBand({ seed: 0, genre: recipe.id }, oneRecipe(recipe)).parts;
     } catch {
       return [];
     }
   }, [recipe]);
 
+  /** Heaviest first: the optionals you are most likely to actually get, read first. */
+  const optional = useMemo(() => [...recipe.optional].sort((a, b) => b.weight - a.weight), [recipe]);
+
   return (
-    <li className="rounded-sm border border-line bg-panel-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2.5 py-2">
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={open}
-          className="flex min-w-0 shrink items-center gap-1.5 text-left"
-        >
-          <Chevron open={open} />
-          <span className="truncate text-sm font-medium">{recipe.genre}</span>
-        </button>
-        <span className="font-mono text-[10px] text-muted/70">
-          {min === max ? `${min} parts` : `${min}–${max} parts`}
-        </span>
-        <span className="ml-auto flex items-center gap-1.5">
-          {confirming ? (
-            <>
-              <span className="text-[11px] text-audio">forget? the next band rewrites it</span>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={onDelete}
-                className="rounded-sm border border-audio/60 px-2 py-0.5 text-[11px] font-medium text-audio disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                confirm
-              </button>
-              <button
-                type="button"
-                onClick={onCancel}
-                className="rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted"
-              >
-                cancel
-              </button>
-            </>
-          ) : (
+    <li className="flex flex-col gap-2 rounded-sm border border-line bg-panel p-2.5">
+      <div className="flex items-start gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <h4 className="truncate text-sm font-medium" title={recipe.genre}>
+            {recipe.genre}
+          </h4>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-mono text-[10px] text-muted/70">
+              {min === max ? `${min} parts` : `${min}–${max} parts`}
+            </span>
+            <span className="font-mono text-[10px] text-muted/70">
+              {roles.length} role{roles.length === 1 ? "" : "s"}
+            </span>
+            <span className="font-mono text-[10px] text-muted/70" title={new Date(recipe.createdAt).toLocaleString()}>
+              {new Date(recipe.createdAt).toLocaleDateString()}
+            </span>
+          </div>
+        </div>
+        {confirming ? (
+          <span className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
               disabled={busy}
-              onClick={onConfirm}
-              className="rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted hover:text-audio disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={onDelete}
+              title="the next band in this genre has a new recipe written, which costs a model call"
+              className="rounded-sm border border-audio/60 px-2 py-0.5 text-[11px] font-medium text-audio disabled:cursor-not-allowed disabled:opacity-40"
             >
-              forget
+              forget?
             </button>
-          )}
-        </span>
-      </div>
-
-      <div className="flex flex-col gap-1 px-2.5 pb-2">
-        {!open && (
-          <div className="flex flex-wrap items-center gap-1">
-            {recipe.core.map((role, i) => (
-              <RoleChip key={`${role}-${i}`} role={role} core />
-            ))}
-            {recipe.optional.length > 0 ? (
-              <span className="font-mono text-[10px] text-muted/60">+{recipe.optional.length} optional</span>
-            ) : null}
-          </div>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted"
+            >
+              cancel
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onConfirm}
+            className="shrink-0 rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted hover:text-audio disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            forget
+          </button>
         )}
-        <Sample names={sample} clamp={open ? undefined : 6} />
       </div>
 
-      {open ? <Detail recipe={recipe} /> : null}
-    </li>
-  );
-}
-
-/** A band this recipe actually makes. The headline, in both states. */
-function Sample({ names, clamp }: { names: string[]; clamp?: number }) {
-  if (names.length === 0) return null;
-  const shown = clamp ? names.slice(0, clamp) : names;
-  return (
-    <p className="text-[11px] leading-snug text-muted">
-      <span className="font-mono text-[10px] uppercase tracking-wider text-muted/50">e.g. </span>
-      <span className="text-foreground/80">{shown.join(" · ")}</span>
-      {shown.length < names.length ? <span className="text-muted/50"> +{names.length - shown.length}</span> : null}
-    </p>
-  );
-}
-
-function Detail({ recipe }: { recipe: BandRecipe }) {
-  const roles = recipeRoles(recipe);
-  const heaviest = Math.max(...recipe.optional.map((o) => o.weight), 1);
-  return (
-    <div className="flex flex-col gap-3 border-t border-line px-2.5 py-2.5">
-      <section className="flex flex-col gap-1.5">
-        <Label>core · track order</Label>
-        <div className="flex flex-wrap items-center gap-1">
+      <div className="flex flex-col gap-1">
+        <Lineup label="core">
           {recipe.core.map((role, i) => (
-            <RoleChip key={`${role}-${i}`} role={role} core position={i + 1} />
+            <RoleChip key={`${role}-${i}`} role={role} title={`always staffed — track ${i + 1}`} />
           ))}
-        </div>
-      </section>
-
-      {recipe.optional.length > 0 ? (
-        <section className="flex flex-col gap-1">
-          <Label>optional · drawn by weight</Label>
-          <ul className="flex flex-col gap-0.5">
-            {recipe.optional.map((entry, i) => (
-              <li key={`${entry.role}-${i}`} className="flex items-center gap-2">
-                <span className="w-24 shrink-0 truncate font-mono text-[11px] text-muted">{entry.role}</span>
-                <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-sm bg-line">
-                  <span
-                    className="block h-full rounded-sm bg-accent/50"
-                    style={{ width: `${Math.round((entry.weight / heaviest) * 100)}%` }}
-                  />
-                </span>
-                <span className="w-8 shrink-0 text-right font-mono text-[10px] text-muted/60">{entry.weight}</span>
-              </li>
+        </Lineup>
+        {optional.length > 0 ? (
+          <Lineup label="opt">
+            {optional.map((entry, i) => (
+              <RoleChip
+                key={`${entry.role}-${i}`}
+                role={entry.role}
+                weight={entry.weight}
+                title={`drawn by weight ${entry.weight}`}
+              />
             ))}
-          </ul>
-        </section>
+          </Lineup>
+        ) : null}
+      </div>
+
+      {sample.length > 0 ? (
+        <div className="flex flex-col gap-1">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted/50">a band from this recipe</span>
+          <BandRoster parts={sample} compact />
+        </div>
       ) : null}
 
-      <section className="flex flex-col gap-1.5">
-        <Label>who can play each part</Label>
-        <ul className="flex flex-col gap-1">
-          {roles.map((role) => (
-            <RoleRow key={role} recipe={recipe} role={role} />
-          ))}
-        </ul>
-      </section>
-    </div>
+      <div className="flex flex-col gap-1">
+        <button
+          type="button"
+          onClick={() => setBench((prev) => !prev)}
+          aria-expanded={bench}
+          className="flex items-center gap-1.5 self-start text-[11px] text-muted hover:text-foreground"
+        >
+          <Chevron open={bench} />
+          who else can play
+        </button>
+        {bench ? <Bench recipe={recipe} roles={roles} /> : null}
+      </div>
+    </li>
   );
 }
 
 /**
- * One role's bench. Names are the scannable half — "skank chop", "talking drum"
- * — so they show as chips; the briefs behind them are one click away, because
- * that is a debugging question and there are a hundred-odd of them per page.
+ * Everyone on the bench, per role. Names only — the sample roster above already
+ * shows what a brief reads like, and the question this answers is "who else
+ * could turn up", which the names answer on their own. Each carries its brief
+ * as a tooltip, the way a part in `BandRoster` does.
+ *
+ * A name in the role's colour is one a *core* slot can reach (the recipe's
+ * `anchors`); the muted ones only ever arrive as extra parts.
  */
-function RoleRow({ recipe, role }: { recipe: BandRecipe; role: string }) {
-  const [open, setOpen] = useState(false);
-  const names = recipe.names[role] ?? [];
-  const briefs = recipe.briefs[role] ?? [];
-  const anchor = recipe.anchors[role];
-  /** Where the core's reach ends: names past this one are only ever extra parts. */
-  const split = anchor !== undefined && anchor < names.length ? anchor : null;
-
+function Bench({ recipe, roles }: { recipe: BandRecipe; roles: string[] }) {
   return (
-    <li className="rounded-sm border border-line/60">
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        aria-expanded={open}
-        className="flex w-full items-center gap-1.5 px-1.5 py-1 text-left"
-      >
-        <Chevron open={open} />
-        <span className="w-20 shrink-0 truncate font-mono text-[11px] text-foreground">{role}</span>
-        {open ? (
-          <span className="font-mono text-[10px] text-muted/60">
-            {names.length} {names.length === 1 ? "name" : "names"}
-            {split !== null ? ` · core picks from the first ${split}` : ""}
-          </span>
-        ) : (
-          <span className="min-w-0 flex-1 truncate text-[11px] text-muted">{names.join(" · ")}</span>
-        )}
-      </button>
-
-      {open ? (
-        <ul className="flex flex-col gap-1 px-1.5 pb-1.5">
-          {names.map((name, i) => (
-            <li key={`${name}-${i}`} className="flex flex-col gap-0.5">
-              {split !== null && i === split ? (
-                <span className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted/40">
-                  — extra parts only —
-                </span>
+    <ul className="flex flex-col gap-1.5 border-t border-line pt-1.5">
+      {roles.map((role) => {
+        const names = recipe.names[role] ?? [];
+        const briefs = recipe.briefs[role] ?? [];
+        const anchor = recipe.anchors[role];
+        const reach = anchor !== undefined && anchor < names.length ? anchor : names.length;
+        return (
+          <li key={role} className="flex flex-col gap-1">
+            <span className="flex items-center gap-1.5">
+              <span className={`shrink-0 rounded-sm border px-1 py-px font-mono text-[9px] ${roleClass(role)}`}>{role}</span>
+              {reach < names.length ? (
+                <span className="font-mono text-[9px] text-muted/50">core picks from the first {reach}</span>
               ) : null}
-              <span className={`font-mono text-[11px] ${split !== null && i < split ? "text-accent" : "text-foreground"}`}>
-                {name}
-              </span>
-              <span className="max-w-[65ch] pl-2 text-[11px] leading-relaxed text-muted">
-                {briefs[i % Math.max(briefs.length, 1)] ?? "—"}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </li>
+            </span>
+            <span className="flex flex-wrap gap-1">
+              {names.map((name, i) => (
+                <span
+                  key={`${name}-${i}`}
+                  title={briefs[i % Math.max(briefs.length, 1)] ?? undefined}
+                  className={
+                    i < reach
+                      ? `cursor-help rounded-sm border px-1 py-px font-mono text-[10px] ${roleClass(role)}`
+                      : "cursor-help rounded-sm border border-line px-1 py-px font-mono text-[10px] text-muted"
+                  }
+                >
+                  {name}
+                </span>
+              ))}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
-function Label({ children }: { children: ReactNode }) {
-  return <span className="text-[10px] uppercase tracking-wider text-muted">{children}</span>;
+function Lineup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-baseline gap-1.5">
+      <span className="w-7 shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted/50">{label}</span>
+      <span className="flex min-w-0 flex-wrap gap-1">{children}</span>
+    </div>
+  );
 }
 
-function RoleChip({ role, core, position }: { role: string; core?: boolean; position?: number }) {
+function RoleChip({ role, weight, title }: { role: string; weight?: number; title?: string }) {
   return (
     <span
+      title={title}
       className={
-        core
-          ? "rounded-sm border border-accent/60 px-1.5 py-0.5 font-mono text-[10px] text-accent"
-          : "rounded-sm border border-line px-1.5 py-0.5 font-mono text-[10px] text-muted"
+        weight === undefined
+          ? `rounded-sm border px-1 py-px font-mono text-[10px] ${roleClass(role)}`
+          : `rounded-sm border border-dashed px-1 py-px font-mono text-[10px] opacity-70 ${roleClass(role)}`
       }
     >
-      {position !== undefined ? <span className="text-accent/50">{position} </span> : null}
       {role}
+      {weight !== undefined ? <span className="text-[9px] opacity-60"> {weight}</span> : null}
     </span>
   );
 }
 
 /** Full class strings only — Tailwind cannot see interpolated names. */
 const CHEVRON_CLASS = {
-  open: "shrink-0 rotate-90 text-muted transition-transform",
-  shut: "shrink-0 text-muted transition-transform",
+  open: "shrink-0 rotate-90 transition-transform",
+  shut: "shrink-0 transition-transform",
 };
 
 function Chevron({ open }: { open: boolean }) {
