@@ -208,10 +208,6 @@ export function compactSession(s: DawState) {
 }
 
 /**
- * The view the request was typed in. One field today; new ones join as lines
- * here, which is why it is a list and not a sentence.
- */
-/**
  * Whatever the context carries, one line each — named rather than listed, the
  * way `ContextChips` renders the same object in the app. A field added to
  * `RequestContextSchema` shows up in both places without either being touched,
