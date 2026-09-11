@@ -1,5 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import type { MateEvent } from "@aibleton/protocol";
+import { toJournaled, type MateEvent } from "@aibleton/protocol";
 import { loadConfig } from "./config.ts";
 import { createLogger } from "./log.ts";
 import { SystemClock } from "./core/clock.ts";
@@ -51,7 +51,7 @@ async function main(): Promise<void> {
   // Attached *after* the replay: that ordering is the whole re-journaling
   // guard. It listens to the bus, not the store — `action.applied` and
   // `cancelled` are emitted straight onto the bus and never pass a setter.
-  const detachJournal = attachJournal(events, session.journal, () => clock.now());
+  const detachJournal = attachJournal(events, session.journal, toJournaled, () => clock.now());
   if (restored.events > 0) {
     sessionLog.info(`resumed session ${session.meta.id} (${session.meta.name}): ${restored.events} event(s)${restored.song ? `, song "${restored.song.name}"` : ""}`);
   }

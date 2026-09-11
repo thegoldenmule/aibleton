@@ -1,10 +1,11 @@
 import { appendFileSync } from "node:fs";
 import { appendFile } from "node:fs/promises";
-import { JournalEntrySchema, toJournaled, type JournaledEvent, type JournalEntry, type MateEvent } from "@aibleton/protocol";
+import { logEntrySchema, type JournaledEvent, type LogEntry } from "@aibleton/protocol";
+import type { ZodType, ZodTypeDef } from "zod";
 import type { Logger } from "../log.ts";
 import type { EventBus } from "./events.ts";
 
-export interface SessionJournalOptions {
+export interface EventJournalOptions {
   /** The `journal.jsonl` this instance appends to. Its directory must already exist. */
   path: string;
   /** The sequence number the next append takes; `readJournal`'s `lastSeq + 1`. */
@@ -15,7 +16,7 @@ export interface SessionJournalOptions {
 }
 
 /**
- * The session's append-only log, one JSON object per line.
+ * An append-only log of one aggregate's events, one JSON object per line.
  *
  * `EventBus.emit` is synchronous and runs on the agent loop's drain stack, so
  * `append` must never await: it stringifies, buffers, and kicks a drain if one
@@ -30,7 +31,7 @@ export interface SessionJournalOptions {
  * A write error is logged once and then the journal degrades to a no-op. A full
  * disk must not stop the drummer's session.
  */
-export class SessionJournal {
+export class EventJournal<J> {
   private readonly path: string;
   private readonly log: Logger;
   private readonly buffer: string[] = [];
@@ -40,7 +41,7 @@ export class SessionJournal {
   private bytes: number;
   private broken = false;
 
-  constructor(opts: SessionJournalOptions) {
+  constructor(opts: EventJournalOptions) {
     this.path = opts.path;
     this.log = opts.log;
     this.nextSeq = opts.startSeq;
@@ -48,9 +49,9 @@ export class SessionJournal {
   }
 
   /** Buffer one event for writing. Never awaits, never throws. */
-  append(event: JournaledEvent, at: number): void {
+  append(event: J, at: number): void {
     if (this.broken) return;
-    const entry: JournalEntry = { seq: this.nextSeq, at, event };
+    const entry: LogEntry<J> = { seq: this.nextSeq, at, event };
     this.nextSeq += 1;
     this.buffer.push(`${JSON.stringify(entry)}\n`);
     this.kick();
@@ -124,8 +125,14 @@ export class SessionJournal {
   }
 }
 
-export interface ReadJournalResult {
-  entries: JournalEntry[];
+/**
+ * The session's journal. The alias keeps the name every type position in
+ * `sessions.ts` already uses; the aggregate is all that distinguishes it.
+ */
+export type SessionJournal = EventJournal<JournaledEvent>;
+
+export interface ReadJournalResult<J> {
+  entries: LogEntry<J>[];
   /** Lines that did not parse and were dropped. Corruption, not a torn tail. */
   skipped: number;
   /**
@@ -136,25 +143,33 @@ export interface ReadJournalResult {
   lastSeq: number;
   /** The file ends mid-line, which is what a crash during a write leaves behind. */
   truncated: boolean;
-  /** Size of the file on disk, for `SessionJournal`'s byte counter. */
+  /** Size of the file on disk, for `EventJournal`'s byte counter. */
   bytes: number;
 }
 
-const EMPTY: ReadJournalResult = { entries: [], skipped: 0, lastSeq: 0, truncated: false, bytes: 0 };
+function empty<J>(): ReadJournalResult<J> {
+  return { entries: [], skipped: 0, lastSeq: 0, truncated: false, bytes: 0 };
+}
 
 /**
  * Every readable entry in a journal, oldest first. A missing file is an empty
- * result, not an error — a session that has never been written to is a valid
- * session.
+ * result, not an error — a log that has never been written to is a valid log.
+ *
+ * `schema` is the aggregate's event schema and is required, not defaulted: this
+ * module never names a concrete one.
  */
-export async function readJournal(path: string): Promise<ReadJournalResult> {
+export async function readJournal<J>(path: string, schema: ZodType<J, ZodTypeDef, unknown>): Promise<ReadJournalResult<J>> {
   let raw: string;
   try {
     raw = await Bun.file(path).text();
   } catch {
-    return { ...EMPTY };
+    return empty();
   }
-  if (raw.length === 0) return { ...EMPTY };
+  if (raw.length === 0) return empty();
+
+  // Built once, not per line: the entry schema is the same for every line in
+  // the file and composing it 10,000 times is pure waste.
+  const entrySchema = logEntrySchema(schema);
 
   const lines = raw.split("\n");
   // A complete file ends with a newline, which leaves one empty tail element.
@@ -162,7 +177,7 @@ export async function readJournal(path: string): Promise<ReadJournalResult> {
   const unterminated = lines.at(-1) !== "";
   if (!unterminated) lines.pop();
 
-  const entries: JournalEntry[] = [];
+  const entries: LogEntry<J>[] = [];
   let skipped = 0;
   let lastSeq = 0;
   let truncated = false;
@@ -170,7 +185,7 @@ export async function readJournal(path: string): Promise<ReadJournalResult> {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
     if (line.trim().length === 0) continue;
-    const { entry, seq } = parseLine(line);
+    const { entry, seq } = parseLine(line, entrySchema);
     // `lastSeq` is the largest number *seen*, not `entries.length`: a line that
     // was skipped still occupies its sequence number on disk, and reusing it
     // would put two entries with the same `seq` in one file.
@@ -190,7 +205,7 @@ export async function readJournal(path: string): Promise<ReadJournalResult> {
 }
 
 /** The entry a line holds, plus whatever sequence number it claims either way. */
-function parseLine(line: string): { entry: JournalEntry | null; seq: number | null } {
+function parseLine<J>(line: string, schema: ZodType<LogEntry<J>, ZodTypeDef, unknown>): { entry: LogEntry<J> | null; seq: number | null } {
   let raw: unknown;
   try {
     raw = JSON.parse(line);
@@ -199,7 +214,7 @@ function parseLine(line: string): { entry: JournalEntry | null; seq: number | nu
   }
   const claimed = (raw as { seq?: unknown } | null)?.seq;
   const seq = typeof claimed === "number" && Number.isFinite(claimed) ? claimed : null;
-  const parsed = JournalEntrySchema.safeParse(raw);
+  const parsed = schema.safeParse(raw);
   return { entry: parsed.success ? parsed.data : null, seq };
 }
 
@@ -210,8 +225,16 @@ function parseLine(line: string): { entry: JournalEntry | null; seq: number | nu
  * are emitted straight onto the bus by `EffectRunner` and never pass through a
  * setter. Attaching it *after* a replay is also what stops a restore from
  * re-journaling itself — there is no `restoring` flag to drift.
+ *
+ * `toJournaled` is the aggregate's own durable projection, passed in rather
+ * than imported so one bus cannot end up classifying another's events.
  */
-export function attachJournal(events: EventBus<MateEvent>, journal: SessionJournal, now: () => number): () => void {
+export function attachJournal<E extends { type: string }, J>(
+  events: EventBus<E>,
+  journal: EventJournal<J>,
+  toJournaled: (event: E) => J | null,
+  now: () => number,
+): () => void {
   return events.subscribe((event) => {
     const journaled = toJournaled(event);
     if (journaled) journal.append(journaled, now());

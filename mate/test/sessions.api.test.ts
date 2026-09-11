@@ -7,6 +7,7 @@ import {
   ResumeSessionResponseSchema,
   SessionListResponseSchema,
   SessionResponseSchema,
+  toJournaled,
   type MateEvent,
   type Phase,
 } from "@aibleton/protocol";
@@ -59,7 +60,7 @@ async function build() {
   const sessionStore = new SessionStore({ dir: join(dir, "sessions"), now, log: silentLogger });
   const session = await sessionStore.openCurrent();
   await restoreStore({ store, entries: session.entries, songs, log: silentLogger });
-  const detach = attachJournal(events, session.journal, now);
+  const detach = attachJournal(events, session.journal, toJournaled, now);
   const fake = fakeIntelligence();
   const sessions = new SessionManager({
     sessions: sessionStore,

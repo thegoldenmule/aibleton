@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   DURABLE_EVENT_TYPES,
+  JournaledEventSchema,
   MATE_EVENT_TYPES,
   VOLATILE_EVENT_TYPES,
   fromJournaled,
@@ -12,7 +13,7 @@ import {
   type MateEvent,
 } from "@aibleton/protocol";
 import { EventBus } from "../src/core/events.ts";
-import { SessionJournal, attachJournal, readJournal } from "../src/core/journal.ts";
+import { EventJournal, attachJournal, readJournal, type SessionJournal } from "../src/core/journal.ts";
 import type { Logger } from "../src/log.ts";
 import { fixtureSong } from "./helpers/song.ts";
 
@@ -33,7 +34,7 @@ afterEach(async () => {
 });
 
 function open(startSeq = 1): SessionJournal {
-  return new SessionJournal({ path, startSeq, log });
+  return new EventJournal<JournaledEvent>({ path, startSeq, log });
 }
 
 function goal(text: string | null): JournaledEvent {
@@ -91,7 +92,7 @@ describe("SessionJournal", () => {
     journal.append(goal("two"), 200);
     await journal.flush();
 
-    const read = await readJournal(path);
+    const read = await readJournal(path, JournaledEventSchema);
     expect(read.entries).toEqual([
       { seq: 1, at: 100, event: goal("one") },
       { seq: 2, at: 200, event: goal("two") },
@@ -106,7 +107,7 @@ describe("SessionJournal", () => {
     for (let i = 0; i < 20; i++) journal.append(goal(`g${i}`), i);
     await journal.flush();
 
-    const read = await readJournal(path);
+    const read = await readJournal(path, JournaledEventSchema);
     expect(read.entries.map((e) => e.seq)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1));
     expect(read.entries.map((e) => (e.event as { goal: string }).goal)).toEqual(
       Array.from({ length: 20 }, (_, i) => `g${i}`),
@@ -121,7 +122,7 @@ describe("SessionJournal", () => {
     await flushing;
     await journal.flush();
 
-    const read = await readJournal(path);
+    const read = await readJournal(path, JournaledEventSchema);
     expect(read.entries.map((e) => (e.event as { goal: string }).goal)).toEqual(["first", "second"]);
   });
 
@@ -133,21 +134,21 @@ describe("SessionJournal", () => {
     journal.append(goal("two"), 2);
     journal.flushSync();
 
-    const read = await readJournal(path);
+    const read = await readJournal(path, JournaledEventSchema);
     expect(read.entries.map((e) => (e.event as { goal: string }).goal)).toEqual(["one", "two"]);
     expect(read.truncated).toBe(false);
     expect(journal.bytesWritten()).toBe(read.bytes);
     // Nothing is written twice when the async drain that was kicked catches up.
     await journal.flush();
-    expect((await readJournal(path)).entries).toHaveLength(2);
+    expect((await readJournal(path, JournaledEventSchema)).entries).toHaveLength(2);
   });
 
   test("flushSync on an empty buffer touches nothing, and a broken journal stays broken", async () => {
     const journal = open();
     journal.flushSync();
-    expect(await readJournal(path)).toMatchObject({ entries: [], bytes: 0 });
+    expect(await readJournal(path, JournaledEventSchema)).toMatchObject({ entries: [], bytes: 0 });
 
-    const missing = new SessionJournal({ path: join(dir, "missing", "journal.jsonl"), startSeq: 1, log });
+    const missing = new EventJournal<JournaledEvent>({ path: join(dir, "missing", "journal.jsonl"), startSeq: 1, log });
     missing.append(goal("one"), 1);
     missing.flushSync();
     missing.append(goal("two"), 2);
@@ -161,18 +162,18 @@ describe("SessionJournal", () => {
     first.append(goal("two"), 2);
     await first.flush();
 
-    const before = await readJournal(path);
-    const second = new SessionJournal({ path, startSeq: before.lastSeq + 1, startBytes: before.bytes, log });
+    const before = await readJournal(path, JournaledEventSchema);
+    const second = new EventJournal<JournaledEvent>({ path, startSeq: before.lastSeq + 1, startBytes: before.bytes, log });
     second.append(goal("three"), 3);
     await second.flush();
 
-    const after = await readJournal(path);
+    const after = await readJournal(path, JournaledEventSchema);
     expect(after.entries.map((e) => e.seq)).toEqual([1, 2, 3]);
     expect(second.bytesWritten()).toBe(after.bytes);
   });
 
   test("a write error is logged once and the journal degrades to a no-op", async () => {
-    const journal = new SessionJournal({ path: join(dir, "missing", "journal.jsonl"), startSeq: 1, log });
+    const journal = new EventJournal<JournaledEvent>({ path: join(dir, "missing", "journal.jsonl"), startSeq: 1, log });
     journal.append(goal("one"), 1);
     await journal.flush();
     journal.append(goal("two"), 2);
@@ -184,7 +185,7 @@ describe("SessionJournal", () => {
 
 describe("readJournal", () => {
   test("a missing file is empty, not an error", async () => {
-    expect(await readJournal(join(dir, "nope.jsonl"))).toEqual({
+    expect(await readJournal(join(dir, "nope.jsonl"), JournaledEventSchema)).toEqual({
       entries: [],
       skipped: 0,
       lastSeq: 0,
@@ -201,7 +202,7 @@ describe("readJournal", () => {
     const whole = await Bun.file(path).text();
     await Bun.write(path, whole.slice(0, whole.length - 12));
 
-    const read = await readJournal(path);
+    const read = await readJournal(path, JournaledEventSchema);
     expect(read.truncated).toBe(true);
     expect(read.skipped).toBe(0);
     expect(read.entries.map((e) => e.seq)).toEqual([1]);
@@ -218,7 +219,7 @@ describe("readJournal", () => {
     later.append(goal("three"), 3);
     await later.flush();
 
-    const read = await readJournal(path);
+    const read = await readJournal(path, JournaledEventSchema);
     expect(read.skipped).toBe(1);
     expect(read.truncated).toBe(false);
     expect(read.entries.map((e) => e.seq)).toEqual([1, 3]);
@@ -231,16 +232,16 @@ describe("readJournal", () => {
     await appendFile(path, `${JSON.stringify({ seq: 7, at: 2, event: { type: "nonsense" } })}\n`);
     await appendFile(path, `${JSON.stringify({ seq: 8, at: 3, event: { type: "goal.changed" } })}\n`);
 
-    const read = await readJournal(path);
+    const read = await readJournal(path, JournaledEventSchema);
     expect(read.skipped).toBe(2);
     expect(read.entries.map((e) => e.seq)).toEqual([1]);
     // Max seq *seen*, so reopening cannot hand out 8 a second time.
     expect(read.lastSeq).toBe(8);
 
-    const reopened = new SessionJournal({ path, startSeq: read.lastSeq + 1, log });
+    const reopened = new EventJournal<JournaledEvent>({ path, startSeq: read.lastSeq + 1, log });
     reopened.append(goal("nine"), 4);
     await reopened.flush();
-    expect((await readJournal(path)).entries.map((e) => e.seq)).toEqual([1, 9]);
+    expect((await readJournal(path, JournaledEventSchema)).entries.map((e) => e.seq)).toEqual([1, 9]);
   });
 });
 
@@ -249,7 +250,7 @@ describe("attachJournal", () => {
     const events = new EventBus<MateEvent>();
     const journal = open();
     let clock = 10;
-    const detach = attachJournal(events, journal, () => (clock += 1));
+    const detach = attachJournal(events, journal, toJournaled, () => (clock += 1));
 
     events.emit({ type: "goal.changed", goal: "swing it" });
     events.emit({ type: "phase.changed", phase: "acting" });
@@ -258,7 +259,7 @@ describe("attachJournal", () => {
     events.emit({ type: "goal.changed", goal: "after the detach" });
     await journal.flush();
 
-    const read = await readJournal(path);
+    const read = await readJournal(path, JournaledEventSchema);
     expect(read.entries.map((e) => e.event.type)).toEqual(["goal.changed", "action.applied"]);
     expect(read.entries.map((e) => e.at)).toEqual([11, 12]);
   });

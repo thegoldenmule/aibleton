@@ -1,6 +1,6 @@
 import { link, mkdir, readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
-import type { JournalEntry, MateEvent, SessionSummary, StateResponse } from "@aibleton/protocol";
+import { JournaledEventSchema, toJournaled, type JournalEntry, type JournaledEvent, type MateEvent, type SessionSummary, type StateResponse } from "@aibleton/protocol";
 import { z } from "zod";
 import { silentLogger, type Logger } from "../log.ts";
 import { contextFromState } from "../intelligence/loop.ts";
@@ -8,7 +8,7 @@ import type { Intelligence } from "../intelligence/types.ts";
 import { newId } from "./commands.ts";
 import { isValidDocumentId } from "./document-store.ts";
 import type { EventBus } from "./events.ts";
-import { SessionJournal, attachJournal, readJournal } from "./journal.ts";
+import { EventJournal, attachJournal, readJournal, type SessionJournal } from "./journal.ts";
 import { restoreStore } from "./restore.ts";
 import type { SongStore } from "./songs.ts";
 import type { StateStore } from "./state.ts";
@@ -182,14 +182,14 @@ export class SessionStore {
     await mkdir(this.dirFor(id), { recursive: true });
 
     const path = this.journalPath(id);
-    const read = await readJournal(path);
+    const read = await readJournal(path, JournaledEventSchema);
     if (read.skipped > 0) this.log.warn(`session ${id}: skipped ${read.skipped} unreadable journal line(s)`);
     if (read.truncated) this.log.warn(`session ${id}: the journal ends mid-line; the last event was lost`);
 
     // `lastSeq` is the larger of what the file says and what the metadata
     // remembers: a torn tail loses its line but must not give its number away.
     const lastSeq = Math.max(read.lastSeq, meta.lastSeq);
-    const journal = new SessionJournal({ path, startSeq: lastSeq + 1, startBytes: read.bytes, log: this.log });
+    const journal = new EventJournal<JournaledEvent>({ path, startSeq: lastSeq + 1, startBytes: read.bytes, log: this.log });
     return { meta: { ...meta, lastSeq }, entries: read.entries, journal, skipped: read.skipped, truncated: read.truncated };
   }
 
@@ -471,7 +471,7 @@ export class SessionManager {
     this.detach();
     this.store.reset();
     const restored = await restoreStore({ store: this.store, entries: next.entries, songs: this.songs, log: this.log });
-    this.detach = attachJournal(this.events, next.journal, this.now);
+    this.detach = attachJournal(this.events, next.journal, toJournaled, this.now);
     this.session = next;
 
     await this.persist(outgoing);
@@ -500,7 +500,7 @@ export class SessionManager {
 
   /** Read a session's journal for the two things that make its row readable. */
   private async summarize(meta: SessionMeta): Promise<SessionSummary> {
-    const read = await readJournal(this.sessions.journalPath(meta.id));
+    const read = await readJournal(this.sessions.journalPath(meta.id), JournaledEventSchema);
     return summarizeSession(meta, read.entries);
   }
 }

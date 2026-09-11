@@ -13,13 +13,20 @@ export interface LogEntry<E> {
   event: E;
 }
 
-/** The on-disk schema for one line of a log carrying `event`. */
-export function logEntrySchema<S extends z.ZodTypeAny>(event: S) {
+/**
+ * The on-disk schema for one line of a log carrying `event`.
+ *
+ * The cast says what zod cannot work out for itself: while `S` is still a type
+ * parameter, `addQuestionMarks` cannot prove it excludes `undefined`, so it
+ * makes `event` optional. It is required, and a line without one is rejected at
+ * runtime either way.
+ */
+export function logEntrySchema<S extends z.ZodTypeAny>(event: S): z.ZodType<LogEntry<z.infer<S>>, z.ZodTypeDef, unknown> {
   return z.object({
     seq: z.number().int().nonnegative(),
     at: z.number(),
     event,
-  });
+  }) as unknown as z.ZodType<LogEntry<z.infer<S>>, z.ZodTypeDef, unknown>;
 }
 
 /** One arm of a `type`-discriminated union: an object whose tag is a literal. */

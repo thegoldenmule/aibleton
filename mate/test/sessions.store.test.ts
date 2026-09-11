@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { JournaledEventSchema } from "@aibleton/protocol";
 import { readJournal } from "../src/core/journal.ts";
 import { SessionStore, isValidSessionId } from "../src/core/sessions.ts";
 
@@ -159,7 +160,7 @@ describe("SessionStore", () => {
     a.journal.append({ type: "goal.changed", goal: "one" }, 1);
     b.journal.append({ type: "goal.changed", goal: "two" }, 2);
     await Promise.all([a.journal.flush(), b.journal.flush()]);
-    expect((await readJournal(store.journalPath(a.meta.id))).entries).toHaveLength(2);
+    expect((await readJournal(store.journalPath(a.meta.id), JournaledEventSchema)).entries).toHaveLength(2);
   });
 
   test("a current.json naming a traversal id is ignored", async () => {
