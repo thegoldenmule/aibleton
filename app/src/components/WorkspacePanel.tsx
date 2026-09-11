@@ -12,9 +12,9 @@ import { PanelHeader } from "./ui/PanelHeader";
  */
 export function WorkspacePanel({ title, meta, children }: { title: string; meta?: ReactNode; children: ReactNode }) {
   return (
-    <section className="flex min-h-0 flex-col gap-2 overflow-hidden rounded-md border border-line bg-panel p-3">
+    <section className="flex min-h-0 flex-col overflow-hidden rounded-md border border-line bg-panel">
       <PanelHeader title={title} meta={meta} />
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">{children}</div>
     </section>
   );
 }

@@ -33,7 +33,7 @@ const META_CLASS = "min-w-0 font-mono text-[10px] text-muted/70";
  */
 export function PanelHeader({ title, count, meta, actions, level = 2 }: Props) {
   const Heading = level === 3 ? "h3" : "h2";
-  return (
+  const row = (
     <div className="flex min-h-6 items-center justify-between gap-3">
       <Heading className={TITLE_CLASS}>
         {title}
@@ -47,4 +47,11 @@ export function PanelHeader({ title, count, meta, actions, level = 2 }: Props) {
       ) : null}
     </div>
   );
+  // A section heading inside a panel is just the row. A panel's own header is
+  // the bar across the top of it: the rule separates a header that stays put
+  // from content that scrolls under it, and it owns its own padding so it
+  // spans the panel edge to edge instead of being inset by one.
+  // A panel that renders this must therefore not pad its own top.
+  if (level === 3) return row;
+  return <div className="border-b border-line px-3 py-2">{row}</div>;
 }

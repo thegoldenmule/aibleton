@@ -188,11 +188,11 @@ export function MailboxPanel({ commands, phase, activity, queued, goal, error, n
   const visible = commands.filter((c) => !hidden.has(c.source));
 
   return (
-    <aside className="flex min-h-0 flex-col gap-3 rounded-md border border-line bg-panel p-3">
-      <section className="flex flex-col gap-1">
-        <PanelHeader title="bandmate" actions={<Mode answersOnly={answersOnly} disabled={disabled} onChange={setAnswersOnly} />} />
-        <Status phase={phase} activity={activity} queued={queued} goal={goal} error={error} answersOnly={answersOnly} />
-      </section>
+    <aside className="flex min-h-0 flex-col rounded-md border border-line bg-panel">
+      <PanelHeader title="bandmate" actions={<Mode answersOnly={answersOnly} disabled={disabled} onChange={setAnswersOnly} />} />
+
+      <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+      <Status phase={phase} activity={activity} queued={queued} goal={goal} error={error} answersOnly={answersOnly} />
 
       <section className="flex min-h-0 flex-1 flex-col gap-1.5">
         <PanelHeader title="mailbox" level={3} count={`${visible.length}/${commands.length}`} />
@@ -234,6 +234,7 @@ export function MailboxPanel({ commands, phase, activity, queued, goal, error, n
           </ul>
         )}
       </section>
+      </div>
     </aside>
   );
 }

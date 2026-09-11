@@ -76,11 +76,7 @@ export function ConversationPane({ phase, disabled, song, transcript, activity, 
 
   return (
     <section className="flex min-h-0 flex-col rounded-md border border-line bg-panel">
-      {/* The section carries no padding of its own — the transcript scrolls edge to edge — so the
-          header insets itself to the same 12px top and 8px gap the padded panels get from `p-3`. */}
-      <div className="px-3 pb-2 pt-3">
-        <PanelHeader title="conversation" meta={activity ? <LiveKind kind={activity.kind} /> : null} />
-      </div>
+      <PanelHeader title="conversation" meta={activity ? <LiveKind kind={activity.kind} /> : null} />
 
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-2">
         {transcript.length === 0 && !working ? (
