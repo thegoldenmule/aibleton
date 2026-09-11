@@ -1,6 +1,6 @@
 import { ROLES, bandGenre, bandRoles, formTotalBars, genreKey, parseForm } from "@aibleton/protocol";
 import type { Band, Template } from "@aibleton/protocol";
-import { mulberry32 } from "../core/rng.ts";
+import { mulberry32 } from "@aibleton/protocol";
 
 /**
  * Deterministic picks from the saved libraries. No generation happens here:

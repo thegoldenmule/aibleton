@@ -10,7 +10,7 @@ import {
 } from "@aibleton/protocol";
 import type { ZodIssue } from "zod";
 import { ModelRefusedError } from "../core/anthropic.ts";
-import { generateBand } from "../core/band-generator.ts";
+import { generateBand } from "@aibleton/protocol";
 import { newId } from "../core/commands.ts";
 import { bandName, templateName } from "../core/naming.ts";
 import { defaultSections, generateForm } from "../core/generator.ts";
@@ -18,7 +18,7 @@ import type { RecipeBook } from "../core/recipes.ts";
 
 /**
  * Staffing a band and laying out a form, once each. The generators beside them
- * (`core/band-generator.ts`, `core/generator.ts`) decide what the roster and
+ * (`@aibleton/protocol`'s `staffing.ts`, `core/generator.ts`) decide what the roster and
  * the form look like; this is the only place that sequence is run — ensure a
  * recipe, roll, mint an id, name it, record the seed, validate it.
  *

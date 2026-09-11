@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mulberry32 } from "../src/core/rng.ts";
+import { mulberry32 } from "@aibleton/protocol";
 
 describe("mulberry32", () => {
   test("same seed replays the same sequence", () => {

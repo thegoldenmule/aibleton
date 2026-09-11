@@ -1,6 +1,6 @@
 import { KEY_ROOTS, SongBriefSchema, bandGenre, genreKey } from "@aibleton/protocol";
 import type { BpmRange, KeyMode, LoopBars, SongBrief } from "@aibleton/protocol";
-import { mulberry32 } from "../../core/rng.ts";
+import { mulberry32 } from "@aibleton/protocol";
 import { bpmHint, genreKeysIn, tokenize } from "../pick.ts";
 import type { BriefInput, Briefer } from "./types.ts";
 

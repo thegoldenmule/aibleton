@@ -1,6 +1,6 @@
 import { BandSchema, MAX_ADDED_PARTS, TemplateSchema, formLabels, parseForm, stringifyForm } from "@aibleton/protocol";
 import type { Band, BandPart, Section, SongBrief, Template } from "@aibleton/protocol";
-import { partId } from "../core/band-generator.ts";
+import { partId } from "@aibleton/protocol";
 
 /**
  * Apply the brief's feedback to the template and band. Deterministic and

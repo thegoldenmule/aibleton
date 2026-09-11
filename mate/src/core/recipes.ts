@@ -10,10 +10,10 @@ import {
   type JournaledRecipeEvent,
   type RecipeEvent,
   type RecipeSummary,
+  type RecipeLookup,
 } from "@aibleton/protocol";
 import type { Logger } from "../log.ts";
 import type { RecipeWriter } from "../songwriting/recipe-writer/types.ts";
-import type { RecipeLookup } from "./band-generator.ts";
 import { DocumentStore } from "./document-store.ts";
 import type { EventBus } from "./events.ts";
 import { isValidDocumentId } from "./ids.ts";

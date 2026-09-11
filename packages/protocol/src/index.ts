@@ -11,6 +11,8 @@ export * from "./recipe-log.ts";
 export * from "./form.ts";
 export * from "./templates.ts";
 export * from "./bands.ts";
+export * from "./rng.ts";
+export * from "./staffing.ts";
 export * from "./songs.ts";
 export * from "./daw.ts";
 export * from "./sessions.ts";

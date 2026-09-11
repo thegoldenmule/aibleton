@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { BandPartSchema, BandRecipeSchema, BandSchema, ROLES, bandGenre, bandRoles } from "@aibleton/protocol";
-import type { BandRecipe, Role } from "@aibleton/protocol";
-import { generateBand, type RecipeLookup } from "../src/core/band-generator.ts";
+import { BandPartSchema, BandRecipeSchema, BandSchema, ROLES, bandGenre, bandRoles, generateBand } from "@aibleton/protocol";
+import type { BandRecipe, RecipeLookup, Role } from "@aibleton/protocol";
 import { genericRecipe } from "../src/songwriting/recipe-writer/scripted.ts";
 
 const SEEDS = 100;

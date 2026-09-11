@@ -1,6 +1,6 @@
 import { DEFAULT_SECTION_BARS, stringifyForm } from "@aibleton/protocol";
 import type { FormEntry, Section } from "@aibleton/protocol";
-import { mulberry32 } from "./rng.ts";
+import { mulberry32 } from "@aibleton/protocol";
 
 /** Letters a form may use, in the order they are allowed to appear. */
 const ALPHABET = ["a", "b", "c", "d", "e", "f"] as const;

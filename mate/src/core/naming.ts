@@ -1,4 +1,4 @@
-import { mulberry32 } from "./rng.ts";
+import { mulberry32 } from "@aibleton/protocol";
 
 /**
  * Names for a rolled band or template.

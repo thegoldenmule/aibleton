@@ -1,6 +1,14 @@
-import { BandRecipeSchema, genreKey } from "@aibleton/protocol";
-import type { BandPart, BandRecipe, Role } from "@aibleton/protocol";
+import type { BandPart, BandRecipe } from "./bands.ts";
 import { mulberry32 } from "./rng.ts";
+
+/**
+ * Staffing a band from a recipe: the one deterministic roll, shared.
+ *
+ * It lives here rather than in mate because both sides run it. Mate staffs the
+ * bands it saves; the app rolls one per recipe to show what a genre actually
+ * produces, which is a question no amount of the recipe's own prose answers.
+ * Pure and synchronous, so the app can call it during a render.
+ */
 
 /**
  * Looks a recipe up by genre, and says which genres it has. `RecipeBook` is the
@@ -8,12 +16,18 @@ import { mulberry32 } from "./rng.ts";
  *
  * Both are synchronous because `generateBand` is: mate ships no recipes, so
  * everything here comes off a library whose log has already been replayed, and
- * filling a gap is the caller's job before it gets this far.
+ * filling a gap is the caller's job before it gets this far. `oneRecipe` is the
+ * trivial implementation, for a caller that already holds the one it means.
  */
 export interface RecipeLookup {
   get(genre: string): BandRecipe | undefined;
   /** Every genre on hand, in a stable order — what an omitted genre is drawn from. */
   genres(): readonly string[];
+}
+
+/** A lookup over exactly one recipe: what the app has when it renders a genre. */
+export function oneRecipe(recipe: BandRecipe): RecipeLookup {
+  return { get: (genre) => (genre === recipe.id ? recipe : undefined), genres: () => [recipe.id] };
 }
 
 export interface GenerateBandOptions {
