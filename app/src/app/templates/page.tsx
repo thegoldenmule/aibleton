@@ -6,6 +6,7 @@ import {
   formLabels,
   formTotalBars,
   parseForm,
+  type FormEntry,
   type GenerateTemplateRequest,
   type Template,
 } from "@aibleton/protocol";
@@ -98,17 +99,22 @@ function totalBars(form: string): number | null {
  */
 function sectionStats(form: string): { label: string; times: number; bars: number }[] {
   const rows = new Map<string, { label: string; times: number; bars: number }>();
+  for (const entry of safeEntries(form)) {
+    const row = rows.get(entry.label) ?? { label: entry.label, times: 0, bars: 0 };
+    row.times += 1;
+    row.bars += entry.bars;
+    rows.set(entry.label, row);
+  }
+  return [...rows.values()];
+}
+
+/** Every occurrence in order, or none when the form will not parse. */
+function safeEntries(form: string): FormEntry[] {
   try {
-    for (const entry of parseForm(form)) {
-      const row = rows.get(entry.label) ?? { label: entry.label, times: 0, bars: 0 };
-      row.times += 1;
-      row.bars += entry.bars;
-      rows.set(entry.label, row);
-    }
+    return parseForm(form);
   } catch {
     return [];
   }
-  return [...rows.values()];
 }
 
 export default function TemplatesPage() {
@@ -562,7 +568,24 @@ function TemplateInspector({ template }: { template: Template }) {
 
         <section className="flex flex-col gap-1.5 border-b border-line px-3 py-2.5">
           <PanelHeader title="form" level={3} />
-          <FormStrip form={template.form} sections={template.sections} showLegend={false} />
+          {/* Letters, not the `FormStrip` roadmap. The strip earns its width by
+              making each block as wide as its bars — at 18rem a long form either
+              scrolls sideways or squeezes every block to the 26px floor, and a
+              row of 44px-tall boxes that all look the same says less than the
+              letters do. The shape is the order; the bars are the line below. */}
+          <div className="flex flex-wrap gap-1">
+            {safeEntries(template.form).map((entry, i) => (
+              <span
+                key={`${entry.label}-${i}`}
+                title={`${entry.label} · ${entry.bars} bars${
+                  template.sections[entry.label] ? ` · ${template.sections[entry.label].brief}` : ""
+                }`}
+                className={`cursor-help rounded-sm border px-1.5 py-0.5 text-center font-mono text-[11px] uppercase ${letterClass(entry.label)}`}
+              >
+                {entry.label}
+              </span>
+            ))}
+          </div>
           {/* The form string itself, which is what the generator round-trips and
               what anyone typing a form by hand is copying. */}
           <span className="font-mono text-[10px] text-muted/60">{template.form}</span>
