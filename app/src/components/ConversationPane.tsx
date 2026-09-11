@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
-import type { Activity, CommandSummary, ExternalCommand, Phase, Song, TranscriptEntry, TranscriptField } from "@aibleton/protocol";
+import type { Activity, CommandSummary, ExternalCommand, Phase, RequestContext, Song, TranscriptEntry, TranscriptField } from "@aibleton/protocol";
 import { ACTIVITY_LABEL } from "../lib/status";
 
 interface Props {
@@ -15,6 +15,8 @@ interface Props {
   /** What arrived while mate was working and is waiting its turn, oldest first. */
   queued: CommandSummary[];
   now: number;
+  /** What the bandmate is told about where the drummer is; shown as chips and sent with each message. */
+  context: RequestContext;
   send: (command: ExternalCommand) => Promise<void>;
   clearSong: () => Promise<void>;
 }
@@ -32,7 +34,7 @@ const KIND_CLASS: Record<Exclude<TranscriptEntry["kind"], "step">, string> = {
  * bandmate decides whether that means writing a song or changing one — so the
  * box stays live while it works and a second message queues behind the first.
  */
-export function ConversationPane({ phase, disabled, song, transcript, activity, queued, now, send, clearSong }: Props) {
+export function ConversationPane({ phase, disabled, song, transcript, activity, queued, now, context, send, clearSong }: Props) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -54,7 +56,7 @@ export function ConversationPane({ phase, disabled, song, transcript, activity, 
     // message never reached mate — not that something it asked for went wrong a minute later.
     setText("");
     try {
-      await send({ type: "userRequest", text: trimmed });
+      await send({ type: "userRequest", text: trimmed, context });
     } catch {
       setText(trimmed);
     }
@@ -135,6 +137,7 @@ export function ConversationPane({ phase, disabled, song, transcript, activity, 
       </div>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-2 border-t border-line px-3 py-2">
+        <ContextChips context={context} />
         <div className="flex items-stretch gap-2">
           {/* Live while mate works: a second message is queued and answered in turn, not refused. */}
           <textarea
@@ -175,6 +178,34 @@ export function ConversationPane({ phase, disabled, song, transcript, activity, 
         ) : null}
       </form>
     </section>
+  );
+}
+
+/**
+ * What rides along with the message, so it is never a secret what the bandmate
+ * is being told about where you are.
+ *
+ * It renders whatever fields `useRequestContext` returns rather than naming
+ * them, so the selection and view state that join `page` later show up here
+ * without touching this component.
+ */
+function ContextChips({ context }: { context: RequestContext }) {
+  const entries = Object.entries(context).filter(([, value]) => value !== undefined && value !== null);
+  if (entries.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-[10px] uppercase tracking-wider text-muted/70">with</span>
+      {entries.map(([key, value]) => (
+        <span
+          key={key}
+          title={`Sent with your message: ${key}`}
+          className="flex items-baseline gap-1 rounded-sm border border-line bg-panel-2 px-1.5 py-0.5 font-mono text-[10px]"
+        >
+          <span className="text-muted/70">{key}</span>
+          <span className="text-accent-2">{typeof value === "string" ? value : JSON.stringify(value)}</span>
+        </span>
+      ))}
+    </div>
   );
 }
 

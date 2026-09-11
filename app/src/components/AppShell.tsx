@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { MateProvider, useMate } from "../lib/useMate";
 import { useNow } from "../lib/useNow";
+import { useRequestContext } from "../lib/workspace";
 import { FALLBACK_ADAPTERS } from "../lib/status";
 import { AppHeader } from "./AppHeader";
 import { ConversationPane } from "./ConversationPane";
@@ -40,6 +41,8 @@ function Shell({ children }: { children: ReactNode }) {
   const { state, connection, lastError, activity, queued, send, clearSong } = useMate();
   // Relative timestamps in the mailbox; ticks once a minute, not per frame.
   const now = useNow(15_000);
+  // Where the drummer is standing, sent with whatever they type next.
+  const requestContext = useRequestContext();
 
   const song = state?.song ?? null;
 
@@ -61,6 +64,7 @@ function Shell({ children }: { children: ReactNode }) {
             activity={activity}
             queued={queued}
             now={now}
+            context={requestContext}
             send={send}
             clearSong={clearSong}
           />

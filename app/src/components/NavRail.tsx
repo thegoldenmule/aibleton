@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { WORKSPACES } from "../lib/workspace";
 
 /**
  * Where you are in the workspace. The rail sits outside the column it changes,
@@ -20,8 +21,8 @@ export function NavRail() {
   const pathname = usePathname();
   return (
     <nav aria-label="workspace" className="flex shrink-0 flex-col gap-1.5">
-      {ITEMS.map((item) => (
-        <RailLink key={item.href} {...item} here={pathname === item.href} />
+      {WORKSPACES.map((w) => (
+        <RailLink key={w.href} href={w.href} label={w.page} icon={ICONS[w.href]} here={pathname === w.href} />
       ))}
     </nav>
   );
@@ -33,7 +34,7 @@ const ITEM_CLASS: Record<"here" | "there", string> = {
   there: "border-transparent text-muted hover:border-line hover:text-foreground",
 };
 
-function RailLink({ href, label, icon, here }: RailItem & { here: boolean }) {
+function RailLink({ href, label, icon, here }: { href: string; label: string; icon: ReactNode; here: boolean }) {
   return (
     <Link
       href={href}
@@ -45,12 +46,6 @@ function RailLink({ href, label, icon, here }: RailItem & { here: boolean }) {
       <span className="sr-only">{label}</span>
     </Link>
   );
-}
-
-interface RailItem {
-  href: string;
-  label: string;
-  icon: ReactNode;
 }
 
 const STROKE = {
@@ -65,39 +60,27 @@ const STROKE = {
   "aria-hidden": true,
 } as const;
 
-const ITEMS: RailItem[] = [
-  {
-    href: "/",
-    label: "song",
-    icon: (
-      <svg {...STROKE}>
-        <path d="M9 18V5l10-2v13" />
-        <circle cx="6" cy="18" r="3" />
-        <circle cx="16" cy="16" r="3" />
-      </svg>
-    ),
-  },
-  {
-    href: "/templates",
-    label: "templates",
-    icon: (
-      <svg {...STROKE}>
-        <rect x="3" y="4" width="18" height="6" rx="1" />
-        <rect x="3" y="14" width="8" height="6" rx="1" />
-        <rect x="15" y="14" width="6" height="6" rx="1" />
-      </svg>
-    ),
-  },
-  {
-    href: "/bands",
-    label: "bands",
-    icon: (
-      <svg {...STROKE}>
-        <circle cx="9" cy="8" r="3" />
-        <path d="M3 20a6 6 0 0 1 12 0" />
-        <path d="M16 5.5a3 3 0 0 1 0 5.8" />
-        <path d="M18 20a6 6 0 0 0-3-5.2" />
-      </svg>
-    ),
-  },
-];
+const ICONS: Record<string, ReactNode> = {
+  "/": (
+    <svg {...STROKE}>
+      <path d="M9 18V5l10-2v13" />
+      <circle cx="6" cy="18" r="3" />
+      <circle cx="16" cy="16" r="3" />
+    </svg>
+  ),
+  "/templates": (
+    <svg {...STROKE}>
+      <rect x="3" y="4" width="18" height="6" rx="1" />
+      <rect x="3" y="14" width="8" height="6" rx="1" />
+      <rect x="15" y="14" width="6" height="6" rx="1" />
+    </svg>
+  ),
+  "/bands": (
+    <svg {...STROKE}>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3 20a6 6 0 0 1 12 0" />
+      <path d="M16 5.5a3 3 0 0 1 0 5.8" />
+      <path d="M18 20a6 6 0 0 0-3-5.2" />
+    </svg>
+  ),
+};
