@@ -68,6 +68,27 @@ describe("machine", () => {
     expect(types(r2.effects)).toEqual(["callBrain"]);
   });
 
+  /**
+   * A session resumes with its goal but no snapshot — the DAW picture is volatile and never
+   * journaled. Before this, the empty fingerprint read as "everything changed", so a standing
+   * goal spent a brain call on the first tick of every boot and the transcript filled with the
+   * model redoing work it had already done.
+   */
+  test("the first look after a restart is a baseline, not a change", () => {
+    const resumed: MachineState = { kind: "idle", ctx: { ...initialState().ctx, goal: "keep time at 92" } };
+    const r1 = step(resumed, cmd({ type: "tick" }, "timer"), opts);
+    const r2 = step(r1.state, cmd({ type: "snapshotReady", snapshot: makeSession({ tempo: 92 }, 1) }, "loop"), opts);
+    expect(r2.state.kind).toBe("idle");
+    expect(r2.effects).toEqual([]);
+    expect(r2.state.ctx.snapshot?.transport.tempo).toBe(92); // the baseline is recorded
+
+    // And the tick after it still wakes the brain when the session really moves.
+    const r3 = step(r2.state, cmd({ type: "tick" }, "timer"), opts);
+    const r4 = step(r3.state, cmd({ type: "snapshotReady", snapshot: makeSession({ tempo: 100 }, 2) }, "loop"), opts);
+    expect(r4.state.kind).toBe("deciding");
+    expect(types(r4.effects)).toEqual(["callBrain"]);
+  });
+
   test("stale brainDecided is a no-op", () => {
     const d = toDeciding();
     const r = step(d.state, cmd({ type: "brainDecided", requestId: "stale", decision: { message: "x", actions: [] } }, "loop"), opts);

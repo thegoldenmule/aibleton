@@ -260,7 +260,13 @@ function withResults(history: HistoryEntry[], results: ActionResult[], decision?
 function stepObserving(state: Extract<MachineState, { kind: "observing" }>, cmd: Command, opts: StepOptions): StepResult {
   switch (cmd.type) {
     case "snapshotReady": {
-      const unchanged = snapshotFingerprint(state.ctx.snapshot) === snapshotFingerprint(cmd.snapshot);
+      // The first look is a baseline, not a change. On boot `ctx.snapshot` is undefined and
+      // fingerprints to `""`, which no real session ever equals — so a goal restored from the
+      // journal woke the brain on the first tick after *every* restart, and under `--watch` that
+      // is once per file save: a paid call, and one more click track in Live, for nothing having
+      // happened. There is no "since" to compare against until something has been seen once.
+      const firstLook = state.ctx.snapshot === undefined;
+      const unchanged = firstLook || snapshotFingerprint(state.ctx.snapshot) === snapshotFingerprint(cmd.snapshot);
       const ctx = { ...state.ctx, snapshot: cmd.snapshot };
       // Ticks are cheap observation, not conversation: they only wake the brain when the drummer
       // has set a goal to work toward AND the session actually changed since the last look.
