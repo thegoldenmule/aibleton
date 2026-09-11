@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { generateBand, oneRecipe, recipeRoles, type BandPart, type BandRecipe } from "@aibleton/protocol";
 import { BandRoster, roleClass } from "../../components/BandRoster";
 import { ErrorNote } from "../../components/ui/ErrorNote";
@@ -111,9 +111,9 @@ function Inspector({ recipe, seed, onRoll }: { recipe: BandRecipe; seed: number;
    * The selected recipe, rolled. Free — `generateBand` is pure — and it says in
    * four names what a page of briefs cannot: what you get.
    *
-   * The seed is shown because it is the handle, not decoration: `POST
-   * /bands/generate` runs this very function, so the same seed and genre staff
-   * this exact roster for real. Nothing on this page saves anything.
+   * The seed is held rather than fixed only so "roll again" has something to
+   * change; it is not shown, because it is not a fact about the recipe. Nothing
+   * on this page saves anything — the bands page is where a roll is kept.
    */
   const sample = useMemo<BandPart[]>(() => {
     try {
@@ -124,40 +124,38 @@ function Inspector({ recipe, seed, onRoll }: { recipe: BandRecipe; seed: number;
   }, [recipe, seed]);
 
   return (
-    // The frame every other panel wears. `PanelHeader` at its default level owns
-    // the rule under it *and* its own padding, so this must not pad its own top.
-    // No `overflow-y-auto` on the body — the workspace column owns the one scroller.
+    // The frame every other panel wears, and the rhythm too: `PanelHeader` owns
+    // the rule under the title and its own padding, so the body pads nothing and
+    // each section carries the same full-bleed rule instead. No overflow-y-auto
+    // — the workspace column owns the one scroller.
     <aside className="flex shrink-0 flex-col overflow-hidden rounded-md border border-line bg-panel @min-[40rem]:w-72">
-      <PanelHeader
-        title="inspector"
-        meta={<span title={new Date(recipe.createdAt).toLocaleString()}>written {new Date(recipe.createdAt).toLocaleDateString()}</span>}
-      />
+      <PanelHeader title="inspector" />
 
-      <div className="flex flex-col gap-3 p-3">
-        <h3 className="truncate text-sm font-medium text-accent" title={recipe.genre}>
-          {recipe.genre}
-        </h3>
+      <div className="flex flex-col">
+        <div className="flex flex-col gap-0.5 border-b border-line px-3 py-2.5">
+          <h3 className="truncate text-sm font-medium text-accent" title={recipe.genre}>
+            {recipe.genre}
+          </h3>
+          <span className="font-mono text-[10px] text-muted/70" title={new Date(recipe.createdAt).toLocaleString()}>
+            {new Date(recipe.createdAt).toLocaleDateString()}
+          </span>
+        </div>
 
-        <section className="flex flex-col gap-1.5">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <Label>a band from this recipe</Label>
-            <span className="ml-auto flex items-center gap-1.5">
-              <span
-                className="font-mono text-[10px] text-muted/50"
-                title={`rolled from seed ${seed} — generate with it on the bands page to staff this roster for real`}
-              >
-                #{seed}
-              </span>
+        <section className="flex flex-col gap-1.5 border-b border-line px-3 py-2.5">
+          <PanelHeader
+            title="one band it could staff"
+            level={3}
+            actions={
               <button
                 type="button"
                 onClick={onRoll}
-                title="Roll another band from this recipe. Nothing is saved — the bands page is where one is kept."
-                className="rounded-sm border border-accent-2/60 px-2 py-0.5 font-mono text-[11px] text-accent-2"
+                title="Roll another. Nothing is saved — the bands page is where a band is kept."
+                className="rounded-sm border border-accent-2/60 px-2 py-0.5 font-mono text-[10px] text-accent-2"
               >
                 ↻ roll again
               </button>
-            </span>
-          </div>
+            }
+          />
           {sample.length > 0 ? (
             <BandRoster parts={sample} compact />
           ) : (
@@ -165,17 +163,13 @@ function Inspector({ recipe, seed, onRoll }: { recipe: BandRecipe; seed: number;
           )}
         </section>
 
-        <section className="flex flex-col gap-1.5">
-          <Label>who else can play</Label>
+        <section className="flex flex-col gap-1.5 px-3 py-2.5">
+          <PanelHeader title="who else it can call on" level={3} />
           <Bench recipe={recipe} roles={roles} />
         </section>
       </div>
     </aside>
   );
-}
-
-function Label({ children }: { children: ReactNode }) {
-  return <span className="font-mono text-[10px] uppercase tracking-wider text-muted/50">{children}</span>;
 }
 
 /**
