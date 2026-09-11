@@ -10,9 +10,32 @@ export const EnvelopeSchema = z.object({
 });
 export type Envelope = z.infer<typeof EnvelopeSchema>;
 
+/**
+ * Where the drummer was standing when they typed.
+ *
+ * The same words mean different things in different places — "make it sparser"
+ * on the song is about the song; on the templates page it is about the template
+ * — so the app sends the view along with the text and lets the bandmate read
+ * the room.
+ *
+ * `page` is all the app sends today. This is the seam the rest of the view
+ * state grows on (what is selected, which slot is open), so **every field added
+ * here must be optional**: context is a hint, and a client that knows less than
+ * mate does must still be able to talk.
+ *
+ * `page` is a bounded string rather than an enum for the same reason. A newer
+ * app naming a page an older mate has never heard of should not get its
+ * message rejected — the worst case has to be an ignored hint, not a refusal.
+ */
+export const RequestContextSchema = z.object({
+  /** The workspace being looked at: `song`, `templates`, `bands`. */
+  page: z.string().min(1).max(40),
+});
+export type RequestContext = z.infer<typeof RequestContextSchema>;
+
 /** Commands that may enter mate from outside (the API accepts exactly these). */
 export const ExternalCommandSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("userRequest"), text: z.string().min(1) }),
+  z.object({ type: z.literal("userRequest"), text: z.string().min(1), context: RequestContextSchema.optional() }),
   z.object({ type: z.literal("goalSet"), text: z.string() }),
   z.object({
     type: z.literal("abletonChanged"),
