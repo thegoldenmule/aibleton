@@ -28,6 +28,13 @@ export type Envelope = z.infer<typeof EnvelopeSchema>;
  * Every field is a bounded string rather than an enum for the same reason. A
  * newer app naming a page an older mate has never heard of should not get its
  * message rejected — the worst case has to be an ignored hint, not a refusal.
+ *
+ * Which is why every selection carries `.catch(undefined)`: a band named past
+ * the bound would otherwise fail `PostCommandRequestSchema` and answer the
+ * drummer's whole message with a 400, the one thing this docblock promises
+ * cannot happen. An over-long hint is dropped and the words go through. `page`
+ * is not caught — it is required, and a request with no view to report is a
+ * client bug worth hearing about.
  */
 export const RequestContextSchema = z.object({
   /** The workspace being looked at: `song`, `templates`, `bands`, `recipes`. */
@@ -37,19 +44,19 @@ export const RequestContextSchema = z.object({
    * than as its key — "drum and bass", not "drumandbass" — because it is going
    * into a sentence, and every tool that takes a genre takes free text.
    */
-  recipe: z.string().min(1).max(80).optional(),
+  recipe: z.string().min(1).max(80).optional().catch(undefined),
   /**
    * The band selected on the bands page, by the **name** as it reads on the
    * card rather than by its id. It goes into a sentence, and `find_bands`
    * matches words in a name; an id would land above the composer as a chip
    * nobody can read.
    */
-  band: z.string().min(1).max(120).optional(),
+  band: z.string().min(1).max(120).optional().catch(undefined),
   /**
    * The template selected on the templates page, by name for the same reason —
    * `find_templates` searches names, and a chip has to be readable.
    */
-  template: z.string().min(1).max(120).optional(),
+  template: z.string().min(1).max(120).optional().catch(undefined),
 });
 export type RequestContext = z.infer<typeof RequestContextSchema>;
 

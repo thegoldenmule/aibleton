@@ -94,6 +94,29 @@ describe("api", () => {
     expect(submitted[0]?.body).toEqual({ type: "userRequest", text: "give me a shuffle at 100" });
   });
 
+  test("POST /commands drops an out-of-bounds context hint rather than refusing the message", async () => {
+    const { app, submitted } = build();
+    // The context is a hint about where the drummer was standing. A band named
+    // past the bound must cost them the chip, never the sentence they typed.
+    const res = await app.request("/commands", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        command: {
+          type: "userRequest",
+          text: "who is in this band?",
+          context: { page: "bands", band: "b".repeat(500) },
+        },
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(submitted).toHaveLength(1);
+    const body = submitted[0]?.body as { type: string; text: string; context?: Record<string, unknown> };
+    expect(body.text).toBe("who is in this band?");
+    expect(body.context?.page).toBe("bands");
+    expect(body.context?.band).toBeUndefined();
+  });
+
   test("POST /commands rejects an invalid body with 400", async () => {
     const { app, submitted } = build();
     const bad = await app.request("/commands", {
