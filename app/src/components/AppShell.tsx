@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { MateProvider, useMate } from "../lib/useMate";
 import { useNow } from "../lib/useNow";
-import { useRequestContext } from "../lib/workspace";
+import { WorkspaceSelectionProvider, useRequestContext } from "../lib/workspace";
 import { FALLBACK_ADAPTERS } from "../lib/status";
 import { AppHeader } from "./AppHeader";
 import { ConversationPane } from "./ConversationPane";
@@ -32,7 +32,9 @@ import { NavRail } from "./NavRail";
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <MateProvider>
-      <Shell>{children}</Shell>
+      <WorkspaceSelectionProvider>
+        <Shell>{children}</Shell>
+      </WorkspaceSelectionProvider>
     </MateProvider>
   );
 }

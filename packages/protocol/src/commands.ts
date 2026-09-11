@@ -28,8 +28,14 @@ export type Envelope = z.infer<typeof EnvelopeSchema>;
  * message rejected — the worst case has to be an ignored hint, not a refusal.
  */
 export const RequestContextSchema = z.object({
-  /** The workspace being looked at: `song`, `templates`, `bands`. */
+  /** The workspace being looked at: `song`, `templates`, `bands`, `recipes`. */
   page: z.string().min(1).max(40),
+  /**
+   * The genre whose recipe is selected on the recipes page, as it reads rather
+   * than as its key — "drum and bass", not "drumandbass" — because it is going
+   * into a sentence, and every tool that takes a genre takes free text.
+   */
+  recipe: z.string().min(1).max(80).optional(),
 });
 export type RequestContext = z.infer<typeof RequestContextSchema>;
 

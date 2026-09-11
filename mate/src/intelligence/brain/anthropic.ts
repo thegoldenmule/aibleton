@@ -211,8 +211,17 @@ export function compactSession(s: DawState) {
  * The view the request was typed in. One field today; new ones join as lines
  * here, which is why it is a list and not a sentence.
  */
+/**
+ * Whatever the context carries, one line each — named rather than listed, the
+ * way `ContextChips` renders the same object in the app. A field added to
+ * `RequestContextSchema` shows up in both places without either being touched,
+ * and zod has already dropped anything not declared there.
+ */
 function renderContext(context: RequestContext): string {
-  return `Where the drummer is looking:\n- page: ${context.page}`;
+  const lines = Object.entries(context)
+    .filter(([, value]) => value !== undefined && value !== null)
+    .map(([key, value]) => `- ${key}: ${typeof value === "string" ? value : JSON.stringify(value)}`);
+  return ["Where the drummer is looking:", ...lines].join("\n");
 }
 
 export function renderInput(input: BrainInput): string {

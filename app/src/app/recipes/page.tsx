@@ -7,6 +7,7 @@ import { ErrorNote } from "../../components/ui/ErrorNote";
 import { PanelHeader } from "../../components/ui/PanelHeader";
 import { WorkspacePanel } from "../../components/WorkspacePanel";
 import { useRecipes } from "../../lib/useRecipes";
+import { usePublishSelection } from "../../lib/workspace";
 
 /**
  * How each genre staffs a band: a card per genre, and one of them selected.
@@ -36,6 +37,11 @@ export default function RecipesPage() {
   // the next one instead of emptying the panel — and so the first card is
   // selected on arrival without an effect to put it there.
   const selected = recipes.find((recipe) => recipe.id === selectedId) ?? recipes[0] ?? null;
+
+  // The bandmate is told which one you are looking at, so "give me a band like
+  // this" has a referent. The genre as written, not its key — it is going into
+  // a sentence.
+  usePublishSelection(selected ? { recipe: selected.genre } : {});
 
   async function destroy(id: string) {
     setConfirmId(null);
