@@ -5,6 +5,7 @@ import type { Logger } from "../../log.ts";
 import type { AbletonPort } from "../../ports/ableton/types.ts";
 import type { SplicePort } from "../../ports/splice/types.ts";
 import { isReadOnlyTool, toolDefinitions, toolToAction } from "../tools/index.ts";
+import { isLibraryTool, runLibraryTool, type LibraryToolDeps } from "../tools/library.tools.ts";
 import type { Action, Brain, BrainInput, Decision } from "./types.ts";
 
 export interface AnthropicBrainOptions {
@@ -18,6 +19,13 @@ export interface AnthropicBrainOptions {
    * is built before the song library is; absent means no song tools are offered at all.
    */
   getSong?: () => Song | null;
+  /**
+   * The saved libraries, for the read-only library tools. One field rather than three, so
+   * "built without the libraries" is one absent thing and there is no half-wired state: absent
+   * means none of the five are offered. Not a getter — unlike `getSong` these exist before the
+   * brain does, and the stores are read fresh on every call anyway.
+   */
+  library?: LibraryToolDeps;
   maxIterations?: number;
   maxTokens?: number;
 }
@@ -26,7 +34,7 @@ const SYSTEM_PROMPT = `You are "mate", an AI bandmate sitting in on a drummer's 
 
 How you work:
 - You are not realtime. Each time you are called you get a fresh snapshot of the Ableton session (transport, tracks, clip slots), the drummer's current goal if any, what they just said if anything, which view they said it from, and a short history of previous decisions.
-- Read-only tools (get_session, splice_search, get_slot_candidates) run immediately and return real data.
+- Read-only tools (get_session, splice_search, get_slot_candidates, and the library reads below) run immediately and return real data.
 - Every other tool queues an action; actions are applied in order after you finish, and you will see the result next time. Do not assume an action has happened yet within the same turn.
 - You may only change tracks you created: they are marked "mine": true in the snapshot and their names end in "[mate]". Every other track is the drummer's; never add clips or notes to it, fire its clips, or load devices on it. Create a track of your own instead.
 - Drum rack pitches for add_notes: 36 kick, 38 snare, 42 closed hat, 46 open hat, 49 crash, 51 ride. Times are in beats; a bar of 4/4 is 4 beats.
@@ -37,6 +45,8 @@ Songs. Beyond single clips you can plan a whole song: a form, a brief per sectio
 - With no song, compose_song is how one gets made. Reach for it as soon as the drummer describes music they want instead of telling them to press something; it searches Splice itself, so never follow it with resolve_song.
 - With a song, the other tools change it: set_placement rests a part or brings it in for one occurrence, remove_track drops a part for good, pick_slot chooses a sound (read the options with get_slot_candidates — the song you are shown carries only the count), clear_active_song puts the song away so a new one can be written.
 - Searching Splice is free. Downloading the sounds costs the drummer credits and is their own confirmed decision, so you cannot do it. arrange_song only builds into Live what is already downloaded, and only ever adds.
+
+The libraries. The drummer has saved bands (who plays) and templates (the form), and mate can staff a band from a set of genres. find_bands, find_templates and get_genres tell you what is there; they answer with summaries and a total, so narrow with a find and then read the one you care about in full with get_band or get_template — that is where the briefs are. These are reads only: you cannot write or delete anything in the libraries, and composing a song still goes through compose_song, which picks from them itself.
 
 Your final message is spoken to the drummer. Keep it short, concrete and friendly: what you set up and what to try. No markdown headers.`;
 
@@ -52,7 +62,13 @@ export class AnthropicBrain implements Brain {
     // Per call, not once in the field: which song tools apply depends on this turn's trigger and
     // on whether a song is active right now.
     const song = this.opts.getSong?.() ?? null;
-    const tools = toolDefinitions({ songTools: this.opts.getSong !== undefined && input.trigger === "userRequest", hasSong: song !== null });
+    const tools = toolDefinitions({
+      songTools: this.opts.getSong !== undefined && input.trigger === "userRequest",
+      hasSong: song !== null,
+      // Same gate as the song plan, for the same product reason; no song precondition, because
+      // reading a library clobbers nothing.
+      libraryTools: this.opts.library !== undefined && input.trigger === "userRequest",
+    });
     const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: renderInput(input) }];
     const actions: Action[] = [];
     let followUp: Decision["followUp"];
@@ -123,6 +139,13 @@ export class AnthropicBrain implements Brain {
   }
 
   private async runReadOnly(name: string, args: Record<string, unknown>): Promise<string> {
+    // The library reads are only ever offered with `library` set, so reaching one without it is
+    // a tool list gone wrong rather than something to paper over.
+    if (isLibraryTool(name)) {
+      const library = this.opts.library;
+      if (!library) throw new Error(`${name} was offered without a library`);
+      return runLibraryTool(name, args, library);
+    }
     if (name === "get_session") return JSON.stringify(compactSession(await this.opts.ableton.getSnapshot()));
     if (name === "get_slot_candidates") {
       // The song in the prompt carries only a count per slot: the arrays are 30 KB of a 56 KB song.

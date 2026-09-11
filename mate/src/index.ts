@@ -111,18 +111,6 @@ async function main(): Promise<void> {
     }
   }
 
-  const brainResult = await createBrain(config.brain, {
-    client: anthropic,
-    ...(anthropicError !== undefined ? { clientError: anthropicError } : {}),
-    model: config.model,
-    log: createLogger("brain"),
-    ableton: abletonResult.port,
-    splice: spliceResult.port,
-    // The store, not the service: the brain is built first, and this is read per call anyway.
-    getSong: () => store.getSong(),
-  });
-  if (brainResult.fallbackReason) log.warn(`brain: using scripted (${brainResult.fallbackReason})`);
-
   const brieferResult = createBriefer(config.brain, {
     client: anthropic,
     ...(anthropicError !== undefined ? { clientError: anthropicError } : {}),
@@ -140,6 +128,21 @@ async function main(): Promise<void> {
   if (writerResult.fallbackReason) log.warn(`recipe writer: using scripted (${writerResult.fallbackReason})`);
   const recipes = new RecipeBook({ store: new RecipeStore({ dir: config.recipesDir }), writer: writerResult.writer, now: () => clock.now() });
   await recipes.load();
+
+  const brainResult = await createBrain(config.brain, {
+    client: anthropic,
+    ...(anthropicError !== undefined ? { clientError: anthropicError } : {}),
+    model: config.model,
+    log: createLogger("brain"),
+    ableton: abletonResult.port,
+    splice: spliceResult.port,
+    // The store, not the service: the brain is built first, and this is read per call anyway.
+    getSong: () => store.getSong(),
+    // All three libraries exist by now, which is why the brain is built here and not above the
+    // recipe book. They go in directly rather than behind a getter: it only ever reads them.
+    library: { bands, templates, recipes },
+  });
+  if (brainResult.fallbackReason) log.warn(`brain: using scripted (${brainResult.fallbackReason})`);
 
   store.setAdapters({
     ableton: abletonResult.port.kind,

@@ -4,6 +4,7 @@ import type { BrainMode } from "../../config.ts";
 import type { Logger } from "../../log.ts";
 import type { AbletonPort } from "../../ports/ableton/types.ts";
 import type { SplicePort } from "../../ports/splice/types.ts";
+import type { LibraryToolDeps } from "../tools/library.tools.ts";
 import { AnthropicBrain } from "./anthropic.ts";
 import { ScriptedBrain } from "./scripted.ts";
 import type { Brain, BrainInput, Decision } from "./types.ts";
@@ -19,6 +20,11 @@ export interface CreateBrainOptions {
   splice: SplicePort;
   /** The active song, read fresh per call. Without it the brain is offered no song tools. */
   getSong?: () => Song | null;
+  /**
+   * The saved bands, templates and genres. Optional for the same reason `getSong` is: a brain
+   * built without them — a test, the scripted path — simply offers no library tools.
+   */
+  library?: LibraryToolDeps;
 }
 
 export interface BrainResult {
@@ -63,6 +69,7 @@ export async function createBrain(mode: BrainMode, opts: CreateBrainOptions): Pr
         ableton: opts.ableton,
         splice: opts.splice,
         ...(opts.getSong ? { getSong: opts.getSong } : {}),
+        ...(opts.library ? { library: opts.library } : {}),
       }),
       live: true,
     };
