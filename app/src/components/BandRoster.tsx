@@ -5,6 +5,13 @@ interface Props {
   parts: BandPart[];
   /** Card content: two lines per part and no fixed columns, for a lane a third of the page wide. */
   compact?: boolean;
+  /**
+   * Pad out to this many lanes with empty ones. For a roster that is re-rolled
+   * in place: a recipe can staff anywhere from its core to its full roster, and
+   * a panel that resized by seven lanes every time you rolled again would throw
+   * away whatever you were reading underneath it.
+   */
+  minRows?: number;
 }
 
 /**
@@ -41,8 +48,9 @@ export function roleClass(role: string): string {
  * 11rem, which put a scroller inside the workspace column's scroller; a band
  * card is as tall as its band, and the grid around it flows.
  */
-export function BandRoster({ parts, compact = false }: Props) {
+export function BandRoster({ parts, compact = false, minRows = 0 }: Props) {
   if (parts.length === 0) return <p className="text-xs text-muted">no parts</p>;
+  const empty = Math.max(0, minRows - parts.length);
 
   if (compact) {
     return (
@@ -74,6 +82,7 @@ export function BandRoster({ parts, compact = false }: Props) {
             </span>
           </li>
         ))}
+        {emptyLanes(empty, true)}
       </ul>
     );
   }
@@ -106,6 +115,51 @@ export function BandRoster({ parts, compact = false }: Props) {
           </span>
         </li>
       ))}
+      {emptyLanes(empty, false)}
     </ul>
   );
+}
+
+/**
+ * Lanes a band could have had and does not. Purely to hold the height.
+ *
+ * Each one mirrors a real lane element for element — same wrappers, same type
+ * sizes, borders turned transparent and the text a non-breaking space. That is
+ * fussier than a spacer of a guessed height, and it has to be: a lane is as
+ * tall as its tallest child, so an empty lane missing the `text-xs` name would
+ * come out a pixel short and the panel would still creep as the split between
+ * real and empty lanes moved. Hidden from assistive tech — there is nothing here.
+ */
+function emptyLanes(count: number, compact: boolean) {
+  return Array.from({ length: count }, (_, i) => (
+    <li
+      key={`empty-${i}`}
+      aria-hidden="true"
+      className={
+        compact
+          ? "flex items-stretch gap-2 rounded-sm border border-dashed border-line/50 py-1 pl-0 pr-2"
+          : "flex items-stretch gap-2 rounded-sm border border-dashed border-line/50 py-1.5 pl-0 pr-2"
+      }
+    >
+      <span className="w-1.5 shrink-0 self-stretch rounded-l-sm border-r border-line/40" />
+      {compact ? (
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="shrink-0 rounded-sm border border-transparent px-1 py-px font-mono text-[9px]">&nbsp;</span>
+            <span className="min-w-0 truncate text-xs">&nbsp;</span>
+          </span>
+          <span className="truncate text-[10px] leading-snug">&nbsp;</span>
+        </span>
+      ) : (
+        <>
+          <span className="w-5 shrink-0 self-center font-mono text-[10px]">&nbsp;</span>
+          <span className="w-20 shrink-0 self-center rounded-sm border border-transparent px-1 py-0.5 text-center font-mono text-[10px]">
+            &nbsp;
+          </span>
+          <span className="w-40 shrink-0 self-center truncate text-xs">&nbsp;</span>
+          <span className="min-w-0 flex-1 self-center text-[11px] leading-snug">&nbsp;</span>
+        </>
+      )}
+    </li>
+  ));
 }

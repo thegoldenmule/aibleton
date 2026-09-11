@@ -157,7 +157,9 @@ function Inspector({ recipe, seed, onRoll }: { recipe: BandRecipe; seed: number;
             }
           />
           {sample.length > 0 ? (
-            <BandRoster parts={sample} compact />
+            // Every lane the recipe could ever staff, so rolling again never
+            // moves the bench below it.
+            <BandRoster parts={sample} compact minRows={recipe.core.length + recipe.optional.length} />
           ) : (
             <p className="text-xs text-muted">This recipe could not be rolled.</p>
           )}
