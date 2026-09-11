@@ -13,6 +13,7 @@ import { FormStrip, letterClass } from "../../components/FormStrip";
 import { useTemplates } from "../../lib/useTemplates";
 import { errorMessage } from "../../lib/errors";
 import { ErrorNote } from "../../components/ui/ErrorNote";
+import { PanelHeader } from "../../components/ui/PanelHeader";
 import { WorkspacePanel } from "../../components/WorkspacePanel";
 import { TextField } from "../../components/ui/TextField";
 
@@ -155,7 +156,7 @@ export default function TemplatesPage() {
       <ErrorNote message={lastError} />
 
       <section className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
-        <h2 className="text-[10px] uppercase tracking-wider text-muted">generator</h2>
+        <PanelHeader title="generator" level={3} />
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           <TextField id="gen-name" label="name" value={options.name} onChange={set("name")} placeholder="auto" />
           <TextField
@@ -237,13 +238,12 @@ export default function TemplatesPage() {
 
       {draft ? (
         <section className="flex flex-col gap-3 rounded-sm border border-accent/50 bg-panel-2 p-2.5">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="text-[10px] uppercase tracking-wider text-muted">preview</h2>
-            <span className="rounded-sm bg-accent/20 px-1.5 py-0.5 font-mono text-[10px] text-accent">unsaved</span>
-            <span className="font-mono text-[10px] text-muted/70">
-              {draft.form} · {draftBars ?? "?"} bars{draft.bpm ? ` · ${draft.bpm} bpm` : ""}
-            </span>
-          </div>
+          <PanelHeader
+            title="preview"
+            level={3}
+            meta={`${draft.form} · ${draftBars ?? "?"} bars${draft.bpm ? ` · ${draft.bpm} bpm` : ""}`}
+            actions={<span className="rounded-sm bg-accent/20 px-1.5 py-0.5 font-mono text-[10px] text-accent">unsaved</span>}
+          />
 
           <FormStrip form={draft.form} sections={draft.sections} showLegend={false} />
 
@@ -300,7 +300,7 @@ export default function TemplatesPage() {
       ) : null}
 
       <section className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
-        <h2 className="text-[10px] uppercase tracking-wider text-muted">saved templates</h2>
+        <PanelHeader title="saved templates" level={3} />
         {loading ? (
           <p className="text-xs text-muted">Loading…</p>
         ) : templates.length === 0 ? (

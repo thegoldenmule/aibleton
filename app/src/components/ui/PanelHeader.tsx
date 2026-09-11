@@ -40,7 +40,7 @@ export function PanelHeader({ title, count, meta, actions, level = 2 }: Props) {
         {count !== undefined && count !== null ? <span className="ml-1.5 font-mono normal-case text-muted/60">{count}</span> : null}
       </Heading>
       {meta || actions ? (
-        <div className="flex min-w-0 items-center justify-end gap-2">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           {meta ? <div className={META_CLASS}>{meta}</div> : null}
           {actions}
         </div>
