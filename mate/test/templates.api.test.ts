@@ -7,6 +7,7 @@ import {
   TemplateResponseSchema,
   type MateEvent,
   type Template,
+  type TemplateLogEntry,
 } from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
 import { EventBus } from "../src/core/events.ts";
@@ -17,6 +18,7 @@ import { ManualClock } from "../src/core/clock.ts";
 import { loadConfig } from "../src/config.ts";
 import { silentLogger } from "../src/log.ts";
 import type { Intelligence } from "../src/intelligence/types.ts";
+import { logPathFor, templateLibrary } from "./helpers/library.ts";
 import { songServiceHarness } from "./helpers/song-service.ts";
 
 const idleIntelligence: Intelligence = {
@@ -48,7 +50,7 @@ function build(now = 1_000) {
     startedAt: 0,
     now: () => clock.now(),
   });
-  return { app, clock };
+  return { app, clock, templates: harness.templates };
 }
 
 function template(over: Partial<Template> = {}): Template {
@@ -115,6 +117,24 @@ describe("templates api", () => {
     await post(app, "/templates", { template: template() });
     expect(await (await app.request("/templates/jam-1", { method: "DELETE" })).json()).toEqual({ deleted: true });
     expect(await (await app.request("/templates/jam-1", { method: "DELETE" })).json()).toEqual({ deleted: false });
+  });
+
+  test("POST /templates lands in the log, and a fresh library over it replays the save", async () => {
+    const { app, templates } = build();
+    expect((await post(app, "/templates", { template: template() })).status).toBe(200);
+    await templates.close();
+
+    const path = logPathFor(join(dir, "templates"), "templates");
+    const lines = (await Bun.file(path).text()).trim().split("\n");
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0]!) as TemplateLogEntry).toMatchObject({
+      seq: 1,
+      event: { type: "template.saved", template: { id: "jam-1", form: "a8 b8 a8 b8" } },
+    });
+
+    const replayed = templateLibrary(join(dir, "templates"), { path });
+    expect((await replayed.list()).map((t) => t.id)).toEqual(["jam-1"]);
+    await replayed.close();
   });
 
   test("POST /templates rejects a form using an undefined section", async () => {

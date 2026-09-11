@@ -20,7 +20,6 @@ import { ManualClock } from "../src/core/clock.ts";
 import { EventBus } from "../src/core/events.ts";
 import { SongStore } from "../src/core/songs.ts";
 import { StateStore } from "../src/core/state.ts";
-import { TemplateStore } from "../src/core/templates.ts";
 import { loadConfig } from "../src/config.ts";
 import type { Intelligence } from "../src/intelligence/types.ts";
 import { silentLogger } from "../src/log.ts";
@@ -33,7 +32,7 @@ import { defaultBrief } from "../src/songwriting/briefer/scripted.ts";
 import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { FakeSplice } from "./helpers/fakes.ts";
-import { bandLibrary } from "./helpers/library.ts";
+import { bandLibrary, templateLibrary } from "./helpers/library.ts";
 import { fixtureBand, fixtureTemplate } from "./helpers/song.ts";
 
 const idleIntelligence: Intelligence = {
@@ -61,7 +60,7 @@ async function build(
   const clock = new ManualClock(opts.now ?? 1_000);
   const events = new EventBus<MateEvent>();
   const store = new StateStore(events);
-  const templates = new TemplateStore({ dir: join(dir, "templates") });
+  const templates = templateLibrary(join(dir, "templates"), { now: () => clock.now(), log: silentLogger });
   const bands = bandLibrary(join(dir, "bands"), { now: () => clock.now(), log: silentLogger });
   const songs = new SongStore({ dir: join(dir, "songs") });
   const briefer = opts.briefer ?? new ScriptedBriefer();

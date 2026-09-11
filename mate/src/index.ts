@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
-import { toJournaled, type BandEvent, type MateEvent } from "@aibleton/protocol";
+import { toJournaled, type BandEvent, type MateEvent, type TemplateEvent } from "@aibleton/protocol";
 import { loadConfig } from "./config.ts";
 import { createLogger } from "./log.ts";
 import { SystemClock } from "./core/clock.ts";
@@ -10,7 +10,7 @@ import { StateStore } from "./core/state.ts";
 import { createBandLibrary } from "./core/bands.ts";
 import { RecipeBook, RecipeStore } from "./core/recipes.ts";
 import { SongStore } from "./core/songs.ts";
-import { TemplateStore } from "./core/templates.ts";
+import { createTemplateLibrary } from "./core/templates.ts";
 import { SessionManager, SessionStore } from "./core/sessions.ts";
 import { attachJournal } from "./core/journal.ts";
 import { restoreStore } from "./core/restore.ts";
@@ -35,7 +35,6 @@ async function main(): Promise<void> {
   const events = new EventBus<MateEvent>();
   const store = new StateStore(events);
   const mailbox = new Mailbox();
-  const templates = new TemplateStore({ dir: config.templatesDir });
   const songs = new SongStore({ dir: config.songsDir });
 
   // The libraries open before the session, because they are a different
@@ -54,6 +53,14 @@ async function main(): Promise<void> {
     log: libraryLog,
   });
   const bands = bandLibrary.store;
+  const templateLibrary = await createTemplateLibrary({
+    dir: config.templatesDir,
+    path: join(config.libraryDir, "templates.jsonl"),
+    events: new EventBus<TemplateEvent>(),
+    now: () => clock.now(),
+    log: libraryLog,
+  });
+  const templates = templateLibrary.store;
 
   // The session mate left behind, folded back in before anything else runs. It
   // has to happen here, before the loop starts: `AgentLoop.start()` reads the
@@ -74,6 +81,9 @@ async function main(): Promise<void> {
   }
   libraryLog.info(
     `bands: ${bandLibrary.replayed} event(s) replayed, ${bandLibrary.adopted} adopted, ${bandLibrary.repaired} record file(s) repaired`,
+  );
+  libraryLog.info(
+    `templates: ${templateLibrary.replayed} event(s) replayed, ${templateLibrary.adopted} adopted, ${templateLibrary.repaired} record file(s) repaired`,
   );
 
   const abletonResult = await createAbletonPort(config.ableton, {
@@ -230,9 +240,9 @@ async function main(): Promise<void> {
     // After the session, because a library append is awaited to disk by the
     // caller that made it: there is only ever the journal's own tail to flush.
     try {
-      await bandLibrary.close();
+      await Promise.all([bandLibrary.close(), templateLibrary.close()]);
     } catch (err) {
-      libraryLog.warn("could not close the band library", err);
+      libraryLog.warn("could not close a library", err);
     }
     server.stop(true);
     log.info("bye");
@@ -266,8 +276,9 @@ async function main(): Promise<void> {
     }
     try {
       bandLibrary.flushSync();
+      templateLibrary.flushSync();
     } catch (err) {
-      libraryLog.warn("could not flush the band log on exit", err);
+      libraryLog.warn("could not flush a library log on exit", err);
     }
   });
 }

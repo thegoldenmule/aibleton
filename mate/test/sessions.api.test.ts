@@ -8,6 +8,7 @@ import {
   ResumeSessionResponseSchema,
   SessionListResponseSchema,
   SessionResponseSchema,
+  TemplateListResponseSchema,
   toJournaled,
   type MateEvent,
   type Phase,
@@ -27,7 +28,7 @@ import { silentLogger } from "../src/log.ts";
 import type { CommandBody, CommandSource } from "../src/core/commands.ts";
 import type { Intelligence } from "../src/intelligence/types.ts";
 import { FakeAbleton, FakeSplice } from "./helpers/fakes.ts";
-import { fixtureBand } from "./helpers/song.ts";
+import { fixtureBand, fixtureTemplate } from "./helpers/song.ts";
 import { songServiceHarness } from "./helpers/song-service.ts";
 
 let dir: string;
@@ -212,6 +213,7 @@ describe("sessions api", () => {
   test("a resume leaves the libraries untouched", async () => {
     const { app } = await build();
     await post(app, "/bands", { band: fixtureBand() });
+    await post(app, "/templates", { template: fixtureTemplate() });
     const first = SessionListResponseSchema.parse(await (await app.request("/sessions")).json()).sessions[0]!.id;
     await post(app, "/sessions");
 
@@ -219,8 +221,10 @@ describe("sessions api", () => {
     // Free by construction — the libraries are a different aggregate, they are
     // not in `StateResponse` and `SessionManager` holds no reference to them.
     // The assertion is what stops a refactor quietly undoing that.
-    const listed = BandListResponseSchema.parse(await (await app.request("/bands")).json());
-    expect(listed.bands.map((b) => b.id)).toEqual([fixtureBand().id]);
+    const bands = BandListResponseSchema.parse(await (await app.request("/bands")).json());
+    expect(bands.bands.map((b) => b.id)).toEqual([fixtureBand().id]);
+    const templates = TemplateListResponseSchema.parse(await (await app.request("/templates")).json());
+    expect(templates.templates.map((t) => t.id)).toEqual([fixtureTemplate().id]);
   });
 
   test("switching sessions does not re-journal the session it replayed", async () => {

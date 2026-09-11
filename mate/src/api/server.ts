@@ -5,7 +5,7 @@ import type { SessionManager } from "../core/sessions.ts";
 import type { StateStore } from "../core/state.ts";
 import type { BandLibrary } from "../core/bands.ts";
 import type { RecipeBook } from "../core/recipes.ts";
-import type { TemplateStore } from "../core/templates.ts";
+import type { TemplateLibrary } from "../core/templates.ts";
 import type { Intelligence } from "../intelligence/types.ts";
 import type { Logger } from "../log.ts";
 import type { SongService } from "../songwriting/service.ts";
@@ -22,7 +22,7 @@ import { templateRoutes } from "./routes/templates.ts";
 
 export interface AppDeps {
   store: StateStore;
-  templates: TemplateStore;
+  templates: TemplateLibrary;
   bands: BandLibrary;
   /** Every song operation, shared with the agent loop. */
   songs: SongService;

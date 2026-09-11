@@ -1,9 +1,8 @@
-import type { Activity, ActivityKind, Band, ComposeStage, Song, TranscriptField } from "@aibleton/protocol";
+import type { Activity, ActivityKind, Band, ComposeStage, Song, Template, TranscriptField } from "@aibleton/protocol";
 import { newId } from "../core/commands.ts";
 import type { RecipeBook } from "../core/recipes.ts";
 import type { SongStore } from "../core/songs.ts";
 import type { StateStore } from "../core/state.ts";
-import type { TemplateStore } from "../core/templates.ts";
 import type { Logger } from "../log.ts";
 import type { AbletonPort } from "../ports/ableton/types.ts";
 import type { SplicePort } from "../ports/splice/types.ts";
@@ -74,7 +73,8 @@ export interface ResolveOutcome {
 
 export interface SongServiceDeps {
   songs: SongStore;
-  templates: TemplateStore;
+  /** The template library: the forms compose chooses from. Read-only from here. */
+  templates: { list(): Promise<Template[]> };
   /**
    * The band library: the roster compose chooses from, and the one place the
    * bands it rolls are added. Structural rather than nominal so the log-backed

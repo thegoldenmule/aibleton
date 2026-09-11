@@ -12,10 +12,11 @@ import {
 } from "@aibleton/protocol";
 import { newId } from "../../core/commands.ts";
 import { defaultSections, generateForm } from "../../core/generator.ts";
-import { isValidTemplateId, type TemplateStore } from "../../core/templates.ts";
+import { isValidTemplateId, type TemplateLibrary } from "../../core/templates.ts";
 
 export interface TemplateRouteDeps {
-  templates: TemplateStore;
+  /** The log-backed library. Reads come off its fold; a save that cannot reach the log rejects. */
+  templates: TemplateLibrary;
   /** Injected so tests can drive createdAt and the default seed from a ManualClock. */
   now: () => number;
 }

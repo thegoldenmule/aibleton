@@ -7,9 +7,9 @@ import { EventBus } from "../../src/core/events.ts";
 import { RecipeBook, RecipeStore } from "../../src/core/recipes.ts";
 import { SongStore } from "../../src/core/songs.ts";
 import { StateStore } from "../../src/core/state.ts";
-import { TemplateStore } from "../../src/core/templates.ts";
-import { bandLibrary } from "./library.ts";
+import { bandLibrary, templateLibrary } from "./library.ts";
 import type { BandLibrary } from "../../src/core/bands.ts";
+import type { TemplateLibrary } from "../../src/core/templates.ts";
 import { silentLogger } from "../../src/log.ts";
 import type { AbletonPort } from "../../src/ports/ableton/types.ts";
 import { InMemoryAbletonAdapter } from "../../src/ports/ableton/stub.ts";
@@ -24,7 +24,7 @@ import { fixtureBand, fixtureTemplate } from "./song.ts";
 export interface SongServiceHarness {
   service: SongService;
   songs: SongStore;
-  templates: TemplateStore;
+  templates: TemplateLibrary;
   bands: BandLibrary;
   recipes: RecipeBook;
   store: StateStore;
@@ -54,9 +54,9 @@ export function songServiceHarness(opts: SongServiceOptions = {}): SongServiceHa
   const events = new EventBus<MateEvent>();
   const store = new StateStore(events);
   const songs = new SongStore({ dir: join(dir, "songs") });
-  const templates = new TemplateStore({ dir: join(dir, "templates") });
-  // The library, not the projection store: one instance per log, and the
-  // one an app built on this harness must be handed too.
+  // The libraries, not the projection stores: one instance per log, and the
+  // ones an app built on this harness must be handed too.
+  const templates = templateLibrary(join(dir, "templates"), { now: () => clock.now(), log: silentLogger });
   const bands = bandLibrary(join(dir, "bands"), { now: () => clock.now(), log: silentLogger });
   const writer = opts.writer ?? new ScriptedRecipeWriter();
   const recipes = new RecipeBook({ store: new RecipeStore({ dir: join(dir, "recipes") }), writer, now: () => clock.now() });
