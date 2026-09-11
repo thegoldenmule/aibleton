@@ -531,35 +531,51 @@ export default function BandsPage() {
             {lastError ? "Could not load bands — see the error above." : "Nothing saved yet. Generate a band above, then save it."}
           </p>
         ) : (
-          <ul className="flex flex-col gap-2">
-            {visible.map((band) => {
-              const genre = bandGenre(band);
-              return (
-                <li key={band.id} className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <span className="text-sm font-medium">{band.name}</span>
-                    <span
-                      className={`rounded-sm border px-1.5 py-0.5 font-mono text-[10px] ${
-                        genre ? "border-accent/60 text-accent" : "border-line text-muted"
-                      }`}
-                    >
-                      {genre ?? UNTAGGED}
-                    </span>
-                    <span className="font-mono text-[10px] text-muted/70">
-                      {band.parts.length} part{band.parts.length === 1 ? "" : "s"} ·{" "}
-                      {new Date(band.createdAt).toLocaleString()}
-                    </span>
-                    <span className="ml-auto flex items-center gap-1.5">
+          // The column is a third of the page, so the grid measures itself, not
+          // the viewport: a container query keeps one card per row beside a wide
+          // conversation pane and three across on a full-width window.
+          <div className="@container">
+            <ul className="grid grid-cols-1 gap-2 @min-[34rem]:grid-cols-2 @min-[54rem]:grid-cols-3">
+              {visible.map((band) => {
+                const genre = bandGenre(band);
+                return (
+                  <li
+                    key={band.id}
+                    className="flex flex-col gap-2 rounded-sm border border-line bg-panel p-2.5"
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <h4 className="truncate text-sm font-medium" title={band.name}>
+                          {band.name}
+                        </h4>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span
+                            className={`rounded-sm border px-1.5 py-0.5 font-mono text-[10px] ${
+                              genre ? "border-accent/60 text-accent" : "border-line text-muted"
+                            }`}
+                          >
+                            {genre ?? UNTAGGED}
+                          </span>
+                          <span className="font-mono text-[10px] text-muted/70">
+                            {band.parts.length} part{band.parts.length === 1 ? "" : "s"}
+                          </span>
+                          <span
+                            className="font-mono text-[10px] text-muted/70"
+                            title={new Date(band.createdAt).toLocaleString()}
+                          >
+                            {new Date(band.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
                       {confirmId === band.id ? (
-                        <>
-                          <span className="text-[11px] text-audio">delete?</span>
+                        <span className="flex shrink-0 items-center gap-1.5">
                           <button
                             type="button"
                             disabled={busy}
                             onClick={() => void destroy(band.id)}
                             className="rounded-sm border border-audio/60 px-2 py-0.5 text-[11px] font-medium text-audio disabled:cursor-not-allowed disabled:opacity-40"
                           >
-                            confirm
+                            delete?
                           </button>
                           <button
                             type="button"
@@ -568,24 +584,24 @@ export default function BandsPage() {
                           >
                             cancel
                           </button>
-                        </>
+                        </span>
                       ) : (
                         <button
                           type="button"
                           disabled={busy}
                           onClick={() => setConfirmId(band.id)}
-                          className="rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted hover:text-audio disabled:cursor-not-allowed disabled:opacity-40"
+                          className="shrink-0 rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted hover:text-audio disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           delete
                         </button>
                       )}
-                    </span>
-                  </div>
-                  <BandRoster parts={band.parts} compact />
-                </li>
-              );
-            })}
-          </ul>
+                    </div>
+                    <BandRoster parts={band.parts} compact />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         )}
       </section>
     </WorkspacePanel>

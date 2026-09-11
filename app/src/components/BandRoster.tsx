@@ -3,7 +3,7 @@ import type { BandPart } from "@aibleton/protocol";
 interface Props {
   /** Ordered parts — takes the array rather than a Band so an unsaved draft renders too. */
   parts: BandPart[];
-  /** Denser rows with truncated briefs and a scrolling body, for the saved list. */
+  /** Card content: two lines per part and no fixed columns, for a lane a third of the page wide. */
   compact?: boolean;
 }
 
@@ -35,17 +35,55 @@ export function roleClass(role: string): string {
 /**
  * A band rendered as the track stack it will become: one lane per part in
  * order, colour keyed to the role, so two keys players or a missing bass read
- * at a glance. Scrolls inside itself rather than widening the page.
+ * at a glance.
+ *
+ * Every part is always rendered. This used to cap `compact` at a scrolling
+ * 11rem, which put a scroller inside the workspace column's scroller; a band
+ * card is as tall as its band, and the grid around it flows.
  */
 export function BandRoster({ parts, compact = false }: Props) {
   if (parts.length === 0) return <p className="text-xs text-muted">no parts</p>;
 
+  if (compact) {
+    return (
+      <ul className="flex flex-col gap-px">
+        {parts.map((part) => (
+          <li
+            key={part.id}
+            className="flex items-stretch gap-2 rounded-sm border border-line bg-panel-2 py-1 pl-0 pr-2"
+          >
+            <span
+              className={`w-1.5 shrink-0 self-stretch rounded-l-sm border-r ${roleClass(part.role)}`}
+              aria-hidden="true"
+            />
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span
+                  className={`shrink-0 rounded-sm border px-1 py-px font-mono text-[9px] ${roleClass(part.role)}`}
+                  title={part.role}
+                >
+                  {part.role}
+                </span>
+                <span className="min-w-0 truncate text-xs" title={part.name}>
+                  {part.name}
+                </span>
+              </span>
+              <span className="truncate text-[10px] leading-snug text-muted" title={part.brief}>
+                {part.brief}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
   return (
-    <ul className={`flex flex-col gap-px ${compact ? "max-h-44 overflow-y-auto pr-0.5" : ""}`}>
+    <ul className="flex flex-col gap-px">
       {parts.map((part, i) => (
         <li
           key={part.id}
-          className={`flex items-stretch gap-2 rounded-sm border border-line bg-panel-2 ${compact ? "py-1" : "py-1.5"} pl-0 pr-2`}
+          className="flex items-stretch gap-2 rounded-sm border border-line bg-panel-2 py-1.5 pl-0 pr-2"
         >
           <span
             className={`w-1.5 shrink-0 self-stretch rounded-l-sm border-r ${roleClass(part.role)}`}
@@ -60,15 +98,10 @@ export function BandRoster({ parts, compact = false }: Props) {
           >
             {part.role}
           </span>
-          <span className={`${compact ? "w-32" : "w-40"} shrink-0 self-center truncate text-xs`} title={part.name}>
+          <span className="w-40 shrink-0 self-center truncate text-xs" title={part.name}>
             {part.name}
           </span>
-          <span
-            className={`min-w-0 flex-1 self-center text-[11px] leading-snug text-muted ${
-              compact ? "truncate" : "break-words"
-            }`}
-            title={part.brief}
-          >
+          <span className="min-w-0 flex-1 self-center break-words text-[11px] leading-snug text-muted" title={part.brief}>
             {part.brief}
           </span>
         </li>
