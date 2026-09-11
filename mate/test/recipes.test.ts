@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BandRecipeSchema, genreKey } from "@aibleton/protocol";
 import { BUILTIN_GENRES, BUILTIN_RECIPES, generateBand } from "../src/core/band-generator.ts";
-import { RecipeBook, RecipeStore, isValidRecipeId } from "../src/core/recipes.ts";
+import { RecipeBook, isValidRecipeId } from "../src/core/recipes.ts";
+import { recipeLibrary } from "./helpers/library.ts";
 import { normalizeRecipe } from "../src/songwriting/recipe-writer/normalize.ts";
 import { RECIPE_JSON_SCHEMA } from "../src/songwriting/recipe-writer/schema.ts";
 import { ScriptedRecipeWriter, genericRecipe } from "../src/songwriting/recipe-writer/scripted.ts";
@@ -64,9 +65,14 @@ describe("isValidRecipeId", () => {
 });
 
 describe("RecipeBook", () => {
+  /**
+   * A book over its own library. Calling this twice opens two libraries over
+   * one log, which is exactly what a restart is — so long as the first is done
+   * writing before the second reads.
+   */
   function book(writer = new ScriptedRecipeWriter(), at = 1_000) {
-    const store = new RecipeStore({ dir });
-    return { store, writer, book: new RecipeBook({ store, writer, now: () => at }) };
+    const library = recipeLibrary(join(dir, "recipes"), { now: () => at });
+    return { library, writer, book: new RecipeBook({ library, writer, now: () => at }) };
   }
 
   test("built-ins resolve synchronously under any spelling and never hit the writer", async () => {
@@ -76,22 +82,35 @@ describe("RecipeBook", () => {
     expect(h.writer.calls).toEqual([]);
   });
 
-  test("an unknown genre is written once, saved, and served from the store afterwards", async () => {
+  test("an unknown genre is written once, logged, and replayed by the next open", async () => {
     const h = book();
     const first = await h.book.ensure("Gospel", signal());
     expect(first.id).toBe("gospel");
     expect(first.genre).toBe("Gospel");
     expect(first.source).toBe("generated");
     expect(first.createdAt).toBe(1_000);
-    expect(await h.store.get("gospel")).toEqual(first);
+    expect(await h.library.get("gospel")).toEqual(first);
     expect(h.book.get("gospel")).toEqual(first);
 
+    // A fresh library over the same log: the recipe comes back off the replay,
+    // and the writer is never asked again.
     const again = book();
-    expect(again.book.get("gospel")).toBeUndefined();
+    await again.library.list();
+    expect(again.book.get("GOSPEL")?.id).toBe("gospel");
     expect(await again.book.ensure("gospel", signal())).toEqual(first);
     expect(again.writer.calls).toEqual([]);
-    await again.book.load();
-    expect(again.book.get("GOSPEL")?.id).toBe("gospel");
+  });
+
+  test("the log is the write: a deleted recipe stays deleted across a reopen", async () => {
+    const h = book();
+    await h.book.ensure("gospel", signal());
+    expect(await h.library.delete("gospel")).toBe(true);
+
+    const again = book();
+    await again.library.list();
+    expect(again.book.get("gospel")).toBeUndefined();
+    // And the projection file is gone rather than adopted back in.
+    expect((await again.library.list()).map((r) => r.id)).toEqual([]);
   });
 
   test("concurrent requests for one genre share a single write", async () => {
@@ -106,7 +125,7 @@ describe("RecipeBook", () => {
     const h = book();
     h.writer.rejectNext(new Error("model down"));
     await expect(h.book.ensure("polka", signal())).rejects.toThrow("model down");
-    expect(await h.store.list()).toEqual([]);
+    expect(await h.library.list()).toEqual([]);
     expect(h.book.get("polka")).toBeUndefined();
   });
 
@@ -114,10 +133,20 @@ describe("RecipeBook", () => {
     await expect(book().book.ensure("???", signal())).rejects.toThrow("no letters");
   });
 
-  test("list puts built-ins first, then generated newest first", async () => {
+  test("genres are sorted, so an omitted genre draws from a stable list", async () => {
     const h = book();
     await h.book.ensure("gospel", signal());
-    const later = new RecipeBook({ store: h.store, writer: h.writer, now: () => 2_000 });
+    await h.book.ensure("polka", signal());
+    const genres = h.book.genres();
+    expect([...genres]).toEqual([...genres].sort());
+    expect(genres).toContain("gospel");
+    expect(genres).toContain("polka");
+  });
+
+  test("list puts built-ins first, then written recipes newest first", async () => {
+    const h = book();
+    await h.book.ensure("gospel", signal());
+    const later = new RecipeBook({ library: h.library, writer: h.writer, now: () => 2_000 });
     await later.ensure("polka", signal());
     const list = await later.list();
     expect(list.slice(0, BUILTIN_GENRES.length).map((r) => r.id)).toEqual([...BUILTIN_GENRES]);

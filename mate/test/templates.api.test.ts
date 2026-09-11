@@ -12,13 +12,12 @@ import {
 import { createApp } from "../src/api/server.ts";
 import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
-import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { ManualClock } from "../src/core/clock.ts";
 import { loadConfig } from "../src/config.ts";
 import { silentLogger } from "../src/log.ts";
 import type { Intelligence } from "../src/intelligence/types.ts";
-import { logPathFor, templateLibrary } from "./helpers/library.ts";
+import { logPathFor, recipeBook, templateLibrary } from "./helpers/library.ts";
 import { songServiceHarness } from "./helpers/song-service.ts";
 
 const idleIntelligence: Intelligence = {
@@ -43,7 +42,7 @@ function build(now = 1_000) {
     templates: harness.templates,
     bands: harness.bands,
     songs: harness.service,
-    recipes: new RecipeBook({ store: new RecipeStore({ dir: join(dir, "recipes") }), writer: new ScriptedRecipeWriter(), now: () => clock.now() }),
+    recipes: recipeBook(dir, { now: () => clock.now() }),
     intelligence: idleIntelligence,
     config: loadConfig({}),
     log: silentLogger,

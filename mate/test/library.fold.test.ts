@@ -3,22 +3,30 @@ import {
   BAND_EVENT_TYPES,
   DURABLE_BAND_EVENT_TYPES,
   DURABLE_TEMPLATE_EVENT_TYPES,
+  DURABLE_RECIPE_EVENT_TYPES,
   MATE_EVENT_TYPES,
+  RECIPE_EVENT_TYPES,
   TEMPLATE_EVENT_TYPES,
   VOLATILE_BAND_EVENT_TYPES,
+  VOLATILE_RECIPE_EVENT_TYPES,
   VOLATILE_TEMPLATE_EVENT_TYPES,
   applyBandEvent,
+  applyRecipeEvent,
   applyTemplateEvent,
   fromJournaledBand,
+  fromJournaledRecipe,
   fromJournaledTemplate,
   toJournaledBand,
+  toJournaledRecipe,
   toJournaledTemplate,
   type Band,
   type BandEvent,
+  type BandRecipe,
+  type RecipeEvent,
   type Template,
   type TemplateEvent,
 } from "@aibleton/protocol";
-import { fixtureBand, fixtureTemplate } from "./helpers/song.ts";
+import { fixtureBand, fixtureRecipe, fixtureTemplate } from "./helpers/song.ts";
 
 /** A deep-equal copy that is not the same object: what arrives by the other route. */
 function copy<T>(value: T): T {
@@ -35,7 +43,7 @@ const templateIds = (templates: readonly Template[]): string[] => templates.map(
  * fail here rather than in a browser.
  */
 test("no two aggregates claim the same event name", () => {
-  const all = [...MATE_EVENT_TYPES, ...BAND_EVENT_TYPES, ...TEMPLATE_EVENT_TYPES];
+  const all = [...MATE_EVENT_TYPES, ...BAND_EVENT_TYPES, ...TEMPLATE_EVENT_TYPES, ...RECIPE_EVENT_TYPES];
   expect(new Set(all).size).toBe(all.length);
 });
 
@@ -178,5 +186,57 @@ describe("template events", () => {
     const event: TemplateEvent = { type: "template.saved", template: fixtureTemplate({ id: "tpl-1" }) };
     const once = applyTemplateEvent([], event);
     expect(applyTemplateEvent(once, event)).toBe(once);
+  });
+});
+
+describe("recipe events", () => {
+  test("every RecipeEvent type is classified exactly once", () => {
+    const all = [...DURABLE_RECIPE_EVENT_TYPES, ...VOLATILE_RECIPE_EVENT_TYPES];
+    expect(new Set(all).size).toBe(all.length);
+    expect([...all].sort()).toEqual([...RECIPE_EVENT_TYPES].sort());
+  });
+
+  test("every event survives the round trip to disk and back", () => {
+    const events: RecipeEvent[] = [
+      { type: "recipe.saved", recipe: fixtureRecipe() },
+      { type: "recipe.deleted", id: "funk" },
+    ];
+    expect(events.map((event) => event.type).sort()).toEqual([...RECIPE_EVENT_TYPES].sort());
+    for (const event of events) {
+      expect(fromJournaledRecipe(toJournaledRecipe(event))).toEqual(event);
+    }
+  });
+
+  test("re-writing a genre replaces its recipe rather than adding a second", () => {
+    const first = fixtureRecipe({ id: "funk", genre: "funk" });
+    const rewritten = fixtureRecipe({ id: "funk", genre: "Funk", core: ["drums", "bass", "keys"], names: { ...first.names, keys: ["clavinet"] }, briefs: { ...first.briefs, keys: ["percussive clav"] } });
+    const after = applyRecipeEvent(applyRecipeEvent([], { type: "recipe.saved", recipe: first }), {
+      type: "recipe.saved",
+      recipe: rewritten,
+    });
+    expect(after).toHaveLength(1);
+    expect(after[0]?.core).toEqual(["drums", "bass", "keys"]);
+  });
+
+  test("two recipes written in the same millisecond keep a stable order", () => {
+    const jazz = fixtureRecipe({ id: "jazz", genre: "jazz", createdAt: 7 });
+    const funk = fixtureRecipe({ id: "funk", genre: "funk", createdAt: 7 });
+    const ids = (recipes: readonly BandRecipe[]) => recipes.map((r) => r.id);
+    const forwards = [jazz, funk].reduce<readonly BandRecipe[]>((acc, recipe) => applyRecipeEvent(acc, { type: "recipe.saved", recipe }), []);
+    const backwards = [funk, jazz].reduce<readonly BandRecipe[]>((acc, recipe) => applyRecipeEvent(acc, { type: "recipe.saved", recipe }), []);
+    expect(ids(forwards)).toEqual(["funk", "jazz"]);
+    expect(ids(backwards)).toEqual(["funk", "jazz"]);
+  });
+
+  test("a delete removes the recipe, and deleting an unknown genre changes nothing", () => {
+    const recipes = applyRecipeEvent([], { type: "recipe.saved", recipe: fixtureRecipe({ id: "funk" }) });
+    expect(applyRecipeEvent(recipes, { type: "recipe.deleted", id: "funk" })).toEqual([]);
+    expect(applyRecipeEvent(recipes, { type: "recipe.deleted", id: "polka" })).toBe(recipes);
+  });
+
+  test("re-saving an equal recipe keeps the same reference", () => {
+    const recipe = fixtureRecipe({ id: "funk" });
+    const recipes = applyRecipeEvent([], { type: "recipe.saved", recipe });
+    expect(applyRecipeEvent(recipes, { type: "recipe.saved", recipe: copy(recipe) })).toBe(recipes);
   });
 });

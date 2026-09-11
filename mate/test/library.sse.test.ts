@@ -15,7 +15,7 @@ import { createApp } from "../src/api/server.ts";
 import { eventRoutes } from "../src/api/routes/events.ts";
 import { ManualClock } from "../src/core/clock.ts";
 import { EventBus } from "../src/core/events.ts";
-import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
+import { recipeBook } from "./helpers/library.ts";
 import { StateStore } from "../src/core/state.ts";
 import { loadConfig } from "../src/config.ts";
 import { silentLogger } from "../src/log.ts";
@@ -39,11 +39,7 @@ async function build() {
   const clock = new ManualClock(1_000);
   const harness = songServiceHarness({ dir, now: 1_000 });
   await seedLibrary(harness);
-  const recipes = new RecipeBook({
-    store: new RecipeStore({ dir: join(dir, "recipes") }),
-    writer: new ScriptedRecipeWriter(),
-    now: () => clock.now(),
-  });
+  const recipes = recipeBook(dir, { now: () => clock.now() });
   const app = createApp({
     store: new StateStore(new EventBus<MateEvent>()),
     templates: harness.templates,

@@ -29,10 +29,9 @@ import { SongService } from "../src/songwriting/service.ts";
 import { ModelRefusedError } from "../src/core/anthropic.ts";
 import { ScriptedBriefer } from "../src/songwriting/briefer/index.ts";
 import { defaultBrief } from "../src/songwriting/briefer/scripted.ts";
-import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { FakeSplice } from "./helpers/fakes.ts";
-import { bandLibrary, templateLibrary } from "./helpers/library.ts";
+import { bandLibrary, recipeBook, templateLibrary } from "./helpers/library.ts";
 import { fixtureBand, fixtureTemplate } from "./helpers/song.ts";
 
 const idleIntelligence: Intelligence = {
@@ -65,7 +64,7 @@ async function build(
   const songs = new SongStore({ dir: join(dir, "songs") });
   const briefer = opts.briefer ?? new ScriptedBriefer();
   const writer = opts.writer ?? new ScriptedRecipeWriter();
-  const recipes = new RecipeBook({ store: new RecipeStore({ dir: join(dir, "recipes") }), writer, now: () => clock.now() });
+  const recipes = recipeBook(dir, { writer, now: () => clock.now() });
   const splice = opts.splice ?? new FixtureSpliceAdapter();
   const ableton = opts.ableton ?? new InMemoryAbletonAdapter({ now: () => clock.now() });
   if (opts.seedLibrary !== false) {

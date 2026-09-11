@@ -3,7 +3,7 @@ import { StateResponseSchema, HealthResponseSchema, AdapterStatusSchema, type Ma
 import { createApp } from "../src/api/server.ts";
 import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
-import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
+import { recipeBook } from "./helpers/library.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { envelope, type Command, type CommandBody, type CommandSource } from "../src/core/commands.ts";
 import { loadConfig } from "../src/config.ts";
@@ -41,7 +41,7 @@ function build() {
   // The harness owns the stores, so the app and the service share one library
   // instance per log rather than two folds over the same file.
   const harness = songServiceHarness();
-  const recipes = new RecipeBook({ store: new RecipeStore({ dir: mkdtempSync(join(tmpdir(), "mate-api-recipes-")) }), writer: new ScriptedRecipeWriter(), now: () => Date.now() });
+  const recipes = recipeBook(mkdtempSync(join(tmpdir(), "mate-api-recipes-")), { now: () => Date.now() });
   const app = createApp({
     store,
     templates: harness.templates,

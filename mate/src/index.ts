@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
-import { toJournaled, type BandEvent, type MateEvent, type TemplateEvent } from "@aibleton/protocol";
+import { toJournaled, type BandEvent, type MateEvent, type RecipeEvent, type TemplateEvent } from "@aibleton/protocol";
 import { loadConfig } from "./config.ts";
 import { createLogger } from "./log.ts";
 import { SystemClock } from "./core/clock.ts";
@@ -8,7 +8,7 @@ import { EventBus } from "./core/events.ts";
 import { Mailbox } from "./core/mailbox.ts";
 import { StateStore } from "./core/state.ts";
 import { createBandLibrary } from "./core/bands.ts";
-import { RecipeBook, RecipeStore } from "./core/recipes.ts";
+import { RecipeBook, createRecipeLibrary } from "./core/recipes.ts";
 import { SongStore } from "./core/songs.ts";
 import { createTemplateLibrary } from "./core/templates.ts";
 import { SessionManager, SessionStore } from "./core/sessions.ts";
@@ -61,6 +61,13 @@ async function main(): Promise<void> {
     log: libraryLog,
   });
   const templates = templateLibrary.store;
+  const recipeLibrary = await createRecipeLibrary({
+    dir: config.recipesDir,
+    path: join(config.libraryDir, "recipes.jsonl"),
+    events: new EventBus<RecipeEvent>(),
+    now: () => clock.now(),
+    log: libraryLog,
+  });
 
   // The session mate left behind, folded back in before anything else runs. It
   // has to happen here, before the loop starts: `AgentLoop.start()` reads the
@@ -84,6 +91,9 @@ async function main(): Promise<void> {
   );
   libraryLog.info(
     `templates: ${templateLibrary.replayed} event(s) replayed, ${templateLibrary.adopted} adopted, ${templateLibrary.repaired} record file(s) repaired`,
+  );
+  libraryLog.info(
+    `recipes: ${recipeLibrary.replayed} event(s) replayed, ${recipeLibrary.adopted} adopted, ${recipeLibrary.repaired} record file(s) repaired`,
   );
 
   const abletonResult = await createAbletonPort(config.ableton, {
@@ -126,8 +136,9 @@ async function main(): Promise<void> {
     log: createLogger("recipes"),
   });
   if (writerResult.fallbackReason) log.warn(`recipe writer: using scripted (${writerResult.fallbackReason})`);
-  const recipes = new RecipeBook({ store: new RecipeStore({ dir: config.recipesDir }), writer: writerResult.writer, now: () => clock.now() });
-  await recipes.load();
+  // The library was opened with the others; the book is the read-through in
+  // front of it, and it needs the writer, which needs the Anthropic client.
+  const recipes = new RecipeBook({ library: recipeLibrary.store, writer: writerResult.writer, now: () => clock.now() });
 
   const brainResult = await createBrain(config.brain, {
     client: anthropic,
@@ -246,7 +257,7 @@ async function main(): Promise<void> {
     // After the session, because a library append is awaited to disk by the
     // caller that made it: there is only ever the journal's own tail to flush.
     try {
-      await Promise.all([bandLibrary.close(), templateLibrary.close()]);
+      await Promise.all([bandLibrary.close(), templateLibrary.close(), recipeLibrary.close()]);
     } catch (err) {
       libraryLog.warn("could not close a library", err);
     }
@@ -283,6 +294,7 @@ async function main(): Promise<void> {
     try {
       bandLibrary.flushSync();
       templateLibrary.flushSync();
+      recipeLibrary.flushSync();
     } catch (err) {
       libraryLog.warn("could not flush a library log on exit", err);
     }

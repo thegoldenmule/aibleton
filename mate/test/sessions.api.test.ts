@@ -21,7 +21,7 @@ import { restoreStore } from "../src/core/restore.ts";
 import { SessionManager, SessionStore } from "../src/core/sessions.ts";
 import { SongStore } from "../src/core/songs.ts";
 import { StateStore } from "../src/core/state.ts";
-import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
+import { recipeBook } from "./helpers/library.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { loadConfig } from "../src/config.ts";
 import { silentLogger } from "../src/log.ts";
@@ -85,7 +85,7 @@ async function build() {
     templates: harness.templates,
     bands: harness.bands,
     songs: harness.service,
-    recipes: new RecipeBook({ store: new RecipeStore({ dir: join(dir, "recipes") }), writer: new ScriptedRecipeWriter(), now }),
+    recipes: recipeBook(dir, { now }),
     sessions,
     intelligence: fake.intelligence,
     config: loadConfig({}),

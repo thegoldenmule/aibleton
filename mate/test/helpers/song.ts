@@ -1,9 +1,9 @@
-import type { Band, BriefLineup, Song, Template } from "@aibleton/protocol";
+import type { Band, BandRecipe, BriefLineup, Song, Template } from "@aibleton/protocol";
 import { parseForm } from "@aibleton/protocol";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { RecipeBook, RecipeStore } from "../../src/core/recipes.ts";
+import { recipeBook } from "./library.ts";
 import { ScriptedBriefer, defaultBrief } from "../../src/songwriting/briefer/scripted.ts";
 import type { BriefInput } from "../../src/songwriting/briefer/types.ts";
 import { ScriptedRecipeWriter } from "../../src/songwriting/recipe-writer/scripted.ts";
@@ -40,6 +40,22 @@ export function fixtureBand(over: Partial<Band> = {}): Band {
   };
 }
 
+/** One recipe, small but complete: every role named in `core` and `optional` has names and briefs. */
+export function fixtureRecipe(over: Partial<BandRecipe> = {}): BandRecipe {
+  return {
+    id: "funk",
+    genre: "funk",
+    core: ["drums", "bass"],
+    optional: [{ role: "guitar", weight: 2 }],
+    names: { drums: ["breakbeat kit"], bass: ["p bass"], guitar: ["strat"] },
+    briefs: { drums: ["dry breakbeat"], bass: ["round fingerstyle bass"], guitar: ["clean ninth chords"] },
+    anchors: {},
+    source: "generated",
+    createdAt: 1,
+    ...over,
+  };
+}
+
 /** Every part in every occurrence, for tests that want the full grid rather than the lineup rule. */
 export function denseArrangement(input: BriefInput): BriefLineup[] {
   const parts = input.band.parts.map((p) => p.id);
@@ -59,7 +75,7 @@ export async function fixtureSong(over: Partial<Song> = {}, briefer: ScriptedBri
     templates: [fixtureTemplate()],
     bands: [fixtureBand()],
     briefer,
-    recipes: new RecipeBook({ store: new RecipeStore({ dir: mkdtempSync(join(tmpdir(), "mate-fixture-recipes-")) }), writer: new ScriptedRecipeWriter(), now: () => 1_000 }),
+    recipes: recipeBook(mkdtempSync(join(tmpdir(), "mate-fixture-recipes-"))),
     saveBands: async (bands) => bands,
     now: () => 1_000,
     signal: new AbortController().signal,

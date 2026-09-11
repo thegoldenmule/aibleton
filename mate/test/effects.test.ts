@@ -12,11 +12,10 @@ import { silentLogger } from "../src/log.ts";
 import { ScriptedBrain } from "../src/intelligence/brain/scripted.ts";
 import type { Action, BrainInput } from "../src/intelligence/brain/types.ts";
 import { EffectRunner } from "../src/intelligence/effects.ts";
-import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import type { CallContext } from "../src/ports/ableton/types.ts";
 import { FakeAbleton, FakeSplice, makeSession } from "./helpers/fakes.ts";
-import { bandLibrary, templateLibrary } from "./helpers/library.ts";
+import { bandLibrary, recipeBook, templateLibrary } from "./helpers/library.ts";
 
 /** FakeAbleton with a gate on setTempo, so a set can be caught with one action still in flight. */
 class GatedAbleton extends FakeAbleton {
@@ -139,7 +138,7 @@ function libraryHarness() {
   const bands = bandLibrary(join(dir, "bands"), { now, log: silentLogger });
   const templates = templateLibrary(join(dir, "templates"), { now, log: silentLogger });
   const writer = new ScriptedRecipeWriter();
-  const recipes = new RecipeBook({ store: new RecipeStore({ dir: join(dir, "recipes") }), writer, now });
+  const recipes = recipeBook(dir, { writer, now });
   const runner = new EffectRunner({
     brain: base.brain,
     ableton: base.ableton,

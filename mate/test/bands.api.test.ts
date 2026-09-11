@@ -16,13 +16,12 @@ import { ModelRefusedError } from "../src/core/anthropic.ts";
 import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
 import { BUILTIN_GENRES } from "../src/core/band-generator.ts";
-import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { ManualClock } from "../src/core/clock.ts";
 import { loadConfig } from "../src/config.ts";
 import { silentLogger } from "../src/log.ts";
 import type { Intelligence } from "../src/intelligence/types.ts";
-import { bandLibrary, logPathFor } from "./helpers/library.ts";
+import { bandLibrary, logPathFor, recipeBook } from "./helpers/library.ts";
 import { songServiceHarness } from "./helpers/song-service.ts";
 
 const idleIntelligence: Intelligence = {
@@ -39,7 +38,7 @@ let dir: string;
 function build(now = 1_000) {
   const clock = new ManualClock(now);
   const writer = new ScriptedRecipeWriter();
-  const recipes = new RecipeBook({ store: new RecipeStore({ dir: join(dir, "recipes") }), writer, now: () => clock.now() });
+  const recipes = recipeBook(dir, { writer, now: () => clock.now() });
   // The harness first, and its stores handed straight to the app. Two
   // libraries over one log keep separate folds and separate seq counters and
   // diverge on the first write, so there is exactly one instance per log.
