@@ -2,7 +2,9 @@ import { z } from "zod";
 import { ActivitySchema, AdapterStatusSchema, PhaseSchema, DawStateSchema, TranscriptEntrySchema } from "./state.ts";
 import { CommandSummarySchema, ExternalCommandSchema } from "./commands.ts";
 import { TemplateSchema } from "./templates.ts";
+import { TemplateLibrarySchema } from "./template-log.ts";
 import { BandSchema, RecipeSummarySchema } from "./bands.ts";
+import { BandLibrarySchema } from "./band-log.ts";
 import { SongSchema } from "./songs.ts";
 import { SessionSummarySchema } from "./sessions.ts";
 
@@ -40,7 +42,8 @@ export type AdaptersResponse = z.infer<typeof AdaptersResponseSchema>;
 export const RecentCommandsResponseSchema = z.object({ commands: z.array(CommandSummarySchema) });
 export type RecentCommandsResponse = z.infer<typeof RecentCommandsResponseSchema>;
 
-export const TemplateListResponseSchema = z.object({ templates: z.array(TemplateSchema) });
+/** Body of `GET /templates`: the same shape the SSE `templates.snapshot` frame carries, by construction. */
+export const TemplateListResponseSchema = TemplateLibrarySchema;
 export type TemplateListResponse = z.infer<typeof TemplateListResponseSchema>;
 
 export const TemplateResponseSchema = z.object({ template: TemplateSchema });
@@ -69,7 +72,8 @@ export type GenerateTemplateRequest = z.infer<typeof GenerateTemplateRequestSche
 export const DeleteTemplateResponseSchema = z.object({ deleted: z.boolean() });
 export type DeleteTemplateResponse = z.infer<typeof DeleteTemplateResponseSchema>;
 
-export const BandListResponseSchema = z.object({ bands: z.array(BandSchema) });
+/** Body of `GET /bands`: the same shape the SSE `bands.snapshot` frame carries, by construction. */
+export const BandListResponseSchema = BandLibrarySchema;
 export type BandListResponse = z.infer<typeof BandListResponseSchema>;
 
 export const BandResponseSchema = z.object({ band: BandSchema });
