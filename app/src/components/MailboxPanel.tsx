@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { Activity, CommandSummary, Phase } from "@aibleton/protocol";
 import { ACTIVITY_LABEL, PHASE_CLASS } from "../lib/status";
+import { PanelHeader } from "./ui/PanelHeader";
 
 interface Props {
   commands: CommandSummary[];
@@ -132,7 +133,7 @@ function Status({ phase, activity, queued, goal, error, answersOnly }: { phase: 
  */
 function Mode({ answersOnly, disabled, onChange }: { answersOnly: boolean; disabled: boolean; onChange: (answersOnly: boolean) => void }) {
   return (
-    <div className="flex overflow-hidden rounded-sm border border-line" role="group" aria-label="bandmate mode">
+    <div className="flex shrink-0 overflow-hidden rounded-sm border border-line" role="group" aria-label="bandmate mode">
       <ModeButton on={!answersOnly} disabled={disabled} onClick={() => onChange(false)} title="Mate watches the set and can act between your messages">
         acts on its own
       </ModeButton>
@@ -143,6 +144,16 @@ function Mode({ answersOnly, disabled, onChange }: { answersOnly: boolean; disab
   );
 }
 
+/**
+ * Full class strings only — Tailwind cannot see interpolated names. The same
+ * mono ten-pixel type as a header's facts and as the source chips below, so a
+ * control in a header and a count in one are not two design languages.
+ */
+const MODE_CLASS: Record<"on" | "off", string> = {
+  on: "bg-accent-2/15 text-accent-2",
+  off: "bg-panel-2 text-muted/70 hover:text-foreground",
+};
+
 function ModeButton({ on, disabled, onClick, title, children }: { on: boolean; disabled: boolean; onClick: () => void; title: string; children: string }) {
   return (
     <button
@@ -151,9 +162,7 @@ function ModeButton({ on, disabled, onClick, title, children }: { on: boolean; d
       disabled={disabled}
       aria-pressed={on}
       title={title}
-      className={`px-1.5 py-0.5 text-[10px] lowercase tracking-wide disabled:cursor-not-allowed disabled:opacity-40 ${
-        on ? "bg-accent-2/20 text-accent-2" : "bg-panel-2 text-muted hover:text-foreground"
-      }`}
+      className={`px-1.5 py-0.5 font-mono text-[10px] lowercase disabled:cursor-not-allowed disabled:opacity-40 ${MODE_CLASS[on ? "on" : "off"]}`}
     >
       {children}
     </button>
@@ -180,21 +189,14 @@ export function MailboxPanel({ commands, phase, activity, queued, goal, error, n
 
   return (
     <aside className="flex min-h-0 flex-col gap-3 rounded-md border border-line bg-panel p-3">
-      <section>
-        <div className="mb-1 flex items-baseline justify-between gap-2">
-          <h2 className="text-[10px] uppercase tracking-wider text-muted">bandmate</h2>
-          <Mode answersOnly={answersOnly} disabled={disabled} onChange={setAnswersOnly} />
-        </div>
+      <section className="flex flex-col gap-1">
+        <PanelHeader title="bandmate" actions={<Mode answersOnly={answersOnly} disabled={disabled} onChange={setAnswersOnly} />} />
         <Status phase={phase} activity={activity} queued={queued} goal={goal} error={error} answersOnly={answersOnly} />
       </section>
 
-      <section className="flex min-h-0 flex-1 flex-col">
-        <div className="mb-1 flex items-baseline justify-between">
-          <h2 className="text-[10px] uppercase tracking-wider text-muted">
-            mailbox <span className="text-muted/60">({visible.length}/{commands.length})</span>
-          </h2>
-        </div>
-        <div className="mb-1.5 flex flex-wrap gap-1">
+      <section className="flex min-h-0 flex-1 flex-col gap-1.5">
+        <PanelHeader title="mailbox" level={3} count={`${visible.length}/${commands.length}`} />
+        <div className="flex flex-wrap gap-1">
           {SOURCES.map((source) => {
             const on = !hidden.has(source);
             return (
