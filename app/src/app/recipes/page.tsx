@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { generateBand, oneRecipe, recipeRoles, type BandPart, type BandRecipe } from "@aibleton/protocol";
-import { BandRoster, roleClass } from "../../components/BandRoster";
+import { BandRoster, roleClass, roleTextClass } from "../../components/BandRoster";
 import { ErrorNote } from "../../components/ui/ErrorNote";
 import { PanelHeader } from "../../components/ui/PanelHeader";
 import { WorkspacePanel } from "../../components/WorkspacePanel";
@@ -175,40 +175,34 @@ function Inspector({ recipe, seed, onRoll }: { recipe: BandRecipe; seed: number;
 }
 
 /**
- * Everyone on the bench, per role. Names only — the roster above already shows
- * what a brief reads like, and the question this answers is "who else could
- * turn up", which the names answer on their own. Each carries its brief as a
- * tooltip, the way a part in `BandRoster` does.
+ * Everyone each role can field. Names only — the roster above already shows what
+ * a brief reads like, and the question this answers is "who else could turn
+ * up", which the names answer on their own. Each carries its brief on hover,
+ * the way a part in `BandRoster` does.
  *
- * A name in the role's colour is one a *core* slot can reach (the recipe's
- * `anchors`); the muted ones only ever arrive as extra parts.
+ * The role is a heading, not one more chip: bare coloured text over its own
+ * lane marker, the same marker `BandRoster` puts down the side of a part. When
+ * it was a chip like the names beside it, the eye had to read the row to work
+ * out which one was the label.
  */
 function Bench({ recipe, roles }: { recipe: BandRecipe; roles: string[] }) {
   return (
-    <ul className="flex flex-col gap-1.5">
+    <ul className="flex flex-col gap-2">
       {roles.map((role) => {
         const names = recipe.names[role] ?? [];
         const briefs = recipe.briefs[role] ?? [];
-        const anchor = recipe.anchors[role];
-        const reach = anchor !== undefined && anchor < names.length ? anchor : names.length;
         return (
           <li key={role} className="flex flex-col gap-1">
-            <span className="flex flex-wrap items-center gap-1.5">
-              <span className={`shrink-0 rounded-sm border px-1 py-px font-mono text-[9px] ${roleClass(role)}`}>{role}</span>
-              {reach < names.length ? (
-                <span className="font-mono text-[9px] text-muted/50">core picks from the first {reach}</span>
-              ) : null}
+            <span className="flex items-center gap-1.5">
+              <span className={`h-2.5 w-1 shrink-0 rounded-sm ${roleClass(role)}`} aria-hidden="true" />
+              <span className={`font-mono text-[11px] uppercase tracking-wider ${roleTextClass(role)}`}>{role}</span>
             </span>
             <span className="flex flex-wrap gap-1">
               {names.map((name, i) => (
                 <span
                   key={`${name}-${i}`}
                   title={briefs[i % Math.max(briefs.length, 1)] ?? undefined}
-                  className={
-                    i < reach
-                      ? `cursor-help rounded-sm border px-1 py-px font-mono text-[10px] ${roleClass(role)}`
-                      : "cursor-help rounded-sm border border-line px-1 py-px font-mono text-[10px] text-muted"
-                  }
+                  className="cursor-help rounded-sm border border-line bg-panel-2 px-1.5 py-0.5 text-[11px] text-foreground/80"
                 >
                   {name}
                 </span>

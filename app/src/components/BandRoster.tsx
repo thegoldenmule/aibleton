@@ -34,9 +34,36 @@ const ROLE_CLASS: Record<string, string> = {
 };
 const FALLBACK_CLASS = "bg-panel-2 border-line text-muted";
 
+/**
+ * The same ten roles again, as bare text colour — for a role used as a heading
+ * rather than a chip, where a background would make it read as one more item in
+ * the list it is labelling.
+ *
+ * Written out rather than derived because Tailwind reads source text: a
+ * `text-${tone}` built at runtime compiles to nothing. Keep the two maps in
+ * step; a role missing here falls back to the same muted grey.
+ */
+const ROLE_TEXT_CLASS: Record<string, string> = {
+  drums: "text-accent",
+  percussion: "text-accent",
+  bass: "text-midi",
+  guitar: "text-audio",
+  strings: "text-audio",
+  keys: "text-accent-2",
+  synth: "text-accent-2",
+  horns: "text-foreground",
+  vocals: "text-muted",
+  fx: "text-midi",
+};
+
 /** The colour a role carries everywhere in the UI. Full class string, ready to interpolate. */
 export function roleClass(role: string): string {
   return ROLE_CLASS[role] ?? FALLBACK_CLASS;
+}
+
+/** The same colour as bare text, for a role that is a label and not a chip. */
+export function roleTextClass(role: string): string {
+  return ROLE_TEXT_CLASS[role] ?? "text-muted";
 }
 
 /**
