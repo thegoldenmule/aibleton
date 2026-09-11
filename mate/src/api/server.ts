@@ -83,7 +83,32 @@ export function createApp(deps: AppDeps): Hono {
   if (deps.sessions) {
     app.route("/", sessionRoutes({ sessions: deps.sessions, store: deps.store, log: deps.log }));
   }
-  app.route("/", eventRoutes(deps.store, deps.log));
+  app.route(
+    "/",
+    eventRoutes(
+      [
+        // The session stream is first, so the first frame on the wire is still
+        // `event: snapshot` carrying a StateResponse — what every client has
+        // read since there was only one aggregate.
+        {
+          snapshot: "snapshot",
+          state: () => deps.store.snapshot(),
+          subscribe: (send) => deps.store.events.subscribe(send),
+        },
+        {
+          snapshot: "bands.snapshot",
+          state: async () => ({ bands: await deps.bands.list() }),
+          subscribe: (send) => deps.bands.events.subscribe(send),
+        },
+        {
+          snapshot: "templates.snapshot",
+          state: async () => ({ templates: await deps.templates.list() }),
+          subscribe: (send) => deps.templates.events.subscribe(send),
+        },
+      ],
+      deps.log,
+    ),
+  );
 
   app.notFound((c) => c.json({ error: `no route for ${c.req.method} ${c.req.path}` }, 404));
 

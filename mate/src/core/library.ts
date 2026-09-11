@@ -119,6 +119,15 @@ export class LibraryStore<T, E extends { type: string }, J = E> {
     void this.ready.catch(() => {});
   }
 
+  /**
+   * The aggregate's bus, the one `LibraryOptions` was given. Public for the
+   * same reason `StateStore.events` is: the SSE route subscribes to it, and a
+   * library is the only thing that knows which bus it emits on.
+   */
+  get events(): EventBus<E> {
+    return this.opts.events;
+  }
+
   /** Every document, newest first. */
   async list(): Promise<T[]> {
     await this.ready;
