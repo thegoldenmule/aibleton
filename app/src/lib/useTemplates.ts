@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import type { GenerateTemplateRequest, Template } from "@aibleton/protocol";
 import { deleteTemplate, generateTemplate, listTemplates, saveTemplate } from "./templates";
 import { errorMessage } from "./errors";
+import { useMate } from "./useMate";
 
 export interface TemplatesView {
   templates: Template[];
@@ -18,58 +19,39 @@ export interface TemplatesView {
   remove: (id: string) => Promise<boolean>;
 }
 
+/** One empty list, so a library that has not arrived yet does not re-render the page every time. */
+const NO_TEMPLATES: Template[] = [];
+
 /**
  * Holds the saved-template list plus the generate/save/delete actions.
- * There are no SSE events for templates, so this is plain fetch + local state:
- * the list is refetched after every save and delete.
+ *
+ * The list itself is not this hook's state: templates are an event-sourced aggregate riding the
+ * one `/events` stream, so `useMate()` holds the fold and every open tab sees a save the moment it
+ * happens. What is left here is the mutators, each of which patches its own result in through the
+ * same reducer for the case where the stream is down.
  */
 export function useTemplates(): TemplatesView {
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { templates, patchTemplates, replaceTemplates } = useMate();
   const [busy, setBusy] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
 
-  // Every setState lands after the first await, so the initial load can be kicked
-  // off from an effect without a synchronous cascading render.
+  /** Manual re-fetch. Nothing calls it on a schedule — the stream is the loader. */
   const refresh = useCallback(async () => {
     try {
-      const next = await listTemplates();
-      setTemplates(next);
+      replaceTemplates(await listTemplates());
       setLastError(null);
     } catch (err) {
       setLastError(errorMessage(err));
-    } finally {
-      setLoading(false);
     }
-  }, []);
-
-  // Initial load. Mirrors useMateState: the async work lives in the effect and
-  // stops touching state once the hook is torn down.
-  useEffect(() => {
-    let disposed = false;
-    const load = async () => {
-      try {
-        const next = await listTemplates();
-        if (disposed) return;
-        setTemplates(next);
-        setLastError(null);
-      } catch (err) {
-        if (!disposed) setLastError(errorMessage(err));
-      } finally {
-        if (!disposed) setLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      disposed = true;
-    };
-  }, []);
+  }, [replaceTemplates]);
 
   const generate = useCallback(async (opts: GenerateTemplateRequest) => {
     setBusy(true);
     try {
       const template = await generateTemplate(opts);
       setLastError(null);
+      // Nothing to fold: generating does not save, so the library is untouched until the
+      // drummer posts this template back.
       return template;
     } catch (err) {
       setLastError(errorMessage(err));
@@ -85,7 +67,9 @@ export function useTemplates(): TemplatesView {
       try {
         const saved = await saveTemplate(template);
         setLastError(null);
-        await refresh();
+        // From the response, not the argument: that copy is the one mate normalised.
+        // The SSE event normally lands first, this covers a dropped stream.
+        patchTemplates({ type: "template.saved", template: saved });
         return saved;
       } catch (err) {
         setLastError(errorMessage(err));
@@ -94,7 +78,7 @@ export function useTemplates(): TemplatesView {
         setBusy(false);
       }
     },
-    [refresh],
+    [patchTemplates],
   );
 
   const remove = useCallback(
@@ -103,7 +87,8 @@ export function useTemplates(): TemplatesView {
       try {
         const deleted = await deleteTemplate(id);
         setLastError(null);
-        await refresh();
+        // Only a real delete is an event; mate appends nothing for an id it never held.
+        if (deleted) patchTemplates({ type: "template.deleted", id });
         return deleted;
       } catch (err) {
         setLastError(errorMessage(err));
@@ -112,8 +97,8 @@ export function useTemplates(): TemplatesView {
         setBusy(false);
       }
     },
-    [refresh],
+    [patchTemplates],
   );
 
-  return { templates, loading, busy, lastError, refresh, generate, save, remove };
+  return { templates: templates ?? NO_TEMPLATES, loading: templates === null, busy, lastError, refresh, generate, save, remove };
 }
