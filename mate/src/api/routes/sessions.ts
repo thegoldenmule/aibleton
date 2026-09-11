@@ -8,7 +8,6 @@ import {
 } from "@aibleton/protocol";
 import { isValidSessionId, type SessionManager } from "../../core/sessions.ts";
 import type { StateStore } from "../../core/state.ts";
-import type { Intelligence } from "../../intelligence/types.ts";
 import type { Logger } from "../../log.ts";
 
 /**
@@ -17,16 +16,14 @@ import type { Logger } from "../../log.ts";
  *
  * Every switch is `SessionManager`'s — routes are Hono plumbing, zod parsing
  * and status codes, the way the song routes leave every song operation to
- * `SongService`. What lives here that the manager does not need is the busy
- * check and the four numbers it turns into.
+ * `SongService`. What lives here that the manager does not need is the one
+ * refusal it cannot make for itself, and the status codes.
  */
 export interface SessionRouteDeps {
   /** The one place the current session changes. */
   sessions: SessionManager;
-  /** Read for `activity`: half of the busy check. */
+  /** Read for `activity`: the one thing a switch waits for. */
   store: StateStore;
-  /** Read for `phase`: the other half. */
-  intelligence: Intelligence;
   log: Logger;
 }
 
@@ -34,19 +31,22 @@ export function sessionRoutes(deps: SessionRouteDeps): Hono {
   const r = new Hono();
 
   /**
-   * Why mate cannot be interrupted right now, or null.
+   * Why a switch cannot happen right now, or null.
    *
-   * **Both** halves, and neither implies the other: `phase()` covers the loop,
-   * and `getActivity()` covers a route-driven compose running while the loop
-   * sits idle — the distinction `StateStore.setPhase` calls out with
-   * `cancellable`. One check alone would let a resume land under a three-minute
-   * compose and replace the store it is writing into.
+   * Only one thing qualifies: a song operation the drummer started themselves.
+   * `cancellable` marks the ones the loop owns and can therefore be stopped —
+   * `SessionManager` pauses the loop and drops them. What is left is a compose
+   * or a download running behind their own confirm, spending credits and
+   * writing a song; replacing the store underneath one would strand it.
+   *
+   * The loop's own phase is deliberately **not** consulted. With a real brain
+   * and a five-second tick mate is thinking most of the time, and "mate is
+   * deciding" is never a reason the drummer cannot start a new session — that
+   * is mate's business, not theirs.
    */
-  const busy = (): string | null => {
-    const phase = deps.intelligence.phase();
-    if (phase !== "idle") return `mate is ${phase}`;
+  const blocked = (): string | null => {
     const activity = deps.store.getActivity();
-    if (activity) return `mate is in the middle of a ${activity.kind}`;
+    if (activity && !activity.cancellable) return `mate is in the middle of a ${activity.kind}`;
     return null;
   };
 
@@ -71,7 +71,7 @@ export function sessionRoutes(deps: SessionRouteDeps): Hono {
     const parsed = CreateSessionRequestSchema.safeParse(raw);
     if (!parsed.success) return c.json({ error: "invalid request", issues: parsed.error.issues }, 400);
 
-    const reason = busy();
+    const reason = blocked();
     if (reason) return c.json({ error: `${reason}; try again when it is done` }, 409);
 
     const name = parsed.data.name;
@@ -97,11 +97,11 @@ export function sessionRoutes(deps: SessionRouteDeps): Hono {
     const session = await deps.sessions.get(id);
     if (!session) return c.json({ error: `no session ${id}` }, 404);
 
-    // Checked before `busy`, because resuming the session mate is already in
+    // Checked before `blocked`, because resuming the session mate is already in
     // changes nothing at all: the app may double-fire it, and answering 409 to
     // a request for the state it is already showing would only confuse it.
     if (id !== deps.sessions.currentId()) {
-      const reason = busy();
+      const reason = blocked();
       if (reason) return c.json({ error: `${reason}; try again when it is done` }, 409);
     }
 

@@ -146,9 +146,13 @@ describe("sessions api", () => {
     expect(store.getGoal()).toBeNull();
 
     // The machine is reseeded in one command, clearing what the old session had.
-    const seed = submitted.at(-1);
+    const seed = submitted.find((s) => s.body.type === "contextRestored");
     expect(seed?.source).toBe("loop");
     expect(seed?.body).toEqual({ type: "contextRestored", goal: null, userText: null, song: null });
+
+    // And the reseed happens inside a pause/resume bracket, so a tick arriving mid-switch cannot
+    // start a brain call against a store that is halfway between two sessions.
+    expect(submitted.map((s) => s.body.type)).toEqual(["pause", "contextRestored", "resume"]);
 
     const list = SessionListResponseSchema.parse(await (await app.request("/sessions")).json());
     expect(list.sessions).toHaveLength(2);
@@ -240,17 +244,24 @@ describe("sessions api", () => {
     expect((await post(app, "/sessions/ses_nope/resume")).status).toBe(404);
   });
 
-  test("a resume is refused while the loop is working", async () => {
-    const { app, sessions, setPhase } = await build();
+  test("switching sessions is never blocked by what the loop is thinking", async () => {
+    // Mate is thinking most of the time: a real brain and a five-second tick leave the loop in
+    // `deciding` more often than not. Refusing a switch for that made "new session" a button the
+    // drummer could almost never press — and what mate is chewing on is not their business.
+    const { app, sessions, setPhase, submitted } = await build();
     const first = sessions.currentId();
     await post(app, "/sessions");
-    setPhase("acting");
+    setPhase("deciding");
 
     const res = await post(app, `/sessions/${first}/resume`);
-    expect(res.status).toBe(409);
-    expect(((await res.json()) as { error: string }).error).toContain("acting");
-    expect(sessions.currentId()).not.toBe(first);
-    expect((await post(app, "/sessions")).status).toBe(409);
+    expect(res.status).toBe(200);
+    expect(sessions.currentId()).toBe(first);
+    // The in-flight thought is not ignored, it is stopped: `pause` aborts the brain call so its
+    // result cannot land in the session that just arrived.
+    expect(submitted.map((s) => s.body.type)).toContain("pause");
+
+    setPhase("acting");
+    expect((await post(app, "/sessions")).status).toBe(200);
   });
 
   test("a resume is refused under a route-driven compose the loop knows nothing about", async () => {

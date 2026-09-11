@@ -451,6 +451,22 @@ export class SessionManager {
     const next = await this.sessions.open(meta.id);
     const outgoing = this.session;
 
+    // Mate must not be mid-thought while the store is swapped underneath it. `pause` aborts an
+    // in-flight brain call or action set and parks the machine, so a tick arriving during the
+    // awaits below cannot start another; an aborted result is dropped rather than landing in the
+    // session that just arrived. The mailbox drains synchronously, so the machine is quiet by the
+    // time `submit` returns. Unconditional on purpose: an idle machine is one tick from busy, and
+    // `phase` is volatile, so the pause never reaches the journal.
+    this.intelligence.submit({ type: "pause" }, "api");
+    try {
+      return await this.swap(next, outgoing);
+    } finally {
+      this.intelligence.submit({ type: "resume" }, "api");
+    }
+  }
+
+  /** The switch proper, between the pause and the resume. */
+  private async swap(next: OpenSession, outgoing: OpenSession): Promise<{ session: SessionSummary; state: StateResponse }> {
     await outgoing.journal.flush();
     this.detach();
     this.store.reset();

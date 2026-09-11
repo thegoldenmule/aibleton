@@ -81,7 +81,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/", recipeRoutes({ recipes: deps.recipes }));
   app.route("/", songRoutes({ songs: deps.songs, log: deps.log }));
   if (deps.sessions) {
-    app.route("/", sessionRoutes({ sessions: deps.sessions, store: deps.store, intelligence: deps.intelligence, log: deps.log }));
+    app.route("/", sessionRoutes({ sessions: deps.sessions, store: deps.store, log: deps.log }));
   }
   app.route("/", eventRoutes(deps.store, deps.log));
 
