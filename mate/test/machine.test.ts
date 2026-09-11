@@ -452,6 +452,26 @@ describe("songChanged", () => {
     const call = deciding.effects.find((e) => e.type === "callBrain");
     expect(call?.type === "callBrain" && call.input.song).toBeUndefined();
   });
+
+  test("a request's view reaches the brain, and a request without one says nothing", () => {
+    const withView = toDeciding(cmd({ type: "userRequest", text: "roll one", context: { page: "templates" } }));
+    const call = withView.effects.find((e) => e.type === "callBrain");
+    expect(call?.type === "callBrain" && call.input.context?.page).toBe("templates");
+
+    const bare = toDeciding();
+    const bareCall = bare.effects.find((e) => e.type === "callBrain");
+    expect(bareCall?.type === "callBrain" && bareCall.input.context).toBeUndefined();
+  });
+
+  test("a view belongs to its own request — the next trigger does not inherit it", () => {
+    const first = toDeciding(cmd({ type: "userRequest", text: "roll one", context: { page: "bands" } }));
+    // Back to idle, then a second message typed by a client that sends no view.
+    const done = step(first.state, cmd({ type: "brainDecided", requestId: `r${seq}`, decision: { message: "ok", actions: [] } }, "loop"), opts);
+    const observing = step(done.state, cmd({ type: "userRequest", text: "again" }), opts);
+    const deciding = step(observing.state, cmd({ type: "snapshotReady", snapshot: makeSession() }, "loop"), opts);
+    const call = deciding.effects.find((e) => e.type === "callBrain");
+    expect(call?.type === "callBrain" && call.input.context).toBeUndefined();
+  });
 });
 
 describe("ownership guard", () => {

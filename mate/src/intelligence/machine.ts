@@ -276,6 +276,9 @@ function stepObserving(state: Extract<MachineState, { kind: "observing" }>, cmd:
         snapshot: cmd.snapshot,
         goal: ctx.goal,
         userText: state.pending.type === "userRequest" ? state.pending.text : undefined,
+        // Rides on the command, not the context: it describes the request that was typed,
+        // not a standing fact about the session, so it must never outlive its own turn.
+        context: state.pending.type === "userRequest" ? state.pending.context : undefined,
         history: ctx.history.slice(-opts.historyLimit),
         trigger: state.pending.type,
         // Absent means no song is active, which is what tells the brain to offer to compose one.

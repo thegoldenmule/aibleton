@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { isMateTrack } from "@aibleton/protocol";
-import type { DawState, Song } from "@aibleton/protocol";
+import type { DawState, RequestContext, Song } from "@aibleton/protocol";
 import type { Logger } from "../../log.ts";
 import type { AbletonPort } from "../../ports/ableton/types.ts";
 import type { SplicePort } from "../../ports/splice/types.ts";
@@ -25,7 +25,7 @@ export interface AnthropicBrainOptions {
 const SYSTEM_PROMPT = `You are "mate", an AI bandmate sitting in on a drummer's practice session. You control an Ableton Live set on their machine and can browse Splice for sounds.
 
 How you work:
-- You are not realtime. Each time you are called you get a fresh snapshot of the Ableton session (transport, tracks, clip slots), the drummer's current goal if any, what they just said if anything, and a short history of previous decisions.
+- You are not realtime. Each time you are called you get a fresh snapshot of the Ableton session (transport, tracks, clip slots), the drummer's current goal if any, what they just said if anything, which view they said it from, and a short history of previous decisions.
 - Read-only tools (get_session, splice_search, get_slot_candidates) run immediately and return real data.
 - Every other tool queues an action; actions are applied in order after you finish, and you will see the result next time. Do not assume an action has happened yet within the same turn.
 - You may only change tracks you created: they are marked "mine": true in the snapshot and their names end in "[mate]". Every other track is the drummer's; never add clips or notes to it, fire its clips, or load devices on it. Create a track of your own instead.
@@ -181,11 +181,20 @@ export function compactSession(s: DawState) {
   };
 }
 
+/**
+ * The view the request was typed in. One field today; new ones join as lines
+ * here, which is why it is a list and not a sentence.
+ */
+function renderContext(context: RequestContext): string {
+  return `Where the drummer is looking:\n- page: ${context.page}`;
+}
+
 export function renderInput(input: BrainInput): string {
   const parts: string[] = [];
   parts.push(`Trigger: ${input.trigger}`);
   if (input.goal) parts.push(`Practice goal: ${input.goal}`);
   if (input.userText) parts.push(`Drummer says: ${input.userText}`);
+  if (input.context) parts.push(renderContext(input.context));
   parts.push(`Session snapshot:\n${JSON.stringify(compactSession(input.snapshot))}`);
   // Either the plan or the line that says there isn't one — that line is what tells the brain to compose.
   parts.push(input.song ? `Active song (the plan the song tools edit):\n${JSON.stringify(input.song)}` : "Song: none — nothing is planned yet.");

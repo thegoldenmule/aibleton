@@ -1,4 +1,4 @@
-import type { MidiNote, DawState } from "@aibleton/protocol";
+import type { DawState, MidiNote, RequestContext } from "@aibleton/protocol";
 import type { Command, CommandBody, CommandType } from "../../core/commands.ts";
 import type { SongDigest } from "../../songwriting/digest.ts";
 
@@ -54,6 +54,8 @@ export interface BrainInput {
   goal?: string;
   /** Text of the userRequest that triggered this decision, if any. */
   userText?: string;
+  /** The view that request was typed in, when the client sent one. A hint, never a fact about the set. */
+  context?: RequestContext;
   history: HistoryEntry[];
   trigger: CommandType;
   /** The active song plan, kept current by `songChanged`. Absent means no song is active. */
