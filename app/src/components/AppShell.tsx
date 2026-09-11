@@ -7,6 +7,7 @@ import { FALLBACK_ADAPTERS } from "../lib/status";
 import { AppHeader } from "./AppHeader";
 import { ConversationPane } from "./ConversationPane";
 import { MailboxPanel } from "./MailboxPanel";
+import { NavRail } from "./NavRail";
 
 /**
  * The instrument the app is played on: a header, the workspace column, and the
@@ -50,31 +51,35 @@ function Shell({ children }: { children: ReactNode }) {
         goal={state?.goal ?? null}
       />
 
-      <div className="grid min-h-0 flex-1 auto-rows-[minmax(0,1fr)] grid-cols-1 gap-3 lg:grid-cols-[1fr_360px_320px]">
-        {children}
+      <div className="flex min-h-0 flex-1 gap-3">
+        <NavRail />
 
-        <ConversationPane
-          phase={state?.phase ?? "idle"}
-          disabled={!state}
-          song={song}
-          transcript={state?.transcript ?? []}
-          activity={activity}
-          queued={queued}
-          now={now}
-          send={send}
-          clearSong={clearSong}
-        />
+        <div className="grid min-h-0 flex-1 auto-rows-[minmax(0,1fr)] grid-cols-1 gap-3 lg:grid-cols-[1fr_360px_320px]">
+          {children}
 
-        <MailboxPanel
-          commands={state?.recentCommands ?? []}
-          phase={state?.phase ?? "idle"}
-          activity={activity}
-          queued={state?.queued ?? []}
-          now={now}
-          answersOnly={state?.phase === "paused"}
-          disabled={!state}
-          setAnswersOnly={(answersOnly) => void send({ type: answersOnly ? "pause" : "resume" })}
-        />
+          <ConversationPane
+            phase={state?.phase ?? "idle"}
+            disabled={!state}
+            song={song}
+            transcript={state?.transcript ?? []}
+            activity={activity}
+            queued={queued}
+            now={now}
+            send={send}
+            clearSong={clearSong}
+          />
+
+          <MailboxPanel
+            commands={state?.recentCommands ?? []}
+            phase={state?.phase ?? "idle"}
+            activity={activity}
+            queued={state?.queued ?? []}
+            now={now}
+            answersOnly={state?.phase === "paused"}
+            disabled={!state}
+            setAnswersOnly={(answersOnly) => void send({ type: answersOnly ? "pause" : "resume" })}
+          />
+        </div>
       </div>
 
       {lastError && state ? (

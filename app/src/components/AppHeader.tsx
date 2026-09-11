@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { AdapterStatus, Phase, Transport } from "@aibleton/protocol";
 import type { Connection } from "../lib/useMateState";
 import { PHASE_CLASS } from "../lib/status";
@@ -53,24 +52,6 @@ export function AppHeader({ transport, phase, error, adapters, connection, goal 
         <Badge label="ableton" value={adapters.ableton} live={adapters.ableton === "mcp"} />
         <Badge label="splice" value={adapters.splice} live={adapters.splice === "mcp"} />
         <Badge label="brain" value={adapters.brain} live={adapters.brain === "anthropic"} />
-        <Link
-          href="/sessions"
-          className="ml-1.5 rounded-sm border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-foreground"
-        >
-          sessions →
-        </Link>
-        <Link
-          href="/templates"
-          className="rounded-sm border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-foreground"
-        >
-          templates →
-        </Link>
-        <Link
-          href="/bands"
-          className="rounded-sm border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-foreground"
-        >
-          bands →
-        </Link>
       </div>
 
       {goal ? (
