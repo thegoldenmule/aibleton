@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import {
   BandSchema,
   ROLES,
@@ -11,7 +11,7 @@ import {
   type BandPart,
   type GenerateBandRequest,
 } from "@aibleton/protocol";
-import { BandRoster, roleClass } from "../../components/BandRoster";
+import { BandRoster, roleClass, roleTextClass } from "../../components/BandRoster";
 import { useBands } from "../../lib/useBands";
 import { errorMessage } from "../../lib/errors";
 import { ErrorNote } from "../../components/ui/ErrorNote";
@@ -135,6 +135,7 @@ export default function BandsPage() {
   const [draftError, setDraftError] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [filter, setFilter] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const set = (key: keyof Options) => (value: string) => setOptions((prev) => ({ ...prev, [key]: value }));
 
@@ -144,6 +145,13 @@ export default function BandsPage() {
   // rather than stranding the list on an empty view.
   const activeFilter = filter && buckets.some((b) => b.genre === filter) ? filter : null;
   const visible = activeFilter ? bands.filter((band) => (bandGenre(band) ?? UNTAGGED) === activeFilter) : bands;
+
+  // Derived rather than stored, and from `visible` rather than `bands`: filtering
+  // down to funk can never leave the inspector reading out a band that is not on
+  // screen. Deleting the selected band falls through to the next one instead of
+  // emptying the pane, and the first card is selected on arrival with no effect
+  // to put it there.
+  const selected = visible.find((band) => band.id === selectedId) ?? visible[0] ?? null;
 
   const roll = async (seedOverride?: number) => {
     let opts: GenerateBandRequest;
@@ -221,7 +229,11 @@ export default function BandsPage() {
     }
     setDraftError(null);
     try {
-      await save(parsed.data);
+      // From the response: that copy is the one mate normalised, and the fold has
+      // already landed it, so selecting it by id resolves under the rule above —
+      // and answers "where did it go?" without moving the draft into the grid.
+      const saved = await save(parsed.data);
+      setSelectedId(saved.id);
       discard();
     } catch {
       // surfaced through useBands.lastError
@@ -241,7 +253,9 @@ export default function BandsPage() {
     <WorkspacePanel title="bands" meta={loading ? "loading…" : `${bands.length} saved`}>
       <ErrorNote message={lastError} />
 
-      <section className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
+      {/* `shrink-0` on the three sections: the column's scroller is what gives,
+          not the generator's fields or the grid below it. */}
+      <section className="flex shrink-0 flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
         <PanelHeader title="generator" level={3} />
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <TextField id="gen-name" label="name" value={options.name} onChange={set("name")} placeholder="auto" />
@@ -310,7 +324,7 @@ export default function BandsPage() {
       </section>
 
       {draft ? (
-        <section className="flex flex-col gap-3 rounded-sm border border-accent/50 bg-panel-2 p-2.5">
+        <section className="flex shrink-0 flex-col gap-3 rounded-sm border border-accent/50 bg-panel-2 p-2.5">
           <PanelHeader
             title="preview"
             level={3}
@@ -503,7 +517,7 @@ export default function BandsPage() {
         </section>
       ) : null}
 
-      <section className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
+      <section className="flex shrink-0 flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
         <PanelHeader
           title="saved bands"
           level={3}
@@ -531,88 +545,38 @@ export default function BandsPage() {
             {lastError ? "Could not load bands — see the error above." : "Nothing saved yet. Generate a band above, then save it."}
           </p>
         ) : (
-          // The column is a third of the page, so the grid measures itself, not
+          // The column is a third of the page, so the row measures itself, not
           // the viewport: a container query keeps one card per row beside a wide
           // conversation pane and three across on a full-width window.
           <div className="@container">
-            <ul className="grid grid-cols-1 gap-2 @min-[34rem]:grid-cols-2 @min-[54rem]:grid-cols-3">
-              {visible.map((band) => {
-                const genre = bandGenre(band);
-                return (
-                  <li
+            {/* Content-height, deliberately: the generator above it (and a draft,
+                when one is open) come first in the workspace column's scroller,
+                so free space there is already negative. A `flex-1` row would
+                shrink by `1 × 0` — absorbing none of the deficit — and with
+                `min-h-0` removing the content floor it would resolve to nothing
+                and take the grid with it. So the row grows with its cards and
+                the panel's scroller, the column's only one, does the scrolling;
+                the inspector rides along pinned instead of stretched. Sticky
+                only at the row breakpoint: stacked, the cross axis flips and
+                `items-start` would collapse the aside to its text. */}
+            <div className="flex flex-col gap-2 @min-[40rem]:flex-row @min-[40rem]:items-start">
+              <ul className="grid min-w-0 flex-1 auto-rows-min grid-cols-1 gap-2 @min-[47rem]:grid-cols-2 @min-[62rem]:grid-cols-3">
+                {visible.map((band) => (
+                  <BandCard
                     key={band.id}
-                    className="flex flex-col gap-2 rounded-sm border border-line bg-panel p-2.5"
-                  >
-                    <div className="flex items-start gap-2">
-                      <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <h4 className="truncate text-sm font-medium" title={band.name}>
-                          {band.name}
-                        </h4>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span
-                            className={`rounded-sm border px-1.5 py-0.5 font-mono text-[10px] ${
-                              genre ? "border-accent/60 text-accent" : "border-line text-muted"
-                            }`}
-                          >
-                            {genre ?? UNTAGGED}
-                          </span>
-                          <span className="font-mono text-[10px] text-muted/70">
-                            {band.parts.length} part{band.parts.length === 1 ? "" : "s"}
-                          </span>
-                          <span
-                            className="font-mono text-[10px] text-muted/70"
-                            title={new Date(band.createdAt).toLocaleString()}
-                          >
-                            {new Date(band.createdAt).toLocaleDateString()}
-                          </span>
-                          {band.seed !== undefined ? (
-                            // The seed used to be the name. It is a fact about
-                            // the roll, so it reads like the other facts — and
-                            // it is here at all because it is what you type
-                            // into the generator to staff this roster again.
-                            <span
-                              className="font-mono text-[10px] text-muted/50"
-                              title={`rolled from seed ${band.seed} — generate with it to staff this roster again`}
-                            >
-                              #{band.seed}
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-                      {confirmId === band.id ? (
-                        <span className="flex shrink-0 items-center gap-1.5">
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void destroy(band.id)}
-                            className="rounded-sm border border-audio/60 px-2 py-0.5 text-[11px] font-medium text-audio disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            delete?
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmId(null)}
-                            className="rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted"
-                          >
-                            cancel
-                          </button>
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => setConfirmId(band.id)}
-                          className="shrink-0 rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted hover:text-audio disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          delete
-                        </button>
-                      )}
-                    </div>
-                    <BandRoster parts={band.parts} compact />
-                  </li>
-                );
-              })}
-            </ul>
+                    band={band}
+                    selected={selected?.id === band.id}
+                    onSelect={() => setSelectedId(band.id)}
+                    busy={busy}
+                    confirming={confirmId === band.id}
+                    onConfirm={() => setConfirmId(band.id)}
+                    onCancel={() => setConfirmId(null)}
+                    onDelete={() => void destroy(band.id)}
+                  />
+                ))}
+              </ul>
+              {selected ? <BandInspector band={selected} /> : null}
+            </div>
           </div>
         )}
       </section>
@@ -645,3 +609,211 @@ function FilterChip({
   );
 }
 
+interface CardProps {
+  band: Band;
+  selected: boolean;
+  onSelect: () => void;
+  busy: boolean;
+  confirming: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+  onDelete: () => void;
+}
+
+/** Full class strings only — Tailwind cannot see interpolated names. */
+const CARD_CLASS = {
+  on: "flex cursor-pointer flex-col gap-2 rounded-sm border border-accent/60 bg-accent/10 p-2.5",
+  off: "flex cursor-pointer flex-col gap-2 rounded-sm border border-line bg-panel p-2.5 hover:border-line/80 hover:bg-panel-2",
+};
+
+function BandCard({ band, selected, onSelect, busy, confirming, onConfirm, onCancel, onDelete }: CardProps) {
+  const genre = bandGenre(band);
+
+  return (
+    // Anywhere on the card selects it, which is the mouse affordance. The
+    // keyboard one is the name itself, a real button: nesting the delete
+    // control inside a `role="button"` card would make one interactive element
+    // swallow another, and give the li two contradictory roles at once.
+    <li onClick={onSelect} className={selected ? CARD_CLASS.on : CARD_CLASS.off}>
+      <div className="flex items-start gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <h4 className="truncate text-sm font-medium">
+            <button
+              type="button"
+              aria-pressed={selected}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect();
+              }}
+              title={band.name}
+              className="block w-full truncate text-left"
+            >
+              {band.name}
+            </button>
+          </h4>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span
+              className={`rounded-sm border px-1.5 py-0.5 font-mono text-[10px] ${
+                genre ? "border-accent/60 text-accent" : "border-line text-muted"
+              }`}
+            >
+              {genre ?? UNTAGGED}
+            </span>
+            <span className="font-mono text-[10px] text-muted/70">
+              {band.parts.length} part{band.parts.length === 1 ? "" : "s"}
+            </span>
+            <span className="font-mono text-[10px] text-muted/70" title={new Date(band.createdAt).toLocaleString()}>
+              {new Date(band.createdAt).toLocaleDateString()}
+            </span>
+            {band.seed !== undefined ? (
+              // The seed used to be the name. It is a fact about the roll, so it
+              // reads like the other facts — and it is here at all because it is
+              // what you type into the generator to staff this roster again.
+              <span
+                className="font-mono text-[10px] text-muted/50"
+                title={`rolled from seed ${band.seed} — generate with it to staff this roster again`}
+              >
+                #{band.seed}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        {/* The whole delete cluster, both states, stops the click from reaching
+            the card: deleting a band should never also select it on the way. */}
+        <span className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          {confirming ? (
+            <>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={onDelete}
+                className="rounded-sm border border-audio/60 px-2 py-0.5 text-[11px] font-medium text-audio disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                delete?
+              </button>
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted"
+              >
+                cancel
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onConfirm}
+              className="rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted hover:text-audio disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              delete
+            </button>
+          )}
+        </span>
+      </div>
+
+      <BandRoster parts={band.parts} compact />
+    </li>
+  );
+}
+
+/**
+ * Everything about the selected band the card has no room for: every brief in
+ * full, and whatever else the metadata carries.
+ *
+ * The briefs are the point. They are Splice search prompts, a sentence or two
+ * each, and a card can only truncate them — which is exactly when you want to
+ * read one, after a search came back with the wrong thing. Nothing here is
+ * `BandRoster`: its wide variant's fixed columns come to ~290px before the
+ * brief starts, and its compact one truncates, so this writes its own lanes the
+ * way the recipes inspector writes its own bench.
+ *
+ * No re-roll button, unlike the recipes inspector. A saved band is a record,
+ * not a generator: the roll that made it is spent, and its seed is on the card
+ * for anyone who wants to make another.
+ */
+function BandInspector({ band }: { band: Band }) {
+  const genre = bandGenre(band);
+  const tags = Object.entries(band.metadata);
+
+  return (
+    // The frame every other panel wears, and the rhythm too: `PanelHeader` owns
+    // the rule under the title and its own padding, so the body pads nothing and
+    // each section carries the same full-bleed rule instead. No overflow-y-auto
+    // — the workspace column owns the one scroller.
+    <aside className="flex shrink-0 flex-col overflow-hidden rounded-md border border-line bg-panel @min-[40rem]:sticky @min-[40rem]:top-0 @min-[40rem]:w-72">
+      <PanelHeader title="inspector" />
+
+      <div className="flex flex-col">
+        <div className="flex flex-col gap-0.5 border-b border-line px-3 py-2.5">
+          <h3 className="truncate text-sm font-medium text-accent" title={band.name}>
+            {band.name}
+          </h3>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span
+              className={`rounded-sm border px-1.5 py-0.5 font-mono text-[10px] ${
+                genre ? "border-accent/60 text-accent" : "border-line text-muted"
+              }`}
+            >
+              {genre ?? UNTAGGED}
+            </span>
+            <span className="font-mono text-[10px] text-muted/70">
+              {band.parts.length} part{band.parts.length === 1 ? "" : "s"}
+            </span>
+            <span className="font-mono text-[10px] text-muted/70" title={new Date(band.createdAt).toLocaleString()}>
+              {new Date(band.createdAt).toLocaleDateString()}
+            </span>
+            {band.seed !== undefined ? (
+              <span
+                className="font-mono text-[10px] text-muted/50"
+                title={`rolled from seed ${band.seed} — generate with it to staff this roster again`}
+              >
+                #{band.seed}
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        <section className="flex flex-col gap-1.5 border-b border-line px-3 py-2.5">
+          <PanelHeader title="lineup" level={3} />
+          <ul className="flex flex-col gap-2">
+            {band.parts.map((part) => (
+              <li key={part.id} className="flex flex-col gap-0.5">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className={`h-2.5 w-1 shrink-0 rounded-sm ${roleClass(part.role)}`} aria-hidden="true" />
+                  <span className={`shrink-0 font-mono text-[11px] uppercase tracking-wider ${roleTextClass(part.role)}`}>
+                    {part.role}
+                  </span>
+                  <span className="min-w-0 truncate text-xs" title={part.name}>
+                    {part.name}
+                  </span>
+                </span>
+                {/* Wrapped, not truncated. This is the one place the whole brief
+                    reads without a hover, and it is why the pane exists. */}
+                <span className="text-[11px] leading-snug text-muted">{part.brief}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="flex flex-col gap-1.5 px-3 py-2.5">
+          <PanelHeader title="metadata" level={3} />
+          {tags.length === 0 ? (
+            <p className="text-[11px] text-muted">no tags</p>
+          ) : (
+            // Free-form: `genre` is the only key anything reads, and everything
+            // else a drummer or the bandmate wrote is only ever shown here.
+            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-0.5 font-mono text-[10px] leading-snug">
+              {tags.map(([key, value]) => (
+                <Fragment key={key}>
+                  <dt className="whitespace-nowrap text-muted/70">{key}</dt>
+                  <dd className="min-w-0 break-words text-foreground/90">{value}</dd>
+                </Fragment>
+              ))}
+            </dl>
+          )}
+        </section>
+      </div>
+    </aside>
+  );
+}
