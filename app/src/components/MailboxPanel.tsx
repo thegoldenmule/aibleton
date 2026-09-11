@@ -10,6 +10,10 @@ interface Props {
   activity: Activity | null;
   /** Requests typed while it was busy, oldest first. */
   queued: CommandSummary[];
+  /** What the bandmate is working towards, or null when it has no standing goal. */
+  goal: string | null;
+  /** What went wrong, when the phase is `error`. */
+  error: string | null;
   now: number;
   /** True while mate is paused: it still answers, it just does not act between messages. */
   answersOnly: boolean;
@@ -74,7 +78,7 @@ function subscribe(onChange: () => void): () => void {
  * it. Not what it said — that is the conversation's job, and printing it twice
  * only made the same sentence look like two.
  */
-function Status({ phase, activity, queued, answersOnly }: { phase: Phase; activity: Activity | null; queued: CommandSummary[]; answersOnly: boolean }) {
+function Status({ phase, activity, queued, goal, error, answersOnly }: { phase: Phase; activity: Activity | null; queued: CommandSummary[]; goal: string | null; error: string | null; answersOnly: boolean }) {
   const doing = activity ? ACTIVITY_LABEL[activity.kind] : phase === "deciding" ? "thinking" : phase === "acting" ? "applying changes" : null;
   return (
     <div className="flex flex-col gap-1.5 rounded-sm bg-panel-2 px-2 py-1.5">
@@ -94,6 +98,19 @@ function Status({ phase, activity, queued, answersOnly }: { phase: Phase; activi
             </div>
           ) : null}
         </>
+      ) : null}
+      {phase === "error" && error ? (
+        <p className="truncate text-[11px] text-audio" title={error}>
+          {error}
+        </p>
+      ) : null}
+      {goal ? (
+        <p className="flex gap-1.5 text-[11px]">
+          <span className="shrink-0 uppercase tracking-wider text-[10px] text-muted">goal</span>
+          <span className="truncate" title={goal}>
+            {goal}
+          </span>
+        </p>
       ) : null}
       {queued.length > 0 ? (
         <ul className="flex flex-col gap-0.5 border-t border-line/60 pt-1 font-mono text-[10px] text-muted">
@@ -156,7 +173,7 @@ function toggleSource(source: Source): void {
   for (const listener of listeners) listener();
 }
 
-export function MailboxPanel({ commands, phase, activity, queued, now, answersOnly, disabled, setAnswersOnly }: Props) {
+export function MailboxPanel({ commands, phase, activity, queued, goal, error, now, answersOnly, disabled, setAnswersOnly }: Props) {
   const hidden = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const visible = commands.filter((c) => !hidden.has(c.source));
@@ -168,7 +185,7 @@ export function MailboxPanel({ commands, phase, activity, queued, now, answersOn
           <h2 className="text-[10px] uppercase tracking-wider text-muted">bandmate</h2>
           <Mode answersOnly={answersOnly} disabled={disabled} onChange={setAnswersOnly} />
         </div>
-        <Status phase={phase} activity={activity} queued={queued} answersOnly={answersOnly} />
+        <Status phase={phase} activity={activity} queued={queued} goal={goal} error={error} answersOnly={answersOnly} />
       </section>
 
       <section className="flex min-h-0 flex-1 flex-col">

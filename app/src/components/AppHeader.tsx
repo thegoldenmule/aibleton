@@ -1,15 +1,11 @@
-import type { AdapterStatus, Phase, Transport } from "@aibleton/protocol";
+import type { AdapterStatus, Transport } from "@aibleton/protocol";
 import type { Connection } from "../lib/useMateState";
-import { PHASE_CLASS } from "../lib/status";
 import { SessionChip } from "./SessionChip";
 
 export interface AppHeaderProps {
   transport: Transport | null;
-  phase: Phase;
-  error: string | null;
   adapters: AdapterStatus;
   connection: Connection;
-  goal: string | null;
 }
 
 const CONNECTION_CLASS: Record<Connection, string> = {
@@ -18,7 +14,7 @@ const CONNECTION_CLASS: Record<Connection, string> = {
   error: "bg-audio",
 };
 
-export function AppHeader({ transport, phase, error, adapters, connection, goal }: AppHeaderProps) {
+export function AppHeader({ transport, adapters, connection }: AppHeaderProps) {
   return (
     <header className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-md border border-line bg-panel px-4 py-2.5">
       <div className="flex items-center gap-2">
@@ -41,28 +37,11 @@ export function AppHeader({ transport, phase, error, adapters, connection, goal 
       />
       <Readout label="pos" value={transport ? `${transport.currentSongTime.toFixed(1)} b` : "—"} />
 
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wider text-muted">phase</span>
-        <span className={`rounded-full px-2 py-0.5 font-mono text-xs ${PHASE_CLASS[phase]}`}>{phase}</span>
-        {phase === "error" && error ? (
-          <span className="max-w-xs truncate text-xs text-audio" title={error}>
-            {error}
-          </span>
-        ) : null}
-      </div>
-
       <div className="ml-auto flex items-center gap-1.5">
         <Badge label="ableton" value={adapters.ableton} live={adapters.ableton === "mcp"} />
         <Badge label="splice" value={adapters.splice} live={adapters.splice === "mcp"} />
         <Badge label="brain" value={adapters.brain} live={adapters.brain === "anthropic"} />
       </div>
-
-      {goal ? (
-        <div className="basis-full text-xs text-muted">
-          <span className="uppercase tracking-wider text-[10px] mr-2">goal</span>
-          <span className="text-foreground">{goal}</span>
-        </div>
-      ) : null}
     </header>
   );
 }

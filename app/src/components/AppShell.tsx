@@ -44,11 +44,8 @@ function Shell({ children }: { children: ReactNode }) {
     <main className="flex min-h-0 flex-1 flex-col gap-3 p-4">
       <AppHeader
         transport={daw?.transport ?? null}
-        phase={state?.phase ?? "idle"}
-        error={state?.error ?? null}
         adapters={state?.adapters ?? FALLBACK_ADAPTERS}
         connection={connection}
-        goal={state?.goal ?? null}
       />
 
       <div className="flex min-h-0 flex-1 gap-3">
@@ -74,6 +71,8 @@ function Shell({ children }: { children: ReactNode }) {
             phase={state?.phase ?? "idle"}
             activity={activity}
             queued={state?.queued ?? []}
+            goal={state?.goal ?? null}
+            error={state?.error ?? null}
             now={now}
             answersOnly={state?.phase === "paused"}
             disabled={!state}
