@@ -18,6 +18,7 @@ import { ErrorNote } from "../../components/ui/ErrorNote";
 import { PanelHeader } from "../../components/ui/PanelHeader";
 import { WorkspacePanel } from "../../components/WorkspacePanel";
 import { TextField } from "../../components/ui/TextField";
+import { usePublishSelection } from "../../lib/workspace";
 
 /** Bucket a band with no `metadata.genre` falls into — metadata is free-form, genre is only a convention. */
 const UNTAGGED = "untagged";
@@ -152,6 +153,13 @@ export default function BandsPage() {
   // emptying the pane, and the first card is selected on arrival with no effect
   // to put it there.
   const selected = visible.find((band) => band.id === selectedId) ?? visible[0] ?? null;
+
+  // The bandmate is told which band you are reading, so "use this one" and "who
+  // else could play this?" have a referent. The name as it reads on the card,
+  // not the id: it is going into a sentence, and `find_bands` matches names.
+  // The draft is deliberately not published — rolling a new band while reading a
+  // saved one is a normal move, and only one of the two is a record mate holds.
+  usePublishSelection(selected ? { band: selected.name } : {});
 
   const roll = async (seedOverride?: number) => {
     let opts: GenerateBandRequest;
