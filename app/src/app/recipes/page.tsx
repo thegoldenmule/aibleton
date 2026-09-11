@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { generateBand, oneRecipe, recipeRoles, type BandPart, type BandRecipe } from "@aibleton/protocol";
 import { BandRoster, roleClass } from "../../components/BandRoster";
 import { ErrorNote } from "../../components/ui/ErrorNote";
@@ -104,8 +104,7 @@ function RecipeCard({ recipe, busy, confirming, onConfirm, onCancel, onDelete }:
     }
   }, [recipe]);
 
-  /** Heaviest first: the optionals you are most likely to actually get, read first. */
-  const optional = useMemo(() => [...recipe.optional].sort((a, b) => b.weight - a.weight), [recipe]);
+  const odds = useMemo(() => partOdds(recipe), [recipe]);
 
   return (
     <li className="flex flex-col gap-2 rounded-sm border border-line bg-panel p-2.5">
@@ -157,25 +156,7 @@ function RecipeCard({ recipe, busy, confirming, onConfirm, onCancel, onDelete }:
         )}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <Lineup label="core">
-          {recipe.core.map((role, i) => (
-            <RoleChip key={`${role}-${i}`} role={role} title={`always staffed — track ${i + 1}`} />
-          ))}
-        </Lineup>
-        {optional.length > 0 ? (
-          <Lineup label="opt">
-            {optional.map((entry, i) => (
-              <RoleChip
-                key={`${entry.role}-${i}`}
-                role={entry.role}
-                weight={entry.weight}
-                title={`drawn by weight ${entry.weight}`}
-              />
-            ))}
-          </Lineup>
-        ) : null}
-      </div>
+      <PartOdds odds={odds} />
 
       {sample.length > 0 ? (
         <div className="flex flex-col gap-1">
@@ -197,6 +178,127 @@ function RecipeCard({ recipe, busy, confirming, onConfirm, onCancel, onDelete }:
         {bench ? <Bench recipe={recipe} roles={roles} /> : null}
       </div>
     </li>
+  );
+}
+
+/**
+ * How often each part actually turns up, measured by rolling the recipe rather
+ * than read off the weights.
+ *
+ * A weight is not a chance: `pickOptional` draws without replacement, and the
+ * size of the band is its own seeded draw, so how likely a part is depends on
+ * the whole recipe and not on its own number. Gospel's `keys ×0.8` beats
+ * `horns ×0.6` by a third on paper and by a tenth in practice — and since keys
+ * is already core, that row is a *second* keys player, which no weight says at
+ * all.
+ *
+ * One row per part the band could have: the core in track order, then everyone
+ * else by how likely they are. `nth > 1` is another player of a role already in
+ * the band.
+ */
+export interface PartChance {
+  role: string;
+  /** Which player of this role: 1 is the first, 2 a second alongside it. */
+  nth: number;
+  /** 0–1, the share of rolls this part appeared in. 1 for a core slot. */
+  chance: number;
+  /** True when the recipe always staffs it, so no percentage is worth showing. */
+  always: boolean;
+}
+
+/**
+ * Enough rolls to settle the bars to about a percent, and cheap: ~3ms for one
+ * recipe. Fixed seeds from zero, so the graph is the same on every machine and
+ * does not shimmer between renders.
+ */
+const ODDS_SAMPLES = 1000;
+
+function partOdds(recipe: BandRecipe): PartChance[] {
+  const look = oneRecipe(recipe);
+  const core = new Map<string, number>();
+  for (const role of recipe.core) core.set(role, (core.get(role) ?? 0) + 1);
+  const most = new Map(core);
+  for (const entry of recipe.optional) most.set(entry.role, (most.get(entry.role) ?? 0) + 1);
+
+  const seen = new Map<string, number[]>();
+  for (const [role, max] of most) seen.set(role, new Array<number>(max + 1).fill(0));
+
+  for (let seed = 0; seed < ODDS_SAMPLES; seed++) {
+    let parts: { role: string }[];
+    try {
+      parts = generateBand({ seed, genre: recipe.id }, look).parts;
+    } catch {
+      return [];
+    }
+    const counts = new Map<string, number>();
+    for (const part of parts) counts.set(part.role, (counts.get(part.role) ?? 0) + 1);
+    for (const [role, tally] of seen) {
+      const n = Math.min(counts.get(role) ?? 0, tally.length - 1);
+      for (let j = 1; j <= n; j++) tally[j] = tally[j]! + 1;
+    }
+  }
+
+  const rest: PartChance[] = [];
+  for (const [role, tally] of seen) {
+    for (let nth = 1; nth < tally.length; nth++) {
+      if (nth <= (core.get(role) ?? 0)) continue; // core is listed in track order below
+      rest.push({ role, nth, chance: tally[nth]! / ODDS_SAMPLES, always: false });
+    }
+  }
+  rest.sort((a, b) => b.chance - a.chance || a.role.localeCompare(b.role) || a.nth - b.nth);
+
+  // Core first, in recipe order — that order is the track order in Ableton.
+  const placed = new Map<string, number>();
+  const first: PartChance[] = recipe.core.map((role) => {
+    const nth = (placed.get(role) ?? 0) + 1;
+    placed.set(role, nth);
+    return { role, nth, chance: 1, always: true };
+  });
+  return [...first, ...rest];
+}
+
+/** The label a row wears: `keys`, or `keys +1` for a second one alongside it. */
+function partLabel(part: PartChance, core: ReadonlyMap<string, number>): string {
+  const base = core.get(part.role) ?? 0;
+  if (part.nth <= Math.max(base, 1)) return part.role;
+  return `${part.role} +${part.nth - Math.max(base, 1)}`;
+}
+
+function PartOdds({ odds }: { odds: PartChance[] }) {
+  const core = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const part of odds) if (part.always) counts.set(part.role, (counts.get(part.role) ?? 0) + 1);
+    return counts;
+  }, [odds]);
+  if (odds.length === 0) return null;
+  return (
+    <ul className="flex flex-col gap-0.5">
+      {odds.map((part, i) => {
+        const label = partLabel(part, core);
+        return (
+          <li key={`${part.role}-${part.nth}`} className="flex items-center gap-1.5">
+            <span className="w-3 shrink-0 text-right font-mono text-[9px] text-muted/40">
+              {part.always ? i + 1 : ""}
+            </span>
+            <span
+              className={`w-[4.5rem] shrink-0 truncate rounded-sm border px-1 py-px font-mono text-[9px] ${roleClass(part.role)}`}
+              title={label}
+            >
+              {label}
+            </span>
+            <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-sm bg-line">
+              <span
+                className={part.always ? "block h-full rounded-sm bg-accent/70" : "block h-full rounded-sm bg-accent/35"}
+                style={{ width: `${Math.round(part.chance * 100)}%` }}
+              />
+            </span>
+            <span className="w-9 shrink-0 text-right font-mono text-[9px] text-muted/60">
+              {part.always ? "always" : `${Math.round(part.chance * 100)}%`}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -244,31 +346,6 @@ function Bench({ recipe, roles }: { recipe: BandRecipe; roles: string[] }) {
         );
       })}
     </ul>
-  );
-}
-
-function Lineup({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-baseline gap-1.5">
-      <span className="w-7 shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted/50">{label}</span>
-      <span className="flex min-w-0 flex-wrap gap-1">{children}</span>
-    </div>
-  );
-}
-
-function RoleChip({ role, weight, title }: { role: string; weight?: number; title?: string }) {
-  return (
-    <span
-      title={title}
-      className={
-        weight === undefined
-          ? `rounded-sm border px-1 py-px font-mono text-[10px] ${roleClass(role)}`
-          : `rounded-sm border border-dashed px-1 py-px font-mono text-[10px] opacity-70 ${roleClass(role)}`
-      }
-    >
-      {role}
-      {weight !== undefined ? <span className="text-[9px] opacity-60"> {weight}</span> : null}
-    </span>
   );
 }
 
