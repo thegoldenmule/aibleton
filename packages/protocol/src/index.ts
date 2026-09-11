@@ -7,6 +7,7 @@ export * from "./log.ts";
 export * from "./journal.ts";
 export * from "./band-log.ts";
 export * from "./template-log.ts";
+export * from "./recipe-log.ts";
 export * from "./form.ts";
 export * from "./templates.ts";
 export * from "./bands.ts";

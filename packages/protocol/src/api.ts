@@ -3,7 +3,7 @@ import { ActivitySchema, AdapterStatusSchema, PhaseSchema, DawStateSchema, Trans
 import { CommandSummarySchema, ExternalCommandSchema } from "./commands.ts";
 import { TemplateSchema } from "./templates.ts";
 import { TemplateLibrarySchema } from "./template-log.ts";
-import { BandSchema, RecipeSummarySchema } from "./bands.ts";
+import { BandRecipeSchema, BandSchema, RecipeSummarySchema } from "./bands.ts";
 import { BandLibrarySchema } from "./band-log.ts";
 import { SongSchema } from "./songs.ts";
 import { SessionSummarySchema } from "./sessions.ts";
@@ -104,6 +104,17 @@ export type DeleteBandResponse = z.infer<typeof DeleteBandResponseSchema>;
 /** Response of `GET /recipes`: every genre the generator can staff, built-in first. */
 export const RecipeListResponseSchema = z.object({ recipes: z.array(RecipeSummarySchema) });
 export type RecipeListResponse = z.infer<typeof RecipeListResponseSchema>;
+
+export const RecipeResponseSchema = z.object({ recipe: BandRecipeSchema });
+export type RecipeResponse = z.infer<typeof RecipeResponseSchema>;
+
+/**
+ * Response of `DELETE /recipes/:id`. Deleting a recipe is the re-roll gesture:
+ * the next band staffed for that genre has a fresh one written. There is no
+ * `POST` — recipes are written by the model, never by hand.
+ */
+export const DeleteRecipeResponseSchema = z.object({ deleted: z.boolean() });
+export type DeleteRecipeResponse = z.infer<typeof DeleteRecipeResponseSchema>;
 
 /**
  * Body of `POST /songs/compose`. `seed` drives the deterministic template and
