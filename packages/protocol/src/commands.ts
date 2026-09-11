@@ -18,13 +18,15 @@ export type Envelope = z.infer<typeof EnvelopeSchema>;
  * — so the app sends the view along with the text and lets the bandmate read
  * the room.
  *
- * `page` is all the app sends today. This is the seam the rest of the view
- * state grows on (what is selected, which slot is open), so **every field added
- * here must be optional**: context is a hint, and a client that knows less than
- * mate does must still be able to talk.
+ * The page comes from the route; everything after it is whatever that page has
+ * selected — the recipe, the band or the template the drummer is looking at.
+ * This is the seam the rest of the view state grows on (which slot is open,
+ * where the arrangement is scrolled), so **every field added here must be
+ * optional**: context is a hint, and a client that knows less than mate does
+ * must still be able to talk.
  *
- * `page` is a bounded string rather than an enum for the same reason. A newer
- * app naming a page an older mate has never heard of should not get its
+ * Every field is a bounded string rather than an enum for the same reason. A
+ * newer app naming a page an older mate has never heard of should not get its
  * message rejected — the worst case has to be an ignored hint, not a refusal.
  */
 export const RequestContextSchema = z.object({
@@ -36,6 +38,18 @@ export const RequestContextSchema = z.object({
    * into a sentence, and every tool that takes a genre takes free text.
    */
   recipe: z.string().min(1).max(80).optional(),
+  /**
+   * The band selected on the bands page, by the **name** as it reads on the
+   * card rather than by its id. It goes into a sentence, and `find_bands`
+   * matches words in a name; an id would land above the composer as a chip
+   * nobody can read.
+   */
+  band: z.string().min(1).max(120).optional(),
+  /**
+   * The template selected on the templates page, by name for the same reason —
+   * `find_templates` searches names, and a chip has to be readable.
+   */
+  template: z.string().min(1).max(120).optional(),
 });
 export type RequestContext = z.infer<typeof RequestContextSchema>;
 
