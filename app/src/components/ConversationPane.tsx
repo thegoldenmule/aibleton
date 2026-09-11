@@ -122,7 +122,13 @@ export function ConversationPane({ phase, disabled, song, transcript, activity, 
               </span>
               {activity ? `bandmate is ${ACTIVITY_LABEL[activity.kind]}…` : phase === "deciding" ? "bandmate is thinking…" : "bandmate is applying changes…"}
             </span>
-            {activity ? <span className="pl-6 font-mono text-[11px] text-muted/70">{activity.message}</span> : null}
+            {/* The detail line says which step of the work is running — "searching
+                Splice for every slot", "picking a form and a band". Thinking has no
+                steps, so mate publishes a placeholder there and the label above is
+                already the whole story; printing both said it twice. */}
+            {activity && activity.kind !== "think" ? (
+              <span className="pl-6 font-mono text-[11px] text-muted/70">{activity.message}</span>
+            ) : null}
           </div>
         ) : null}
         <div ref={endRef} />
