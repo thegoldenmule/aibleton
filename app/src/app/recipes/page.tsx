@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { generateBand, oneRecipe, recipeRoles, type BandPart, type BandRecipe } from "@aibleton/protocol";
 import { BandRoster, roleClass } from "../../components/BandRoster";
 import { ErrorNote } from "../../components/ui/ErrorNote";
+import { PanelHeader } from "../../components/ui/PanelHeader";
 import { WorkspacePanel } from "../../components/WorkspacePanel";
 import { useRecipes } from "../../lib/useRecipes";
 
@@ -15,11 +16,11 @@ import { useRecipes } from "../../lib/useRecipes";
  * the selected recipe into an actual band, rendered with the same `BandRoster`
  * a saved band wears, because that is what this recipe turns into.
  *
- * The names and briefs behind those parts are not laid out anywhere here. They
- * are Splice search prompts: ~1,500 words across four recipes, wanted when a
- * search came back wrong rather than while you are looking at a genre. Each
- * rolled part carries its own on hover, and rolling again is what walks you
- * through the rest of the bench.
+ * The inspector is where the detail lives, one recipe at a time. That is the
+ * whole reason this page is a selection and not a list: laying every recipe's
+ * names and briefs out at once was ~1,500 words across four genres. The briefs
+ * still never render as prose — they are Splice search prompts, wanted when a
+ * search came back wrong — so each name carries its own on hover.
  *
  * Read-only but for the forget. Nothing here writes a recipe — they arrive on
  * the stream when something asks for a band in a genre mate has none for, which
@@ -64,9 +65,9 @@ export default function RecipesPage() {
         // The column is a third of the page, so everything here measures itself
         // rather than the viewport — the same container query the band cards
         // use. Narrow, the sample sits under the grid; wide, it sits beside it.
-        <div className="@container">
-          <div className="flex flex-col gap-2 @min-[40rem]:flex-row">
-            <ul className="grid min-w-0 flex-1 grid-cols-1 gap-2 @min-[34rem]:grid-cols-2 @min-[62rem]:grid-cols-3">
+        <div className="@container flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col gap-2 @min-[40rem]:flex-row">
+            <ul className="grid min-w-0 flex-1 auto-rows-min grid-cols-1 gap-2 @min-[47rem]:grid-cols-2 @min-[62rem]:grid-cols-3">
               {recipes.map((recipe) => (
                 <RecipeCard
                   key={recipe.id}
@@ -81,15 +82,7 @@ export default function RecipesPage() {
                 />
               ))}
             </ul>
-            {selected ? (
-              // Sticky against the workspace column's own scroller, so the band
-              // stays put while you run down the genres.
-              <SamplePanel
-                recipe={selected}
-                seed={seed}
-                onRoll={() => setSeed(freshSeed)}
-              />
-            ) : null}
+            {selected ? <Inspector recipe={selected} seed={seed} onRoll={() => setSeed(freshSeed)} /> : null}
           </div>
         </div>
       )}
@@ -103,14 +96,27 @@ function freshSeed(): number {
 }
 
 /**
- * The selected recipe, rolled. Free — `generateBand` is pure — and it says in
- * four names what a page of briefs cannot: what you get.
+ * Everything about the selected recipe that a card has no room for: a band
+ * rolled out of it, and the bench each of those parts was drawn from.
  *
- * The seed is shown because it is the handle, not decoration: `POST
- * /bands/generate` runs this very function, so the same seed and genre staff
- * this exact roster for real. Nothing on this page saves anything.
+ * It stretches the height of the column rather than sitting in it as a box —
+ * the row it lives in is `flex-1`, so when the grid is short this fills, and
+ * when either side is tall the workspace panel's own scroller takes it. No
+ * second scroller: the column owns exactly one.
  */
-function SamplePanel({ recipe, seed, onRoll }: { recipe: BandRecipe; seed: number; onRoll: () => void }) {
+function Inspector({ recipe, seed, onRoll }: { recipe: BandRecipe; seed: number; onRoll: () => void }) {
+  const roles = recipeRoles(recipe);
+  const min = recipe.core.length;
+  const max = min + recipe.optional.length;
+
+  /**
+   * The selected recipe, rolled. Free — `generateBand` is pure — and it says in
+   * four names what a page of briefs cannot: what you get.
+   *
+   * The seed is shown because it is the handle, not decoration: `POST
+   * /bands/generate` runs this very function, so the same seed and genre staff
+   * this exact roster for real. Nothing on this page saves anything.
+   */
   const sample = useMemo<BandPart[]>(() => {
     try {
       return generateBand({ seed, genre: recipe.id }, oneRecipe(recipe)).parts;
@@ -120,37 +126,106 @@ function SamplePanel({ recipe, seed, onRoll }: { recipe: BandRecipe; seed: numbe
   }, [recipe, seed]);
 
   return (
-    <aside className="flex shrink-0 flex-col gap-2 self-start rounded-sm border border-accent/40 bg-panel-2 p-2.5 @min-[40rem]:sticky @min-[40rem]:top-0 @min-[40rem]:w-60">
+    <aside className="flex shrink-0 flex-col gap-2.5 rounded-sm border border-accent/40 bg-panel-2 p-2.5 @min-[40rem]:w-72">
+      <PanelHeader title="inspector" level={3} meta={min === max ? `${min} parts` : `${min}–${max} parts`} />
+
       <div className="flex flex-col gap-1">
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted/50">a band from</span>
         <h3 className="truncate text-sm font-medium text-accent" title={recipe.genre}>
           {recipe.genre}
         </h3>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="font-mono text-[10px] text-muted/70">
+            {roles.length} role{roles.length === 1 ? "" : "s"}
+          </span>
+          <span className="font-mono text-[10px] text-muted/70" title={new Date(recipe.createdAt).toLocaleString()}>
+            written {new Date(recipe.createdAt).toLocaleDateString()}
+          </span>
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <button
-          type="button"
-          onClick={onRoll}
-          title="Roll another band from this recipe. Nothing is saved — the bands page is where one is kept."
-          className="rounded-sm border border-accent-2/60 px-2 py-0.5 font-mono text-[11px] text-accent-2"
-        >
-          ↻ roll again
-        </button>
-        <span
-          className="font-mono text-[10px] text-muted/50"
-          title={`rolled from seed ${seed} — generate with it on the bands page to staff this roster for real`}
-        >
-          #{seed}
-        </span>
-      </div>
+      <section className="flex flex-col gap-1.5">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <Label>a band from this recipe</Label>
+          <span className="ml-auto flex items-center gap-1.5">
+            <span
+              className="font-mono text-[10px] text-muted/50"
+              title={`rolled from seed ${seed} — generate with it on the bands page to staff this roster for real`}
+            >
+              #{seed}
+            </span>
+            <button
+              type="button"
+              onClick={onRoll}
+              title="Roll another band from this recipe. Nothing is saved — the bands page is where one is kept."
+              className="rounded-sm border border-accent-2/60 px-2 py-0.5 font-mono text-[11px] text-accent-2"
+            >
+              ↻ roll again
+            </button>
+          </span>
+        </div>
+        {sample.length > 0 ? (
+          <BandRoster parts={sample} compact />
+        ) : (
+          <p className="text-xs text-muted">This recipe could not be rolled.</p>
+        )}
+      </section>
 
-      {sample.length > 0 ? (
-        <BandRoster parts={sample} compact />
-      ) : (
-        <p className="text-xs text-muted">This recipe could not be rolled.</p>
-      )}
+      <section className="flex flex-col gap-1.5">
+        <Label>who else can play</Label>
+        <Bench recipe={recipe} roles={roles} />
+      </section>
     </aside>
+  );
+}
+
+function Label({ children }: { children: ReactNode }) {
+  return <span className="font-mono text-[10px] uppercase tracking-wider text-muted/50">{children}</span>;
+}
+
+/**
+ * Everyone on the bench, per role. Names only — the roster above already shows
+ * what a brief reads like, and the question this answers is "who else could
+ * turn up", which the names answer on their own. Each carries its brief as a
+ * tooltip, the way a part in `BandRoster` does.
+ *
+ * A name in the role's colour is one a *core* slot can reach (the recipe's
+ * `anchors`); the muted ones only ever arrive as extra parts.
+ */
+function Bench({ recipe, roles }: { recipe: BandRecipe; roles: string[] }) {
+  return (
+    <ul className="flex flex-col gap-1.5">
+      {roles.map((role) => {
+        const names = recipe.names[role] ?? [];
+        const briefs = recipe.briefs[role] ?? [];
+        const anchor = recipe.anchors[role];
+        const reach = anchor !== undefined && anchor < names.length ? anchor : names.length;
+        return (
+          <li key={role} className="flex flex-col gap-1">
+            <span className="flex flex-wrap items-center gap-1.5">
+              <span className={`shrink-0 rounded-sm border px-1 py-px font-mono text-[9px] ${roleClass(role)}`}>{role}</span>
+              {reach < names.length ? (
+                <span className="font-mono text-[9px] text-muted/50">core picks from the first {reach}</span>
+              ) : null}
+            </span>
+            <span className="flex flex-wrap gap-1">
+              {names.map((name, i) => (
+                <span
+                  key={`${name}-${i}`}
+                  title={briefs[i % Math.max(briefs.length, 1)] ?? undefined}
+                  className={
+                    i < reach
+                      ? `cursor-help rounded-sm border px-1 py-px font-mono text-[10px] ${roleClass(role)}`
+                      : "cursor-help rounded-sm border border-line px-1 py-px font-mono text-[10px] text-muted"
+                  }
+                >
+                  {name}
+                </span>
+              ))}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
