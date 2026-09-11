@@ -1,6 +1,7 @@
 import { BandSchema } from "@aibleton/protocol";
 import type { Band } from "@aibleton/protocol";
-import { DocumentStore, isValidDocumentId } from "./document-store.ts";
+import { DocumentStore } from "./document-store.ts";
+import { isValidDocumentId } from "./ids.ts";
 
 /** True when `id` is safe to use as a band filename. */
 export function isValidBandId(id: string): boolean {

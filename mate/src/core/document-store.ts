@@ -1,14 +1,11 @@
 import { mkdir, readdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
+import { assertValidDocumentId, isValidDocumentId } from "./ids.ts";
 
-/** Ids become filenames, so they are restricted to characters that cannot escape the directory. */
-const DOCUMENT_ID = /^[A-Za-z0-9_-]{1,64}$/;
-
-/** True when `id` is safe to use as a document filename. */
-export function isValidDocumentId(id: string): boolean {
-  return DOCUMENT_ID.test(id);
-}
+// Re-exported because every store that names an id reaches for it through the
+// store it belongs to; `ids.ts` is where the rule itself lives.
+export { isValidDocumentId };
 
 function isNotFound(err: unknown): boolean {
   return typeof err === "object" && err !== null && (err as { code?: unknown }).code === "ENOENT";
@@ -101,11 +98,7 @@ export class DocumentStore<T> {
   }
 
   private assertValidId(id: string): void {
-    if (!isValidDocumentId(id)) {
-      throw new Error(
-        `invalid ${this.kind} id ${JSON.stringify(id)}: expected 1-64 characters of A-Z, a-z, 0-9, "_" or "-"`,
-      );
-    }
+    assertValidDocumentId(id, this.kind);
   }
 
   private pathFor(id: string): string {

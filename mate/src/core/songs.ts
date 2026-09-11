@@ -1,5 +1,6 @@
 import { SongSchema, type Song } from "@aibleton/protocol";
-import { DocumentStore, isValidDocumentId } from "./document-store.ts";
+import { DocumentStore } from "./document-store.ts";
+import { isValidDocumentId } from "./ids.ts";
 
 /** True when `id` is safe to use as a song filename. */
 export function isValidSongId(id: string): boolean {

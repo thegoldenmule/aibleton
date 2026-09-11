@@ -6,7 +6,7 @@ import { silentLogger, type Logger } from "../log.ts";
 import { contextFromState } from "../intelligence/loop.ts";
 import type { Intelligence } from "../intelligence/types.ts";
 import { newId } from "./commands.ts";
-import { isValidDocumentId } from "./document-store.ts";
+import { assertValidDocumentId, isValidDocumentId } from "./ids.ts";
 import type { EventBus } from "./events.ts";
 import { EventJournal, attachJournal, readJournal, type SessionJournal } from "./journal.ts";
 import { restoreStore } from "./restore.ts";
@@ -270,11 +270,7 @@ export class SessionStore {
   }
 
   private assertValidId(id: string): void {
-    if (!isValidSessionId(id)) {
-      throw new Error(
-        `invalid session id ${JSON.stringify(id)}: expected 1-64 characters of A-Z, a-z, 0-9, "_" or "-"`,
-      );
-    }
+    assertValidDocumentId(id, "session");
   }
 
   private async ensureDir(): Promise<void> {

@@ -1,7 +1,8 @@
 import { BandRecipeSchema, genreKey, type BandRecipe, type RecipeSummary } from "@aibleton/protocol";
 import type { RecipeWriter } from "../songwriting/recipe-writer/types.ts";
 import { BUILTIN_RECIPES, type RecipeLookup } from "./band-generator.ts";
-import { DocumentStore, isValidDocumentId } from "./document-store.ts";
+import { DocumentStore } from "./document-store.ts";
+import { isValidDocumentId } from "./ids.ts";
 
 /** True when `id` is safe to use as a recipe filename. */
 export function isValidRecipeId(id: string): boolean {

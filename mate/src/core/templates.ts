@@ -1,6 +1,7 @@
 import { TemplateSchema } from "@aibleton/protocol";
 import type { Template } from "@aibleton/protocol";
-import { DocumentStore, isValidDocumentId } from "./document-store.ts";
+import { DocumentStore } from "./document-store.ts";
+import { isValidDocumentId } from "./ids.ts";
 
 /** True when `id` is safe to use as a template filename. */
 export function isValidTemplateId(id: string): boolean {
