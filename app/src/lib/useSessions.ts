@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ResumeSessionResponse, SessionSummary } from "@aibleton/protocol";
 import { createSession, deleteSession, listSessions, resumeSession } from "./sessions";
+import { errorMessage } from "./errors";
 
 export interface SessionsView {
   sessions: SessionSummary[];
@@ -17,29 +18,6 @@ export interface SessionsView {
   create: (name?: string) => Promise<ResumeSessionResponse>;
   resume: (id: string) => Promise<ResumeSessionResponse>;
   remove: (id: string) => Promise<boolean>;
-}
-
-/**
- * The readable half of a failed `request()`.
- *
- * The routes answer a refusal with `{ error }` and the shared helper wraps it as
- * `mate POST /sessions -> 409: {"error":"…"}`. A 409 from a busy mate is normal
- * — it says *why* it cannot switch right now — so the sentence is worth more to
- * the drummer than the status line around it.
- */
-function message(err: unknown): string {
-  const text = err instanceof Error ? err.message : String(err);
-  const split = text.indexOf(": ");
-  if (split < 0) return text;
-  try {
-    const parsed: unknown = JSON.parse(text.slice(split + 2));
-    if (parsed && typeof parsed === "object" && typeof (parsed as { error?: unknown }).error === "string") {
-      return (parsed as { error: string }).error;
-    }
-  } catch {
-    // Not a JSON body — a network failure, or prose. Show what was thrown.
-  }
-  return text;
 }
 
 /**
@@ -66,7 +44,7 @@ export function useSessions(): SessionsView {
       setCurrentId(next.currentId);
       setLastError(null);
     } catch (err) {
-      setLastError(message(err));
+      setLastError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -84,7 +62,7 @@ export function useSessions(): SessionsView {
         setCurrentId(next.currentId);
         setLastError(null);
       } catch (err) {
-        if (!disposed) setLastError(message(err));
+        if (!disposed) setLastError(errorMessage(err));
       } finally {
         if (!disposed) setLoading(false);
       }
@@ -104,7 +82,7 @@ export function useSessions(): SessionsView {
         await refresh();
         return started;
       } catch (err) {
-        setLastError(message(err));
+        setLastError(errorMessage(err));
         throw err;
       } finally {
         setBusy(false);
@@ -122,7 +100,7 @@ export function useSessions(): SessionsView {
         await refresh();
         return switched;
       } catch (err) {
-        setLastError(message(err));
+        setLastError(errorMessage(err));
         throw err;
       } finally {
         setBusy(false);
@@ -140,7 +118,7 @@ export function useSessions(): SessionsView {
         await refresh();
         return deleted;
       } catch (err) {
-        setLastError(message(err));
+        setLastError(errorMessage(err));
         throw err;
       } finally {
         setBusy(false);

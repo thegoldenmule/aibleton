@@ -13,6 +13,7 @@ import {
 } from "@aibleton/protocol";
 import { BandRoster, roleClass } from "../../components/BandRoster";
 import { useBands } from "../../lib/useBands";
+import { errorMessage } from "../../lib/errors";
 
 /** Bucket a band with no `metadata.genre` falls into — metadata is free-form, genre is only a convention. */
 const UNTAGGED = "untagged";
@@ -76,10 +77,6 @@ function buildOptions(options: Options): GenerateBandRequest {
 
 function freshSeed(): number {
   return Math.floor(Math.random() * 2_147_483_647);
-}
-
-function message(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 /** Part ids are slugs: `/^[a-z0-9][a-z0-9-]{0,31}$/`, so at most this many characters. */
@@ -149,7 +146,7 @@ export default function BandsPage() {
     try {
       opts = buildOptions(options);
     } catch (err) {
-      setOptionError(message(err));
+      setOptionError(errorMessage(err));
       return;
     }
     if (seedOverride !== undefined) {

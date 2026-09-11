@@ -12,6 +12,7 @@ import {
 } from "@aibleton/protocol";
 import { FormStrip, letterClass } from "../../components/FormStrip";
 import { useTemplates } from "../../lib/useTemplates";
+import { errorMessage } from "../../lib/errors";
 
 /** Letters the generator can use, in order; `home` must be one of the ones in play. */
 const ALPHABET = ["a", "b", "c", "d", "e", "f"] as const;
@@ -74,10 +75,6 @@ function freshSeed(): number {
   return Math.floor(Math.random() * 2_147_483_647);
 }
 
-function message(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
 function totalBars(form: string): number | null {
   try {
     return formTotalBars(parseForm(form));
@@ -101,7 +98,7 @@ export default function TemplatesPage() {
     try {
       opts = buildOptions(options);
     } catch (err) {
-      setOptionError(message(err));
+      setOptionError(errorMessage(err));
       return;
     }
     if (seedOverride !== undefined) {

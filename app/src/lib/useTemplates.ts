@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { GenerateTemplateRequest, Template } from "@aibleton/protocol";
 import { deleteTemplate, generateTemplate, listTemplates, saveTemplate } from "./templates";
+import { errorMessage } from "./errors";
 
 export interface TemplatesView {
   templates: Template[];
@@ -15,10 +16,6 @@ export interface TemplatesView {
   generate: (opts: GenerateTemplateRequest) => Promise<Template>;
   save: (template: Template) => Promise<Template>;
   remove: (id: string) => Promise<boolean>;
-}
-
-function message(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 /**
@@ -40,7 +37,7 @@ export function useTemplates(): TemplatesView {
       setTemplates(next);
       setLastError(null);
     } catch (err) {
-      setLastError(message(err));
+      setLastError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -57,7 +54,7 @@ export function useTemplates(): TemplatesView {
         setTemplates(next);
         setLastError(null);
       } catch (err) {
-        if (!disposed) setLastError(message(err));
+        if (!disposed) setLastError(errorMessage(err));
       } finally {
         if (!disposed) setLoading(false);
       }
@@ -75,7 +72,7 @@ export function useTemplates(): TemplatesView {
       setLastError(null);
       return template;
     } catch (err) {
-      setLastError(message(err));
+      setLastError(errorMessage(err));
       throw err;
     } finally {
       setBusy(false);
@@ -91,7 +88,7 @@ export function useTemplates(): TemplatesView {
         await refresh();
         return saved;
       } catch (err) {
-        setLastError(message(err));
+        setLastError(errorMessage(err));
         throw err;
       } finally {
         setBusy(false);
@@ -109,7 +106,7 @@ export function useTemplates(): TemplatesView {
         await refresh();
         return deleted;
       } catch (err) {
-        setLastError(message(err));
+        setLastError(errorMessage(err));
         throw err;
       } finally {
         setBusy(false);

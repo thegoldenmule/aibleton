@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Band, GenerateBandRequest, RecipeSummary } from "@aibleton/protocol";
 import { deleteBand, generateBand, listBands, listRecipes, saveBand } from "./bands";
+import { errorMessage } from "./errors";
 
 export interface BandsView {
   bands: Band[];
@@ -17,10 +18,6 @@ export interface BandsView {
   generate: (opts: GenerateBandRequest) => Promise<Band>;
   save: (band: Band) => Promise<Band>;
   remove: (id: string) => Promise<boolean>;
-}
-
-function message(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 /**
@@ -43,7 +40,7 @@ export function useBands(): BandsView {
       setBands(next);
       setLastError(null);
     } catch (err) {
-      setLastError(message(err));
+      setLastError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -61,7 +58,7 @@ export function useBands(): BandsView {
         setRecipes(known);
         setLastError(null);
       } catch (err) {
-        if (!disposed) setLastError(message(err));
+        if (!disposed) setLastError(errorMessage(err));
       } finally {
         if (!disposed) setLoading(false);
       }
@@ -85,7 +82,7 @@ export function useBands(): BandsView {
       }
       return band;
     } catch (err) {
-      setLastError(message(err));
+      setLastError(errorMessage(err));
       throw err;
     } finally {
       setBusy(false);
@@ -101,7 +98,7 @@ export function useBands(): BandsView {
         await refresh();
         return saved;
       } catch (err) {
-        setLastError(message(err));
+        setLastError(errorMessage(err));
         throw err;
       } finally {
         setBusy(false);
@@ -119,7 +116,7 @@ export function useBands(): BandsView {
         await refresh();
         return deleted;
       } catch (err) {
-        setLastError(message(err));
+        setLastError(errorMessage(err));
         throw err;
       } finally {
         setBusy(false);
