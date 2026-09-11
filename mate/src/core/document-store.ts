@@ -55,6 +55,15 @@ export class DocumentStore<T> {
     this.sortKey = opts.sortKey ?? ((doc) => createdAtOf(doc));
   }
 
+  /**
+   * The directory it writes to. Reconcile reads it directly, because `list()`
+   * drops what it cannot parse in silence and adoption has to name what it
+   * could not take.
+   */
+  get directory(): string {
+    return this.dir;
+  }
+
   /** All valid documents, largest sort key first. Unreadable files are ignored. */
   async list(): Promise<T[]> {
     await this.ensureDir();

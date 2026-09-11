@@ -57,6 +57,33 @@ export class EventJournal<J> {
     this.kick();
   }
 
+  /**
+   * Append one event and resolve **only once the line is on disk**, rejecting
+   * when the write fails.
+   *
+   * `append` is right for narration: it buffers, coalesces, and degrades to a
+   * no-op so a full disk cannot stop the drummer's session. A library log *is*
+   * the data, and the worst thing that aggregate can do is answer `POST /bands`
+   * with 200 and nothing written, so this path reports rather than degrades —
+   * the one deliberate deviation from the session journal.
+   *
+   * It still queues behind whatever `append` has in flight, so a journal that
+   * is used both ways cannot interleave half a line. A failure does not poison
+   * the chain: the caller is already being told about it, and a later append
+   * must not fail silently because an earlier one did.
+   */
+  async appendAwaited(event: J, at: number): Promise<void> {
+    const entry: LogEntry<J> = { seq: this.nextSeq, at, event };
+    this.nextSeq += 1;
+    const line = `${JSON.stringify(entry)}\n`;
+    const write = this.tail.then(async () => {
+      await appendFile(this.path, line, "utf8");
+      this.bytes += Buffer.byteLength(line, "utf8");
+    });
+    this.tail = write.catch(() => undefined);
+    await write;
+  }
+
   /** Resolves once everything appended so far has reached the file. */
   async flush(): Promise<void> {
     while (!this.broken && (this.buffer.length > 0 || this.draining)) {

@@ -28,6 +28,13 @@ const ConfigSchema = z.object({
   /** Where saved sessions live: one subdirectory per session, plus `current.json`. */
   sessionsDir: z.string().min(1).default(".mate/sessions"),
   /**
+   * Where the library logs live: `bands.jsonl` and `templates.jsonl`. These are
+   * the **truth** for those aggregates; `bandsDir`/`templatesDir` hold the
+   * rebuildable projection. Deliberately outside both, so reading a record
+   * directory means reading records and nothing else.
+   */
+  libraryDir: z.string().min(1).default(".mate/library"),
+  /**
    * Compact a session journal once it passes this many bytes; `0` never
    * compacts, which is the default and today the only behaviour. Compaction is
    * deliberately deferred — the fold caps the transcript at 200 entries and
@@ -62,6 +69,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     bandsDir: env.MATE_BANDS_DIR,
     songsDir: env.MATE_SONGS_DIR,
     sessionsDir: env.MATE_SESSIONS_DIR,
+    libraryDir: env.MATE_LIBRARY_DIR,
     journalCompactBytes: env.MATE_JOURNAL_COMPACT_BYTES,
     recipesDir: env.MATE_RECIPES_DIR,
     downloadsDir: env.MATE_DOWNLOADS_DIR,
