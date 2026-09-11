@@ -137,7 +137,8 @@ export function bpmHint(tokens: readonly string[]): number | null {
   return null;
 }
 
-function barsHint(tokens: readonly string[]): number | null {
+/** Total bars the request implies, from a length word. */
+export function barsHint(tokens: readonly string[]): number | null {
   const set = new Set(tokens);
   for (const entry of LENGTH_WORDS) {
     if (entry.words.some((w) => set.has(w))) return entry.bars;
