@@ -55,3 +55,39 @@ describe("song tool calls become actions", () => {
     expect(toolToAction("no_such_tool", {})).toBeNull();
   });
 });
+
+const LIBRARY = ["find_bands", "get_band", "find_templates", "get_template", "get_genres"];
+
+describe("library tools", () => {
+  test("the drummer's typed request gets the five reads, song or no song", () => {
+    for (const hasSong of [true, false]) {
+      const list = names({ songTools: true, hasSong, libraryTools: true });
+      for (const n of LIBRARY) expect(list).toContain(n);
+    }
+  });
+
+  test("a trigger the drummer did not type gets none of them", () => {
+    // A tick, an abletonChanged or a MIDI note must not go rummaging through the library.
+    const list = names({ songTools: false, hasSong: true, libraryTools: false });
+    for (const n of LIBRARY) expect(list).not.toContain(n);
+    expect(list).toContain("get_session");
+  });
+
+  test("a brain built without the libraries is offered none of them", () => {
+    // The flag is absent, not false: an older ToolContext must not start offering reads it cannot run.
+    const list = names({ songTools: true, hasSong: false });
+    for (const n of LIBRARY) expect(list).not.toContain(n);
+  });
+
+  test("they all run inline, so none of them is ever an action", () => {
+    for (const n of LIBRARY) {
+      expect(isReadOnlyTool(n)).toBe(true);
+      expect(toolToAction(n, {})).toBeNull();
+    }
+  });
+
+  test("nothing here writes: no generate, no delete", () => {
+    const list = names({ songTools: true, hasSong: true, libraryTools: true });
+    expect(list.filter((n) => n.startsWith("generate_") || n.startsWith("delete_"))).toEqual([]);
+  });
+});
