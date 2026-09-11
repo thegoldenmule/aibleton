@@ -86,8 +86,18 @@ describe("library tools", () => {
     }
   });
 
-  test("nothing here writes: no generate, no delete", () => {
-    const list = names({ songTools: true, hasSong: true, libraryTools: true });
-    expect(list.filter((n) => n.startsWith("generate_") || n.startsWith("delete_"))).toEqual([]);
+  test("deleting from a library is in no list at all: mate adds, the drummer removes", () => {
+    // The mirror of the download rule. A delete is irreversible — the record file is unlinked, no
+    // trash, no undo — and the app gates it behind a two-click confirm a brain tool would skip.
+    for (const ctx of [
+      { songTools: true, hasSong: true, libraryTools: true },
+      { songTools: true, hasSong: false, libraryTools: true },
+      { songTools: false, hasSong: true, libraryTools: false },
+      { songTools: false, hasSong: false },
+    ]) {
+      // Anything naming a band or a template; `remove_track` is a song part and not one of these.
+      const libraryish = names(ctx).filter((n) => /band|template/.test(n));
+      expect(libraryish.filter((n) => /delete|remove/.test(n))).toEqual([]);
+    }
   });
 });

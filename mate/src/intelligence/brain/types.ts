@@ -24,7 +24,23 @@ export type Action =
   | { type: "pickSlot"; slotId: string; soundUuid: string }
   | { type: "setPlacement"; partId: string; occurrence: number; plays: boolean }
   | { type: "removeTrack"; partId: string }
-  | { type: "arrangeSong" };
+  | { type: "arrangeSong" }
+  /**
+   * The libraries a future song is written from. Neither carries an id: the record is minted when
+   * the action is applied, saved there and then, and named back in the result. Unlike the song
+   * edits there is no active object to require — generating only ever adds.
+   */
+  | { type: "generateBand"; genre?: string; size?: number; name?: string }
+  | {
+      type: "generateTemplate";
+      name?: string;
+      alphabet?: number;
+      count?: number;
+      home?: string;
+      maxRun?: number;
+      bars?: number;
+      bpm?: number;
+    };
 
 export type ActionType = Action["type"];
 

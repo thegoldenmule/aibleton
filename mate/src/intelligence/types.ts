@@ -8,6 +8,7 @@ import type { AbletonPort } from "../ports/ableton/types.ts";
 import type { SplicePort } from "../ports/splice/types.ts";
 import type { SongService } from "../songwriting/service.ts";
 import type { Brain } from "./brain/types.ts";
+import type { LibraryWriterDeps } from "./effects.ts";
 
 export interface IntelligenceDeps {
   clock: Clock;
@@ -21,6 +22,11 @@ export interface IntelligenceDeps {
    * without it the loop runs exactly as before, minus the song actions.
    */
   songs?: SongService;
+  /**
+   * The band and template libraries the generate actions write to. Optional: without them the loop
+   * runs exactly as before, minus those two actions.
+   */
+  library?: LibraryWriterDeps;
   log: Logger;
   options?: {
     /** How often the loop enqueues a tick. */

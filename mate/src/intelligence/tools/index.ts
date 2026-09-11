@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Action } from "../brain/types.ts";
 import { ABLETON_ACTION_TOOLS, ABLETON_READ_TOOLS, abletonToolToAction } from "./ableton.tools.ts";
-import { LIBRARY_READ_TOOLS } from "./library.tools.ts";
+import { LIBRARY_ACTION_TOOLS, LIBRARY_READ_TOOLS, libraryToolToAction } from "./library.tools.ts";
 import { SONG_ACTION_TOOLS, SONG_COMPOSE_TOOLS, SONG_READ_TOOLS, songToolToAction } from "./song.tools.ts";
 import { SPLICE_ACTION_TOOLS, SPLICE_READ_TOOLS, spliceToolToAction } from "./splice.tools.ts";
 
@@ -35,10 +35,12 @@ export interface ToolContext {
   /** A song is active: the six editing tools, no compose. With none it is the other way round. */
   hasSong: boolean;
   /**
-   * Whether the saved libraries may be read. Gated on the same thing the song plan is and for the
-   * same reason — a tick or a stray MIDI note must not go rummaging through the drummer's bands —
-   * but not on whether a song is active: reading a library clobbers nothing. False when the brain
-   * was built without the libraries at all.
+   * Whether the saved libraries are on the table — the five reads and the two generates alike.
+   * Gated on the same thing the song plan is and for the same reason: a tick or a stray MIDI note
+   * must not go rummaging through the drummer's bands, and must certainly never roll one into the
+   * library behind their back. Not gated on whether a song is active, unlike the song tools: a
+   * read clobbers nothing and a generate only adds, so neither has an active object to wait for.
+   * False when the brain was built without the libraries at all.
    */
   libraryTools?: boolean;
 }
@@ -46,11 +48,12 @@ export interface ToolContext {
 /**
  * The tool list for one call. Computed per call, never cached: it depends on this turn's trigger,
  * on whether a song is active, and on what the brain was built with. Downloading is in no list at
- * any time — it spends a credit, so it stays behind the drummer's own confirm.
+ * any time — it spends a credit, so it stays behind the drummer's own confirm — and neither is
+ * deleting from a library, which is irreversible and behind a confirm of its own.
  */
 export function toolDefinitions(ctx: ToolContext = { songTools: false, hasSong: false }): Tool[] {
   const song = !ctx.songTools ? [] : ctx.hasSong ? [...SONG_READ_TOOLS, ...SONG_ACTION_TOOLS] : SONG_COMPOSE_TOOLS;
-  const library = ctx.libraryTools ? LIBRARY_READ_TOOLS : [];
+  const library = ctx.libraryTools ? [...LIBRARY_READ_TOOLS, ...LIBRARY_ACTION_TOOLS] : [];
   return [...ABLETON_READ_TOOLS, ...SPLICE_READ_TOOLS, ...ABLETON_ACTION_TOOLS, ...SPLICE_ACTION_TOOLS, ...song, ...library, FOLLOW_UP_TOOL];
 }
 
@@ -60,5 +63,10 @@ export function isReadOnlyTool(name: string): boolean {
 
 /** Map a mutating tool call onto a domain Action. Returns null for unknown or read-only tools. */
 export function toolToAction(name: string, input: Record<string, unknown>): Action | null {
-  return abletonToolToAction(name, input) ?? spliceToolToAction(name, input) ?? songToolToAction(name, input);
+  return (
+    abletonToolToAction(name, input) ??
+    spliceToolToAction(name, input) ??
+    songToolToAction(name, input) ??
+    libraryToolToAction(name, input)
+  );
 }

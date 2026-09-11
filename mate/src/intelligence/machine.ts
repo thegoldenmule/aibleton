@@ -332,6 +332,11 @@ export function actionTrack(action: Action): number | undefined {
       // reach Live (arrange) only ever touches tracks mate made itself, by construction in
       // `dawStatus`. Their guard is the service, not the ownership filter below.
       return undefined;
+    case "generateBand":
+    case "generateTemplate":
+      // Same again, one step further from Live: a generate writes a record into a library and
+      // never goes near the set at all, so there is no track for the ownership filter to judge.
+      return undefined;
     default: {
       const never: never = action;
       throw new Error(`actionTrack: unhandled action ${JSON.stringify(never)}`);
@@ -339,7 +344,15 @@ export function actionTrack(action: Action): number | undefined {
   }
 }
 
-/** The song actions that only make sense with a song on the go. `composeSong` is the mirror image. */
+/**
+ * The song actions that only make sense with a song on the go. `composeSong` is the mirror image.
+ *
+ * The library generates are deliberately **not** here and get no gate of their own. This set exists
+ * because a song edit has an active object it needs; a `generateBand` or `generateTemplate` has no
+ * precondition at all — it mints a record and saves it, clobbering nothing — and a bad option is a
+ * plain `actionFailed` carrying the generator's own message, which is the right outcome and already
+ * reaches the model. A guard here would be guarding nothing.
+ */
 const SONG_EDIT_ACTIONS: ReadonlySet<ActionType> = new Set<ActionType>([
   "clearActiveSong",
   "resolveSong",

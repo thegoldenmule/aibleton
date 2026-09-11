@@ -52,6 +52,7 @@ export class AgentLoop implements Intelligence {
       ableton: deps.ableton,
       splice: deps.splice,
       ...(deps.songs ? { songs: deps.songs } : {}),
+      ...(deps.library ? { library: deps.library } : {}),
       mailbox: deps.mailbox,
       store: deps.store,
       clock: deps.clock,

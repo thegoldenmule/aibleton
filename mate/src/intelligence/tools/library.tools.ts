@@ -2,19 +2,26 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { bandGenre, formTotalBars, parseForm } from "@aibleton/protocol";
 import type { Band, RecipeSummary, Template } from "@aibleton/protocol";
 import { DEFAULT_LIMIT, searchBands, searchTemplates, type Match } from "../../songwriting/search.ts";
+import type { Action } from "../brain/types.ts";
 
 type Tool = Anthropic.Beta.BetaTool;
 
 const int = { type: "integer" as const };
+const num = { type: "number" as const };
 const str = { type: "string" as const };
 
 /**
- * The saved libraries, as read-only tools: who mate can call on, what roadmaps
- * it has, and which genres it can staff a band from.
+ * The saved libraries, as tools: who mate can call on, what roadmaps it has,
+ * which genres it can staff a band from — and the two ways it adds to them.
  *
- * They run inline in `AnthropicBrain`'s tool loop and never become `Action`s —
- * nothing here writes. Generating a band or a template is the next wave;
- * deleting one is deliberately never a tool.
+ * The reads run inline in `AnthropicBrain`'s tool loop and never become
+ * `Action`s. The two generates do: they write, so they queue like every other
+ * mutation and land through `EffectRunner.applyOne`.
+ *
+ * **Deleting is never a tool.** A delete is irreversible — the record file is
+ * unlinked, there is no trash and no undo — and the app already gates it behind
+ * a two-click confirm. A brain tool would route around that confirm, so the
+ * invariant is: mate adds, the drummer removes. A test pins it.
  *
  * **Everything is bounded.** A thirty-band library handed over whole is most of
  * the turn's context spent before the answer starts, so `find_*` returns a
@@ -74,11 +81,107 @@ export const LIBRARY_READ_TOOLS: Tool[] = [
   },
 ];
 
+/**
+ * The two ways mate adds to a library. Both save — unlike the generate routes,
+ * which hand the app a draft to confirm, the brain has no draft UI to confirm
+ * from, so a generate the model asked for is a record the drummer then owns.
+ *
+ * Neither takes a seed. A seed is a reproducibility handle for the app's
+ * "roll again" button; a model choosing one adds nothing and invites it to
+ * reuse one, so it defaults from the clock.
+ */
+export const LIBRARY_ACTION_TOOLS: Tool[] = [
+  {
+    name: "generate_band",
+    description:
+      "Staff a new band from a genre and save it to the library: a roster of parts, each with a role, a stage name and the brief Splice is searched with. Everything is optional — with no genre one is picked for you. Check get_genres first: a genre already on that list is immediate, and any other genre has its recipe written by a model before the band is rolled, which takes a while. Adds to the library for a future song; it does not change the song on the go.",
+    input_schema: {
+      type: "object",
+      properties: {
+        genre: { ...str, description: "The genre to staff from, e.g. \"funk\". Omit to let the roll choose one." },
+        size: { ...int, description: "How many parts in total, 1-16. Clamped to what the genre's recipe can staff." },
+        name: { ...str, description: "Optional name; one is made up from the genre otherwise." },
+      },
+    },
+  },
+  {
+    name: "generate_template",
+    description:
+      "Lay out a new song form and save it to the library: a form string like \"a8 b8 a8 c8\" plus a starting brief for every letter in it. Everything is optional and it is immediate — no model is in the loop. Adds to the library for a future song; it does not change the song on the go.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { ...str, description: "Optional name; one is made up otherwise." },
+        alphabet: { ...int, description: "How many distinct sections the form may use, 2-6." },
+        count: { ...int, description: "How many sections long the form runs, 1-64." },
+        home: { ...str, description: "The section it keeps returning to, a single lowercase letter such as \"a\"." },
+        max_run: { ...int, description: "The most times one section may repeat back to back." },
+        bars: { ...int, description: "Bars per section." },
+        bpm: { ...num, description: "Tempo for the template. Omit to leave it open." },
+      },
+    },
+  },
+];
+
 const NAMES = new Set(LIBRARY_READ_TOOLS.map((t) => t.name));
 
-/** True when `name` is one of the library reads. */
+/** True when `name` is one of the library **reads** — the ones that run inline. A generate is an action. */
 export function isLibraryTool(name: string): boolean {
   return NAMES.has(name);
+}
+
+/**
+ * Map a mutating library tool call onto a domain Action. An option the model
+ * did not supply stays absent rather than becoming a zero or an empty string:
+ * absent means "you choose", which is not the same as `size: 0`.
+ */
+export function libraryToolToAction(name: string, input: Record<string, unknown>): Action | null {
+  switch (name) {
+    case "generate_band":
+      return {
+        type: "generateBand",
+        ...opt("genre", optText(input.genre)),
+        ...opt("size", optInt(input.size)),
+        ...opt("name", optText(input.name)),
+      };
+    case "generate_template":
+      return {
+        type: "generateTemplate",
+        ...opt("name", optText(input.name)),
+        ...opt("alphabet", optInt(input.alphabet)),
+        ...opt("count", optInt(input.count)),
+        ...opt("home", optText(input.home)),
+        ...opt("maxRun", optInt(input.max_run)),
+        ...opt("bars", optInt(input.bars)),
+        ...opt("bpm", optNum(input.bpm)),
+      };
+    default:
+      return null;
+  }
+}
+
+/** `{ key: value }` when there is a value, nothing at all when there is not. */
+function opt<K extends string, V>(key: K, value: V | undefined): Record<K, V> | Record<string, never> {
+  return value === undefined ? {} : ({ [key]: value } as Record<K, V>);
+}
+
+/** Text the model actually supplied. Blank is not an answer — it means it left the choice to us. */
+function optText(v: unknown): string | undefined {
+  const s = typeof v === "string" ? v.trim() : "";
+  return s || undefined;
+}
+
+/** A number the model actually supplied. `null`, `""` and `undefined` all mean it did not. */
+function optNum(v: unknown): number | undefined {
+  if (v === null || v === undefined || v === "") return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** The same, floored: the generator's own bounds check rejects anything out of range. */
+function optInt(v: unknown): number | undefined {
+  const n = optNum(v);
+  return n === undefined ? undefined : Math.floor(n);
 }
 
 /**

@@ -20,10 +20,11 @@ export interface AnthropicBrainOptions {
    */
   getSong?: () => Song | null;
   /**
-   * The saved libraries, for the read-only library tools. One field rather than three, so
-   * "built without the libraries" is one absent thing and there is no half-wired state: absent
-   * means none of the five are offered. Not a getter — unlike `getSong` these exist before the
-   * brain does, and the stores are read fresh on every call anyway.
+   * The saved libraries, for the library tools. One field rather than three, so "built without the
+   * libraries" is one absent thing and there is no half-wired state: absent means none of the seven
+   * are offered — the five reads that run inline here, and the two generates that queue as actions
+   * and are applied against the same stores by `EffectRunner`. Not a getter — unlike `getSong`
+   * these exist before the brain does, and the stores are read fresh on every call anyway.
    */
   library?: LibraryToolDeps;
   maxIterations?: number;
@@ -46,7 +47,9 @@ Songs. Beyond single clips you can plan a whole song: a form, a brief per sectio
 - With a song, the other tools change it: set_placement rests a part or brings it in for one occurrence, remove_track drops a part for good, pick_slot chooses a sound (read the options with get_slot_candidates — the song you are shown carries only the count), clear_active_song puts the song away so a new one can be written.
 - Searching Splice is free. Downloading the sounds costs the drummer credits and is their own confirmed decision, so you cannot do it. arrange_song only builds into Live what is already downloaded, and only ever adds.
 
-The libraries. The drummer has saved bands (who plays) and templates (the form), and mate can staff a band from a set of genres. find_bands, find_templates and get_genres tell you what is there; they answer with summaries and a total, so narrow with a find and then read the one you care about in full with get_band or get_template — that is where the briefs are. These are reads only: you cannot write or delete anything in the libraries, and composing a song still goes through compose_song, which picks from them itself.
+The libraries. The drummer has saved bands (who plays) and templates (the form), and mate can staff a band from a set of genres. find_bands, find_templates and get_genres tell you what is there; they answer with summaries and a total, so narrow with a find and then read the one you care about in full with get_band or get_template — that is where the briefs are. generate_band and generate_template add to them and save straight away; get_genres first, because a genre that list does not have has its recipe written by a model before the band is rolled, which takes a while. You can never delete anything from a library: mate adds, the drummer removes.
+
+Bands and templates are what a future song is written from, not what is playing now. A song keeps its own full copy of the template and band it was composed with, so generating a band, or a change to one in the library, does not touch the song on the go. To change what is playing, use the song tools — set_placement, remove_track, pick_slot — and let compose_song pick from the libraries when the next song gets written.
 
 Your final message is spoken to the drummer. Keep it short, concrete and friendly: what you set up and what to try. No markdown headers.`;
 
@@ -66,7 +69,7 @@ export class AnthropicBrain implements Brain {
       songTools: this.opts.getSong !== undefined && input.trigger === "userRequest",
       hasSong: song !== null,
       // Same gate as the song plan, for the same product reason; no song precondition, because
-      // reading a library clobbers nothing.
+      // reading a library clobbers nothing and generating into one only ever adds.
       libraryTools: this.opts.library !== undefined && input.trigger === "userRequest",
     });
     const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: renderInput(input) }];

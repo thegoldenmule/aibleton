@@ -1,15 +1,29 @@
-import { mateTrackName } from "@aibleton/protocol";
-import type { Activity } from "@aibleton/protocol";
+import { formTotalBars, mateTrackName, parseForm } from "@aibleton/protocol";
+import type { Activity, Band, Template } from "@aibleton/protocol";
 import type { Clock } from "../core/clock.ts";
 import { envelope, type CommandBody } from "../core/commands.ts";
 import type { Mailbox } from "../core/mailbox.ts";
+import type { RecipeBook } from "../core/recipes.ts";
 import type { StateStore } from "../core/state.ts";
 import type { Logger } from "../log.ts";
 import type { AbletonPort } from "../ports/ableton/types.ts";
 import type { SplicePort } from "../ports/splice/types.ts";
+import { layTemplate, staffBand } from "../songwriting/library.ts";
 import type { SongService } from "../songwriting/service.ts";
 import type { Action, ActionResult, Brain } from "./brain/types.ts";
 import type { Effect } from "./machine.ts";
+
+/**
+ * What writing to a library needs: somewhere to save each kind of record, and the recipe book the
+ * staffing reads. Structural rather than the `LibraryStore` classes, so a test can hand over a
+ * collector. Deliberately narrower than the brain's `LibraryToolDeps`, which only ever reads.
+ */
+export interface LibraryWriterDeps {
+  bands: { save(band: Band): Promise<Band> };
+  templates: { save(template: Template): Promise<Template> };
+  /** Consulted for a genre's recipe, and asked to write one when it has none — the slow half. */
+  recipes: RecipeBook;
+}
 
 export interface EffectRunnerDeps {
   brain: Brain;
@@ -24,6 +38,11 @@ export interface EffectRunnerDeps {
    * built without it simply cannot run song actions, which is what most tests want.
    */
   songs?: SongService;
+  /**
+   * The band and template libraries, for the two generate actions. Optional for the same reason
+   * `songs` is: a loop built without them simply cannot run them, which is what most tests want.
+   */
+  library?: LibraryWriterDeps;
 }
 
 /** The only impure part of the intelligence module. Executes effects and feeds completions back as commands. */
@@ -250,6 +269,44 @@ export class EffectRunner {
         // `arrange` already says the sentence to the drummer; this is the trail line, not a repeat.
         return `${out.applied.length} applied${out.failed.length ? `, ${out.failed.length} failed` : ""}`;
       }
+      // The libraries. These go through the same `staffBand`/`layTemplate` the app's generate
+      // buttons call, and then save — the routes hand back a draft for the drummer to confirm,
+      // and the brain has no draft UI to confirm from.
+      case "generateBand": {
+        const library = this.libraries();
+        const band = await library.bands.save(
+          await staffBand(
+            {
+              ...(action.genre !== undefined ? { genre: action.genre } : {}),
+              ...(action.size !== undefined ? { size: action.size } : {}),
+              ...(action.name !== undefined ? { name: action.name } : {}),
+            },
+            // The set's signal: the recipe write is the one thing here long enough to abandon.
+            { recipes: library.recipes, now: () => this.deps.clock.now(), signal },
+          ),
+        );
+        return `“${band.name}”: ${band.parts.map((p) => `${p.name} (${p.role})`).join(", ")}`;
+      }
+      case "generateTemplate": {
+        const library = this.libraries();
+        const template = await library.templates.save(
+          layTemplate(
+            {
+              ...(action.name !== undefined ? { name: action.name } : {}),
+              ...(action.alphabet !== undefined ? { alphabet: action.alphabet } : {}),
+              ...(action.count !== undefined ? { count: action.count } : {}),
+              ...(action.home !== undefined ? { home: action.home } : {}),
+              ...(action.maxRun !== undefined ? { maxRun: action.maxRun } : {}),
+              ...(action.bars !== undefined ? { bars: action.bars } : {}),
+              ...(action.bpm !== undefined ? { bpm: action.bpm } : {}),
+            },
+            { now: () => this.deps.clock.now() },
+          ),
+        );
+        // Sections counted along the form, not distinct letters: "a8 b8 a8" is three to play.
+        const entries = parseForm(template.form);
+        return `“${template.name}”: ${template.form} (${entries.length} sections, ${formTotalBars(entries)} bars)`;
+      }
       default: {
         // `Promise<string | undefined>` would otherwise let a missing case resolve to a silent success.
         const never: never = action;
@@ -281,6 +338,13 @@ export class EffectRunner {
     const { songs } = this.deps;
     if (!songs) throw new Error("no song library is wired up, so song actions cannot run");
     return songs;
+  }
+
+  /** The two libraries, or a failure that names the reason. Wired in `index.ts`; absent in most tests. */
+  private libraries(): LibraryWriterDeps {
+    const { library } = this.deps;
+    if (!library) throw new Error("no band or template library is wired up, so generate actions cannot run");
+    return library;
   }
 
   private post(body: CommandBody): void {

@@ -174,6 +174,9 @@ async function main(): Promise<void> {
     splice: spliceResult.port,
     // The same instance the routes use, so a typed request and a click do the same thing.
     songs: songService,
+    // The same three the brain reads, on the writing side: a generate action staffs the band and
+    // saves it here, so it lands in an open /bands tab off the SSE stream with no refresh.
+    library: { bands, templates, recipes },
     log: createLogger("loop"),
     options: { tickMs: config.tickMs, maxBrainRetries: config.maxBrainRetries },
   });
