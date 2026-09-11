@@ -1,8 +1,9 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
-import type { Activity, CommandSummary, ExternalCommand, Phase, RequestContext, Song, TranscriptEntry, TranscriptField } from "@aibleton/protocol";
+import type { Activity, ActivityKind, CommandSummary, ExternalCommand, Phase, RequestContext, Song, TranscriptEntry, TranscriptField } from "@aibleton/protocol";
 import { ACTIVITY_LABEL } from "../lib/status";
+import { PanelHeader } from "./ui/PanelHeader";
 
 interface Props {
   phase: Phase;
@@ -75,15 +76,8 @@ export function ConversationPane({ phase, disabled, song, transcript, activity, 
 
   return (
     <section className="flex min-h-0 flex-col rounded-md border border-line bg-panel">
-      <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2">
-        <h2 className="text-[10px] uppercase tracking-wider text-muted">conversation</h2>
-        <span
-          className={`rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-            activity ? "bg-accent/20 text-accent" : "bg-accent-2/20 text-accent-2"
-          }`}
-        >
-          {activity ? activity.kind : "bandmate"}
-        </span>
+      <div className="border-b border-line px-3 py-2">
+        <PanelHeader title="conversation" meta={activity ? <LiveKind kind={activity.kind} /> : null} />
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-2">
@@ -178,6 +172,23 @@ export function ConversationPane({ phase, disabled, song, transcript, activity, 
         ) : null}
       </form>
     </section>
+  );
+}
+
+/**
+ * What mate is working on, named in the header while it works.
+ *
+ * All that is left of a pill that read "compose" with no song and "bandmate"
+ * with one: that was a mode, and there are no modes any more — every message
+ * is the same command and the loop decides what it means. What the pill said
+ * at rest was then just the next panel's name, twice.
+ */
+function LiveKind({ kind }: { kind: ActivityKind }) {
+  return (
+    <span className="flex items-center gap-1.5" title={`Mate is ${ACTIVITY_LABEL[kind]}`}>
+      <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" aria-hidden />
+      {kind}
+    </span>
   );
 }
 
