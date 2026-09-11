@@ -123,6 +123,14 @@ function Inspector({ recipe, seed, onRoll }: { recipe: BandRecipe; seed: number;
     }
   }, [recipe, seed]);
 
+  /**
+   * The pool names this roll took, keyed by role and name together — two roles
+   * can offer the same name, and only the one actually playing should light up.
+   * A part whose pool ran out reads "shaker 2" and matches nothing, which is
+   * right: that name is not in the pool.
+   */
+  const playing = useMemo(() => new Set(sample.map((part) => `${part.role}\u0000${part.name}`)), [sample]);
+
   return (
     // The frame every other panel wears, and the rhythm too: `PanelHeader` owns
     // the rule under the title and its own padding, so the body pads nothing and
@@ -166,8 +174,8 @@ function Inspector({ recipe, seed, onRoll }: { recipe: BandRecipe; seed: number;
         </section>
 
         <section className="flex flex-col gap-1.5 px-3 py-2.5">
-          <PanelHeader title="who else it can call on" level={3} />
-          <Bench recipe={recipe} roles={roles} />
+          <PanelHeader title="who else it can call on" level={3} meta="coloured = in this roll" />
+          <Bench recipe={recipe} roles={roles} playing={playing} />
         </section>
       </div>
     </aside>
@@ -184,8 +192,12 @@ function Inspector({ recipe, seed, onRoll }: { recipe: BandRecipe; seed: number;
  * lane marker, the same marker `BandRoster` puts down the side of a part. When
  * it was a chip like the names beside it, the eye had to read the row to work
  * out which one was the label.
+ *
+ * A name the current roll staffed wears its role's colour — the same colour its
+ * lane has in the roster above — so rolling again shows the draw moving through
+ * the pools rather than just replacing a list.
  */
-function Bench({ recipe, roles }: { recipe: BandRecipe; roles: string[] }) {
+function Bench({ recipe, roles, playing }: { recipe: BandRecipe; roles: string[]; playing: ReadonlySet<string> }) {
   return (
     <ul className="flex flex-col gap-2">
       {roles.map((role) => {
@@ -202,7 +214,11 @@ function Bench({ recipe, roles }: { recipe: BandRecipe; roles: string[] }) {
                 <span
                   key={`${name}-${i}`}
                   title={briefs[i % Math.max(briefs.length, 1)] ?? undefined}
-                  className="cursor-help rounded-sm border border-line bg-panel-2 px-1.5 py-0.5 text-[11px] text-foreground/80"
+                  className={
+                    playing.has(`${role}\u0000${name}`)
+                      ? `cursor-help rounded-sm border px-1.5 py-0.5 text-[11px] font-medium ${roleClass(role)}`
+                      : "cursor-help rounded-sm border border-line bg-panel-2 px-1.5 py-0.5 text-[11px] text-muted"
+                  }
                 >
                   {name}
                 </span>
