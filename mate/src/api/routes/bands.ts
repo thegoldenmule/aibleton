@@ -9,14 +9,15 @@ import {
   type DeleteBandResponse,
 } from "@aibleton/protocol";
 import { ModelRefusedError } from "../../core/anthropic.ts";
-import { isValidBandId, type BandStore } from "../../core/bands.ts";
+import { isValidBandId, type BandLibrary } from "../../core/bands.ts";
 import type { RecipeBook } from "../../core/recipes.ts";
 import type { Logger } from "../../log.ts";
 import { generateBand } from "../../core/band-generator.ts";
 import { newId } from "../../core/commands.ts";
 
 export interface BandRouteDeps {
-  bands: BandStore;
+  /** The log-backed library. Reads come off its fold; a save that cannot reach the log rejects. */
+  bands: BandLibrary;
   recipes: RecipeBook;
   log: Logger;
   /** Injected so tests can drive createdAt and the default seed from a ManualClock. */

@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  BandListResponseSchema,
   DeleteSessionResponseSchema,
   ResumeSessionResponseSchema,
   SessionListResponseSchema,
@@ -19,8 +20,6 @@ import { restoreStore } from "../src/core/restore.ts";
 import { SessionManager, SessionStore } from "../src/core/sessions.ts";
 import { SongStore } from "../src/core/songs.ts";
 import { StateStore } from "../src/core/state.ts";
-import { TemplateStore } from "../src/core/templates.ts";
-import { BandStore } from "../src/core/bands.ts";
 import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { loadConfig } from "../src/config.ts";
@@ -28,6 +27,7 @@ import { silentLogger } from "../src/log.ts";
 import type { CommandBody, CommandSource } from "../src/core/commands.ts";
 import type { Intelligence } from "../src/intelligence/types.ts";
 import { FakeAbleton, FakeSplice } from "./helpers/fakes.ts";
+import { fixtureBand } from "./helpers/song.ts";
 import { songServiceHarness } from "./helpers/song-service.ts";
 
 let dir: string;
@@ -77,11 +77,13 @@ async function build() {
   // Recording ports, so a test can assert a resume said nothing to either.
   const ableton = new FakeAbleton();
   const splice = new FakeSplice();
+  // One harness, one library per log: the app and the service share them.
+  const harness = songServiceHarness({ dir, ableton, splice });
   const app = createApp({
     store,
-    templates: new TemplateStore({ dir: join(dir, "templates") }),
-    bands: new BandStore({ dir: join(dir, "bands") }),
-    songs: songServiceHarness({ dir, ableton, splice }).service,
+    templates: harness.templates,
+    bands: harness.bands,
+    songs: harness.service,
     recipes: new RecipeBook({ store: new RecipeStore({ dir: join(dir, "recipes") }), writer: new ScriptedRecipeWriter(), now }),
     sessions,
     intelligence: fake.intelligence,
@@ -90,7 +92,7 @@ async function build() {
     startedAt: 0,
     now,
   });
-  return { app, store, events, sessions, ableton, splice, ...fake };
+  return { app, store, events, sessions, ableton, splice, bands: harness.bands, ...fake };
 }
 
 async function post(app: Awaited<ReturnType<typeof build>>["app"], path: string, body?: unknown) {
@@ -205,6 +207,20 @@ describe("sessions api", () => {
     // Splice search: the manager has no reference to either port.
     expect(ableton.calls).toEqual([]);
     expect(splice.calls).toEqual([]);
+  });
+
+  test("a resume leaves the libraries untouched", async () => {
+    const { app } = await build();
+    await post(app, "/bands", { band: fixtureBand() });
+    const first = SessionListResponseSchema.parse(await (await app.request("/sessions")).json()).sessions[0]!.id;
+    await post(app, "/sessions");
+
+    expect((await post(app, `/sessions/${first}/resume`)).status).toBe(200);
+    // Free by construction — the libraries are a different aggregate, they are
+    // not in `StateResponse` and `SessionManager` holds no reference to them.
+    // The assertion is what stops a refactor quietly undoing that.
+    const listed = BandListResponseSchema.parse(await (await app.request("/bands")).json());
+    expect(listed.bands.map((b) => b.id)).toEqual([fixtureBand().id]);
   });
 
   test("switching sessions does not re-journal the session it replayed", async () => {

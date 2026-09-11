@@ -16,7 +16,6 @@ import {
 } from "@aibleton/protocol";
 import type { Activity, MateEvent, Song } from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
-import { BandStore } from "../src/core/bands.ts";
 import { ManualClock } from "../src/core/clock.ts";
 import { EventBus } from "../src/core/events.ts";
 import { SongStore } from "../src/core/songs.ts";
@@ -34,6 +33,7 @@ import { defaultBrief } from "../src/songwriting/briefer/scripted.ts";
 import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { FakeSplice } from "./helpers/fakes.ts";
+import { bandLibrary } from "./helpers/library.ts";
 import { fixtureBand, fixtureTemplate } from "./helpers/song.ts";
 
 const idleIntelligence: Intelligence = {
@@ -62,7 +62,7 @@ async function build(
   const events = new EventBus<MateEvent>();
   const store = new StateStore(events);
   const templates = new TemplateStore({ dir: join(dir, "templates") });
-  const bands = new BandStore({ dir: join(dir, "bands") });
+  const bands = bandLibrary(join(dir, "bands"), { now: () => clock.now(), log: silentLogger });
   const songs = new SongStore({ dir: join(dir, "songs") });
   const briefer = opts.briefer ?? new ScriptedBriefer();
   const writer = opts.writer ?? new ScriptedRecipeWriter();

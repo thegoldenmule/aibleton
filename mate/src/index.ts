@@ -1,12 +1,13 @@
+import { join } from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
-import { toJournaled, type MateEvent } from "@aibleton/protocol";
+import { toJournaled, type BandEvent, type MateEvent } from "@aibleton/protocol";
 import { loadConfig } from "./config.ts";
 import { createLogger } from "./log.ts";
 import { SystemClock } from "./core/clock.ts";
 import { EventBus } from "./core/events.ts";
 import { Mailbox } from "./core/mailbox.ts";
 import { StateStore } from "./core/state.ts";
-import { BandStore } from "./core/bands.ts";
+import { createBandLibrary } from "./core/bands.ts";
 import { RecipeBook, RecipeStore } from "./core/recipes.ts";
 import { SongStore } from "./core/songs.ts";
 import { TemplateStore } from "./core/templates.ts";
@@ -35,8 +36,24 @@ async function main(): Promise<void> {
   const store = new StateStore(events);
   const mailbox = new Mailbox();
   const templates = new TemplateStore({ dir: config.templatesDir });
-  const bands = new BandStore({ dir: config.bandsDir });
   const songs = new SongStore({ dir: config.songsDir });
+
+  // The libraries open before the session, because they are a different
+  // aggregate with a different log and nothing about them depends on which
+  // session is current. The reconcile has to finish here too: once a route or
+  // the loop can write, the fold has to already be the whole library. Nothing
+  // between this and the session open may emit a `MateEvent` — the session
+  // journal is attached after its replay, so anything emitted in between would
+  // be lost.
+  const libraryLog = createLogger("library");
+  const bandLibrary = await createBandLibrary({
+    dir: config.bandsDir,
+    path: join(config.libraryDir, "bands.jsonl"),
+    events: new EventBus<BandEvent>(),
+    now: () => clock.now(),
+    log: libraryLog,
+  });
+  const bands = bandLibrary.store;
 
   // The session mate left behind, folded back in before anything else runs. It
   // has to happen here, before the loop starts: `AgentLoop.start()` reads the
@@ -55,6 +72,9 @@ async function main(): Promise<void> {
   if (restored.events > 0) {
     sessionLog.info(`resumed session ${session.meta.id} (${session.meta.name}): ${restored.events} event(s)${restored.song ? `, song "${restored.song.name}"` : ""}`);
   }
+  libraryLog.info(
+    `bands: ${bandLibrary.replayed} event(s) replayed, ${bandLibrary.adopted} adopted, ${bandLibrary.repaired} record file(s) repaired`,
+  );
 
   const abletonResult = await createAbletonPort(config.ableton, {
     command: config.abletonMcpCommand,
@@ -207,6 +227,13 @@ async function main(): Promise<void> {
     } catch (err) {
       sessionLog.warn("could not close the session", err);
     }
+    // After the session, because a library append is awaited to disk by the
+    // caller that made it: there is only ever the journal's own tail to flush.
+    try {
+      await bandLibrary.close();
+    } catch (err) {
+      libraryLog.warn("could not close the band library", err);
+    }
     server.stop(true);
     log.info("bye");
     process.exit(0);
@@ -236,6 +263,11 @@ async function main(): Promise<void> {
       sessionManager.flushSync();
     } catch (err) {
       sessionLog.warn("could not flush the journal on exit", err);
+    }
+    try {
+      bandLibrary.flushSync();
+    } catch (err) {
+      libraryLog.warn("could not flush the band log on exit", err);
     }
   });
 }

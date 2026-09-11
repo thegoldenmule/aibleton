@@ -1,5 +1,4 @@
-import type { Activity, ActivityKind, ComposeStage, Song, TranscriptField } from "@aibleton/protocol";
-import type { BandStore } from "../core/bands.ts";
+import type { Activity, ActivityKind, Band, ComposeStage, Song, TranscriptField } from "@aibleton/protocol";
 import { newId } from "../core/commands.ts";
 import type { RecipeBook } from "../core/recipes.ts";
 import type { SongStore } from "../core/songs.ts";
@@ -76,7 +75,13 @@ export interface ResolveOutcome {
 export interface SongServiceDeps {
   songs: SongStore;
   templates: TemplateStore;
-  bands: BandStore;
+  /**
+   * The band library: the roster compose chooses from, and the one place the
+   * bands it rolls are added. Structural rather than nominal so the log-backed
+   * library and the projection store behind it both satisfy it — the service
+   * only ever reads the list and adds to it.
+   */
+  bands: { list(): Promise<Band[]>; save(band: Band): Promise<Band> };
   briefer: Briefer;
   recipes: RecipeBook;
   /** Holds the active song, which is what the app's session view renders. */

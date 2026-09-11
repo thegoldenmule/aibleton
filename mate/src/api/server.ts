@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import type { Config } from "../config.ts";
 import type { SessionManager } from "../core/sessions.ts";
 import type { StateStore } from "../core/state.ts";
-import type { BandStore } from "../core/bands.ts";
+import type { BandLibrary } from "../core/bands.ts";
 import type { RecipeBook } from "../core/recipes.ts";
 import type { TemplateStore } from "../core/templates.ts";
 import type { Intelligence } from "../intelligence/types.ts";
@@ -23,7 +23,7 @@ import { templateRoutes } from "./routes/templates.ts";
 export interface AppDeps {
   store: StateStore;
   templates: TemplateStore;
-  bands: BandStore;
+  bands: BandLibrary;
   /** Every song operation, shared with the agent loop. */
   songs: SongService;
   /** Every recipe the band generator can staff from; fills gaps through the model. */

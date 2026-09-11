@@ -3,8 +3,6 @@ import { StateResponseSchema, HealthResponseSchema, AdapterStatusSchema, type Ma
 import { createApp } from "../src/api/server.ts";
 import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
-import { TemplateStore } from "../src/core/templates.ts";
-import { BandStore } from "../src/core/bands.ts";
 import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { envelope, type Command, type CommandBody, type CommandSource } from "../src/core/commands.ts";
@@ -40,14 +38,15 @@ function build() {
   const events = new EventBus<MateEvent>();
   const store = new StateStore(events);
   const fake = fakeIntelligence();
-  const templates = new TemplateStore({ dir: mkdtempSync(join(tmpdir(), "mate-api-")) });
-  const bands = new BandStore({ dir: mkdtempSync(join(tmpdir(), "mate-api-bands-")) });
+  // The harness owns the stores, so the app and the service share one library
+  // instance per log rather than two folds over the same file.
+  const harness = songServiceHarness();
   const recipes = new RecipeBook({ store: new RecipeStore({ dir: mkdtempSync(join(tmpdir(), "mate-api-recipes-")) }), writer: new ScriptedRecipeWriter(), now: () => Date.now() });
   const app = createApp({
     store,
-    templates,
-    bands,
-    songs: songServiceHarness().service,
+    templates: harness.templates,
+    bands: harness.bands,
+    songs: harness.service,
     recipes,
     intelligence: fake.intelligence,
     config: loadConfig({}),

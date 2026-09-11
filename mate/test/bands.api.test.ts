@@ -1,13 +1,19 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BandListResponseSchema, BandResponseSchema, RecipeListResponseSchema, type Band, type MateEvent } from "@aibleton/protocol";
+import {
+  BandListResponseSchema,
+  BandResponseSchema,
+  RecipeListResponseSchema,
+  type Band,
+  type BandLogEntry,
+  type MateEvent,
+} from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
 import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
-import { TemplateStore } from "../src/core/templates.ts";
-import { BandStore } from "../src/core/bands.ts";
 import { BUILTIN_GENRES } from "../src/core/band-generator.ts";
 import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
@@ -15,6 +21,7 @@ import { ManualClock } from "../src/core/clock.ts";
 import { loadConfig } from "../src/config.ts";
 import { silentLogger } from "../src/log.ts";
 import type { Intelligence } from "../src/intelligence/types.ts";
+import { bandLibrary, logPathFor } from "./helpers/library.ts";
 import { songServiceHarness } from "./helpers/song-service.ts";
 
 const idleIntelligence: Intelligence = {
@@ -32,11 +39,15 @@ function build(now = 1_000) {
   const clock = new ManualClock(now);
   const writer = new ScriptedRecipeWriter();
   const recipes = new RecipeBook({ store: new RecipeStore({ dir: join(dir, "recipes") }), writer, now: () => clock.now() });
+  // The harness first, and its stores handed straight to the app. Two
+  // libraries over one log keep separate folds and separate seq counters and
+  // diverge on the first write, so there is exactly one instance per log.
+  const harness = songServiceHarness({ dir, now });
   const app = createApp({
     store: new StateStore(new EventBus<MateEvent>()),
-    templates: new TemplateStore({ dir: join(dir, "templates") }),
-    bands: new BandStore({ dir: join(dir, "bands") }),
-    songs: songServiceHarness({ dir }).service,
+    templates: harness.templates,
+    bands: harness.bands,
+    songs: harness.service,
     recipes,
     intelligence: idleIntelligence,
     config: loadConfig({}),
@@ -44,7 +55,7 @@ function build(now = 1_000) {
     startedAt: 0,
     now: () => clock.now(),
   });
-  return { app, recipes, writer };
+  return { app, recipes, writer, bands: harness.bands };
 }
 
 function band(over: Partial<Band> = {}): Band {
@@ -120,6 +131,36 @@ describe("bands api", () => {
     await post(app, "/bands", { band: band() });
     expect(await (await app.request("/bands/quartet-1", { method: "DELETE" })).json()).toEqual({ deleted: true });
     expect(await (await app.request("/bands/quartet-1", { method: "DELETE" })).json()).toEqual({ deleted: false });
+  });
+
+  test("POST /bands lands in the log, and a fresh library over it replays the save", async () => {
+    const { app, bands } = build();
+    expect((await post(app, "/bands", { band: band() })).status).toBe(200);
+    await bands.close();
+
+    const path = logPathFor(join(dir, "bands"), "bands");
+    const lines = (await Bun.file(path).text()).trim().split("\n");
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0]!) as BandLogEntry).toMatchObject({
+      seq: 1,
+      event: { type: "band.saved", band: { id: "quartet-1", name: "House quartet" } },
+    });
+
+    // A second library over the same log, after the first is closed: the route
+    // wrote the truth, not just a record file.
+    const replayed = bandLibrary(join(dir, "bands"), { path });
+    expect((await replayed.list()).map((b) => b.id)).toEqual(["quartet-1"]);
+    await replayed.close();
+  });
+
+  test("POST /bands is a 500, not a 200 with nothing written, when the append fails", async () => {
+    // A directory where the log file belongs: every append fails with EISDIR,
+    // the cheapest honest stand-in for a full disk.
+    await mkdir(logPathFor(join(dir, "bands"), "bands"), { recursive: true });
+    const { app } = build();
+    expect((await post(app, "/bands", { band: band() })).status).toBe(500);
+    // The projection is written after the append, so nothing reached the disk.
+    expect(existsSync(join(dir, "bands", "quartet-1.json"))).toBe(false);
   });
 
   test("POST /bands rejects duplicate part ids", async () => {

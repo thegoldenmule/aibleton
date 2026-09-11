@@ -2,13 +2,14 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { MateEvent } from "@aibleton/protocol";
-import { BandStore } from "../../src/core/bands.ts";
 import { ManualClock } from "../../src/core/clock.ts";
 import { EventBus } from "../../src/core/events.ts";
 import { RecipeBook, RecipeStore } from "../../src/core/recipes.ts";
 import { SongStore } from "../../src/core/songs.ts";
 import { StateStore } from "../../src/core/state.ts";
 import { TemplateStore } from "../../src/core/templates.ts";
+import { bandLibrary } from "./library.ts";
+import type { BandLibrary } from "../../src/core/bands.ts";
 import { silentLogger } from "../../src/log.ts";
 import type { AbletonPort } from "../../src/ports/ableton/types.ts";
 import { InMemoryAbletonAdapter } from "../../src/ports/ableton/stub.ts";
@@ -24,7 +25,7 @@ export interface SongServiceHarness {
   service: SongService;
   songs: SongStore;
   templates: TemplateStore;
-  bands: BandStore;
+  bands: BandLibrary;
   recipes: RecipeBook;
   store: StateStore;
   events: EventBus<MateEvent>;
@@ -54,7 +55,9 @@ export function songServiceHarness(opts: SongServiceOptions = {}): SongServiceHa
   const store = new StateStore(events);
   const songs = new SongStore({ dir: join(dir, "songs") });
   const templates = new TemplateStore({ dir: join(dir, "templates") });
-  const bands = new BandStore({ dir: join(dir, "bands") });
+  // The library, not the projection store: one instance per log, and the
+  // one an app built on this harness must be handed too.
+  const bands = bandLibrary(join(dir, "bands"), { now: () => clock.now(), log: silentLogger });
   const writer = opts.writer ?? new ScriptedRecipeWriter();
   const recipes = new RecipeBook({ store: new RecipeStore({ dir: join(dir, "recipes") }), writer, now: () => clock.now() });
   const briefer = opts.briefer ?? new ScriptedBriefer();

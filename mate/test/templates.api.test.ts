@@ -11,8 +11,6 @@ import {
 import { createApp } from "../src/api/server.ts";
 import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
-import { TemplateStore } from "../src/core/templates.ts";
-import { BandStore } from "../src/core/bands.ts";
 import { RecipeBook, RecipeStore } from "../src/core/recipes.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { ManualClock } from "../src/core/clock.ts";
@@ -35,11 +33,14 @@ let dir: string;
 function build(now = 1_000) {
   const clock = new ManualClock(now);
   const events = new EventBus<MateEvent>();
+  // One harness, and its stores handed straight to the app: two libraries over
+  // one log keep separate folds and diverge on the first write.
+  const harness = songServiceHarness({ dir });
   const app = createApp({
     store: new StateStore(events),
-    templates: new TemplateStore({ dir }),
-    bands: new BandStore({ dir: join(dir, "bands") }),
-    songs: songServiceHarness({ dir }).service,
+    templates: harness.templates,
+    bands: harness.bands,
+    songs: harness.service,
     recipes: new RecipeBook({ store: new RecipeStore({ dir: join(dir, "recipes") }), writer: new ScriptedRecipeWriter(), now: () => clock.now() }),
     intelligence: idleIntelligence,
     config: loadConfig({}),
