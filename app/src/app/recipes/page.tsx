@@ -106,8 +106,6 @@ function freshSeed(): number {
  */
 function Inspector({ recipe, seed, onRoll }: { recipe: BandRecipe; seed: number; onRoll: () => void }) {
   const roles = recipeRoles(recipe);
-  const min = recipe.core.length;
-  const max = min + recipe.optional.length;
 
   /**
    * The selected recipe, rolled. Free — `generateBand` is pure — and it says in
@@ -126,54 +124,52 @@ function Inspector({ recipe, seed, onRoll }: { recipe: BandRecipe; seed: number;
   }, [recipe, seed]);
 
   return (
-    <aside className="flex shrink-0 flex-col gap-2.5 rounded-sm border border-accent/40 bg-panel-2 p-2.5 @min-[40rem]:w-72">
-      <PanelHeader title="inspector" level={3} meta={min === max ? `${min} parts` : `${min}–${max} parts`} />
+    // The frame every other panel wears. `PanelHeader` at its default level owns
+    // the rule under it *and* its own padding, so this must not pad its own top.
+    // No `overflow-y-auto` on the body — the workspace column owns the one scroller.
+    <aside className="flex shrink-0 flex-col overflow-hidden rounded-md border border-line bg-panel @min-[40rem]:w-72">
+      <PanelHeader
+        title="inspector"
+        meta={<span title={new Date(recipe.createdAt).toLocaleString()}>written {new Date(recipe.createdAt).toLocaleDateString()}</span>}
+      />
 
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-3 p-3">
         <h3 className="truncate text-sm font-medium text-accent" title={recipe.genre}>
           {recipe.genre}
         </h3>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="font-mono text-[10px] text-muted/70">
-            {roles.length} role{roles.length === 1 ? "" : "s"}
-          </span>
-          <span className="font-mono text-[10px] text-muted/70" title={new Date(recipe.createdAt).toLocaleString()}>
-            written {new Date(recipe.createdAt).toLocaleDateString()}
-          </span>
-        </div>
-      </div>
 
-      <section className="flex flex-col gap-1.5">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <Label>a band from this recipe</Label>
-          <span className="ml-auto flex items-center gap-1.5">
-            <span
-              className="font-mono text-[10px] text-muted/50"
-              title={`rolled from seed ${seed} — generate with it on the bands page to staff this roster for real`}
-            >
-              #{seed}
+        <section className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <Label>a band from this recipe</Label>
+            <span className="ml-auto flex items-center gap-1.5">
+              <span
+                className="font-mono text-[10px] text-muted/50"
+                title={`rolled from seed ${seed} — generate with it on the bands page to staff this roster for real`}
+              >
+                #{seed}
+              </span>
+              <button
+                type="button"
+                onClick={onRoll}
+                title="Roll another band from this recipe. Nothing is saved — the bands page is where one is kept."
+                className="rounded-sm border border-accent-2/60 px-2 py-0.5 font-mono text-[11px] text-accent-2"
+              >
+                ↻ roll again
+              </button>
             </span>
-            <button
-              type="button"
-              onClick={onRoll}
-              title="Roll another band from this recipe. Nothing is saved — the bands page is where one is kept."
-              className="rounded-sm border border-accent-2/60 px-2 py-0.5 font-mono text-[11px] text-accent-2"
-            >
-              ↻ roll again
-            </button>
-          </span>
-        </div>
-        {sample.length > 0 ? (
-          <BandRoster parts={sample} compact />
-        ) : (
-          <p className="text-xs text-muted">This recipe could not be rolled.</p>
-        )}
-      </section>
+          </div>
+          {sample.length > 0 ? (
+            <BandRoster parts={sample} compact />
+          ) : (
+            <p className="text-xs text-muted">This recipe could not be rolled.</p>
+          )}
+        </section>
 
-      <section className="flex flex-col gap-1.5">
-        <Label>who else can play</Label>
-        <Bench recipe={recipe} roles={roles} />
-      </section>
+        <section className="flex flex-col gap-1.5">
+          <Label>who else can play</Label>
+          <Bench recipe={recipe} roles={roles} />
+        </section>
+      </div>
     </aside>
   );
 }
@@ -247,10 +243,7 @@ const CARD_CLASS = {
 };
 
 function RecipeCard({ recipe, selected, onSelect, busy, confirming, onConfirm, onCancel, onDelete }: CardProps) {
-  const roles = recipeRoles(recipe);
   const odds = useMemo(() => partOdds(recipe), [recipe]);
-  const min = recipe.core.length;
-  const max = min + recipe.optional.length;
 
   return (
     // Anywhere on the card selects it, which is the mouse affordance. The
@@ -274,17 +267,9 @@ function RecipeCard({ recipe, selected, onSelect, busy, confirming, onConfirm, o
               {recipe.genre}
             </button>
           </h4>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="font-mono text-[10px] text-muted/70">
-              {min === max ? `${min} parts` : `${min}–${max} parts`}
-            </span>
-            <span className="font-mono text-[10px] text-muted/70">
-              {roles.length} role{roles.length === 1 ? "" : "s"}
-            </span>
-            <span className="font-mono text-[10px] text-muted/70" title={new Date(recipe.createdAt).toLocaleString()}>
-              {new Date(recipe.createdAt).toLocaleDateString()}
-            </span>
-          </div>
+          <span className="font-mono text-[10px] text-muted/70" title={new Date(recipe.createdAt).toLocaleString()}>
+            {new Date(recipe.createdAt).toLocaleDateString()}
+          </span>
         </div>
         <span className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
           {confirming ? (
