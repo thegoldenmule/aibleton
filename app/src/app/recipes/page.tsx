@@ -11,12 +11,16 @@ import { useRecipes } from "../../lib/useRecipes";
 /**
  * How each genre staffs a band, one card per genre.
  *
- * A recipe is a *generator*, not a document, so the card leads with what it
- * produces: the lineup, and a band actually rolled from it — rendered with the
- * same `BandRoster` a saved band wears, because that is what this recipe turns
- * into. The briefs stay folded away. They are Splice search prompts, wanted
- * when a search came back wrong rather than while you are looking for a genre,
- * and all of them at once is ~1,500 words on one screen.
+ * A recipe is a *generator*, not a document, so the card shows only what it
+ * produces: how likely each part is, and a band actually rolled from it —
+ * rendered with the same `BandRoster` a saved band wears, because that is what
+ * this recipe turns into. Roll again for another.
+ *
+ * The names and briefs behind those parts are not laid out here. They are
+ * Splice search prompts: ~1,500 words across four recipes, wanted when a search
+ * came back wrong rather than while you are looking at a genre. Each sampled
+ * part carries its own on hover, and rolling again is what shows you the rest
+ * of the bench.
  *
  * Read-only but for the forget. Nothing here writes a recipe — they arrive on
  * the stream when something asks for a band in a genre mate has none for, which
@@ -76,6 +80,11 @@ export default function RecipesPage() {
   );
 }
 
+/** A fresh random seed, the same way the band generator's "roll again" gets one. */
+function freshSeed(): number {
+  return Math.floor(Math.random() * 2_147_483_647);
+}
+
 interface CardProps {
   recipe: BandRecipe;
   busy: boolean;
@@ -86,23 +95,26 @@ interface CardProps {
 }
 
 function RecipeCard({ recipe, busy, confirming, onConfirm, onCancel, onDelete }: CardProps) {
-  const [bench, setBench] = useState(false);
+  const [seed, setSeed] = useState(0);
   const roles = recipeRoles(recipe);
   const min = recipe.core.length;
   const max = min + recipe.optional.length;
 
   /**
    * One band actually rolled from this recipe. Free — `generateBand` is pure —
-   * and it says in four names what the briefs below cannot: what you get. A
-   * fixed seed, so it does not reshuffle on every render.
+   * and it says in four names what a page of briefs cannot: what you get.
+   *
+   * The seed is held rather than fixed so it can be rolled again, and it is
+   * shown because it is the handle: the same seed and genre on the bands page
+   * staff this exact roster, since that route runs this same function.
    */
   const sample = useMemo<BandPart[]>(() => {
     try {
-      return generateBand({ seed: 0, genre: recipe.id }, oneRecipe(recipe)).parts;
+      return generateBand({ seed, genre: recipe.id }, oneRecipe(recipe)).parts;
     } catch {
       return [];
     }
-  }, [recipe]);
+  }, [recipe, seed]);
 
   const odds = useMemo(() => partOdds(recipe), [recipe]);
 
@@ -160,23 +172,28 @@ function RecipeCard({ recipe, busy, confirming, onConfirm, onCancel, onDelete }:
 
       {sample.length > 0 ? (
         <div className="flex flex-col gap-1">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted/50">a band from this recipe</span>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted/50">a band from this recipe</span>
+            <span className="ml-auto flex items-center gap-1.5">
+              <span
+                className="font-mono text-[10px] text-muted/50"
+                title={`rolled from seed ${seed} — generate with it on the bands page to staff this roster for real`}
+              >
+                #{seed}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSeed(freshSeed)}
+                title="Roll another band from this recipe. Nothing is saved — the bands page is where one is kept."
+                className="rounded-sm border border-accent-2/60 px-1.5 py-0.5 font-mono text-[10px] text-accent-2"
+              >
+                ↻ roll again
+              </button>
+            </span>
+          </div>
           <BandRoster parts={sample} compact />
         </div>
       ) : null}
-
-      <div className="flex flex-col gap-1">
-        <button
-          type="button"
-          onClick={() => setBench((prev) => !prev)}
-          aria-expanded={bench}
-          className="flex items-center gap-1.5 self-start text-[11px] text-muted hover:text-foreground"
-        >
-          <Chevron open={bench} />
-          who else can play
-        </button>
-        {bench ? <Bench recipe={recipe} roles={roles} /> : null}
-      </div>
     </li>
   );
 }
@@ -302,74 +319,3 @@ function PartOdds({ odds }: { odds: PartChance[] }) {
   );
 }
 
-/**
- * Everyone on the bench, per role. Names only — the sample roster above already
- * shows what a brief reads like, and the question this answers is "who else
- * could turn up", which the names answer on their own. Each carries its brief
- * as a tooltip, the way a part in `BandRoster` does.
- *
- * A name in the role's colour is one a *core* slot can reach (the recipe's
- * `anchors`); the muted ones only ever arrive as extra parts.
- */
-function Bench({ recipe, roles }: { recipe: BandRecipe; roles: string[] }) {
-  return (
-    <ul className="flex flex-col gap-1.5 border-t border-line pt-1.5">
-      {roles.map((role) => {
-        const names = recipe.names[role] ?? [];
-        const briefs = recipe.briefs[role] ?? [];
-        const anchor = recipe.anchors[role];
-        const reach = anchor !== undefined && anchor < names.length ? anchor : names.length;
-        return (
-          <li key={role} className="flex flex-col gap-1">
-            <span className="flex items-center gap-1.5">
-              <span className={`shrink-0 rounded-sm border px-1 py-px font-mono text-[9px] ${roleClass(role)}`}>{role}</span>
-              {reach < names.length ? (
-                <span className="font-mono text-[9px] text-muted/50">core picks from the first {reach}</span>
-              ) : null}
-            </span>
-            <span className="flex flex-wrap gap-1">
-              {names.map((name, i) => (
-                <span
-                  key={`${name}-${i}`}
-                  title={briefs[i % Math.max(briefs.length, 1)] ?? undefined}
-                  className={
-                    i < reach
-                      ? `cursor-help rounded-sm border px-1 py-px font-mono text-[10px] ${roleClass(role)}`
-                      : "cursor-help rounded-sm border border-line px-1 py-px font-mono text-[10px] text-muted"
-                  }
-                >
-                  {name}
-                </span>
-              ))}
-            </span>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-/** Full class strings only — Tailwind cannot see interpolated names. */
-const CHEVRON_CLASS = {
-  open: "shrink-0 rotate-90 transition-transform",
-  shut: "shrink-0 transition-transform",
-};
-
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      width={10}
-      height={10}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={3}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      className={open ? CHEVRON_CLASS.open : CHEVRON_CLASS.shut}
-    >
-      <path d="M9 6l6 6-6 6" />
-    </svg>
-  );
-}
