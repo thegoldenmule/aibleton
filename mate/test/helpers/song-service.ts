@@ -1,6 +1,7 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { MateEvent } from "@aibleton/protocol";
 import { BandStore } from "../../src/core/bands.ts";
 import { ManualClock } from "../../src/core/clock.ts";
 import { EventBus } from "../../src/core/events.ts";
@@ -26,7 +27,7 @@ export interface SongServiceHarness {
   bands: BandStore;
   recipes: RecipeBook;
   store: StateStore;
-  events: EventBus;
+  events: EventBus<MateEvent>;
   clock: ManualClock;
   briefer: ScriptedBriefer;
   writer: ScriptedRecipeWriter;
@@ -49,7 +50,7 @@ export interface SongServiceOptions {
 export function songServiceHarness(opts: SongServiceOptions = {}): SongServiceHarness {
   const dir = opts.dir ?? mkdtempSync(join(tmpdir(), "mate-song-service-"));
   const clock = new ManualClock(opts.now ?? 1_000);
-  const events = new EventBus();
+  const events = new EventBus<MateEvent>();
   const store = new StateStore(events);
   const songs = new SongStore({ dir: join(dir, "songs") });
   const templates = new TemplateStore({ dir: join(dir, "templates") });

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { MateEvent } from "@aibleton/protocol";
 import { ManualClock } from "../src/core/clock.ts";
 import { EventBus } from "../src/core/events.ts";
 import { Mailbox } from "../src/core/mailbox.ts";
@@ -24,7 +25,7 @@ class GatedAbleton extends FakeAbleton {
 
 function harness(ableton: FakeAbleton = new FakeAbleton()) {
   const clock = new ManualClock(1_000);
-  const events = new EventBus();
+  const events = new EventBus<MateEvent>();
   const store = new StateStore(events);
   const mailbox = new Mailbox();
   const splice = new FakeSplice();

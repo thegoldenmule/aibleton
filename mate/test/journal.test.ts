@@ -246,7 +246,7 @@ describe("readJournal", () => {
 
 describe("attachJournal", () => {
   test("writes durable bus events, ignores volatile ones, and detaches", async () => {
-    const events = new EventBus();
+    const events = new EventBus<MateEvent>();
     const journal = open();
     let clock = 10;
     const detach = attachJournal(events, journal, () => (clock += 1));

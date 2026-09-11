@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BandListResponseSchema, BandResponseSchema, RecipeListResponseSchema, type Band } from "@aibleton/protocol";
+import { BandListResponseSchema, BandResponseSchema, RecipeListResponseSchema, type Band, type MateEvent } from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
 import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
@@ -33,7 +33,7 @@ function build(now = 1_000) {
   const writer = new ScriptedRecipeWriter();
   const recipes = new RecipeBook({ store: new RecipeStore({ dir: join(dir, "recipes") }), writer, now: () => clock.now() });
   const app = createApp({
-    store: new StateStore(new EventBus()),
+    store: new StateStore(new EventBus<MateEvent>()),
     templates: new TemplateStore({ dir: join(dir, "templates") }),
     bands: new BandStore({ dir: join(dir, "bands") }),
     songs: songServiceHarness({ dir }).service,

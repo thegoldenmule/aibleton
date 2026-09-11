@@ -27,7 +27,7 @@ describe("the shared fold", () => {
    */
   test("folding a whole run's events equals the store the run built", async () => {
     const clock = new ManualClock(1_000);
-    const events = new EventBus();
+    const events = new EventBus<MateEvent>();
     const store = new StateStore(events);
     const brain = new ScriptedBrain([{ message: "Setting 120.", actions: [{ type: "setTempo", bpm: 120 }] }]);
     const loop = new AgentLoop({

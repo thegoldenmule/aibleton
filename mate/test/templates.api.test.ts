@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   TemplateListResponseSchema,
   TemplateResponseSchema,
+  type MateEvent,
   type Template,
 } from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
@@ -33,7 +34,7 @@ let dir: string;
 
 function build(now = 1_000) {
   const clock = new ManualClock(now);
-  const events = new EventBus();
+  const events = new EventBus<MateEvent>();
   const app = createApp({
     store: new StateStore(events),
     templates: new TemplateStore({ dir }),

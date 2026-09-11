@@ -1,6 +1,6 @@
 import { appendFileSync } from "node:fs";
 import { appendFile } from "node:fs/promises";
-import { JournalEntrySchema, toJournaled, type JournaledEvent, type JournalEntry } from "@aibleton/protocol";
+import { JournalEntrySchema, toJournaled, type JournaledEvent, type JournalEntry, type MateEvent } from "@aibleton/protocol";
 import type { Logger } from "../log.ts";
 import type { EventBus } from "./events.ts";
 
@@ -211,7 +211,7 @@ function parseLine(line: string): { entry: JournalEntry | null; seq: number | nu
  * setter. Attaching it *after* a replay is also what stops a restore from
  * re-journaling itself — there is no `restoring` flag to drift.
  */
-export function attachJournal(events: EventBus, journal: SessionJournal, now: () => number): () => void {
+export function attachJournal(events: EventBus<MateEvent>, journal: SessionJournal, now: () => number): () => void {
   return events.subscribe((event) => {
     const journaled = toJournaled(event);
     if (journaled) journal.append(journaled, now());

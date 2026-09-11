@@ -1,6 +1,6 @@
 import { link, mkdir, readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
-import type { JournalEntry, SessionSummary, StateResponse } from "@aibleton/protocol";
+import type { JournalEntry, MateEvent, SessionSummary, StateResponse } from "@aibleton/protocol";
 import { z } from "zod";
 import { silentLogger, type Logger } from "../log.ts";
 import { contextFromState } from "../intelligence/loop.ts";
@@ -310,7 +310,7 @@ export interface SessionManagerOptions {
   sessions: SessionStore;
   store: StateStore;
   /** The bus the journal subscribes to, and where `state.replaced` is announced. */
-  events: EventBus;
+  events: EventBus<MateEvent>;
   /** Where a journaled song id is read back from; a `Song` never rides in the journal. */
   songs: Pick<SongStore, "get">;
   /** Reseeded with the new session's goal, request and song after every switch. */
@@ -336,7 +336,7 @@ export interface SessionManagerOptions {
 export class SessionManager {
   private readonly sessions: SessionStore;
   private readonly store: StateStore;
-  private readonly events: EventBus;
+  private readonly events: EventBus<MateEvent>;
   private readonly songs: Pick<SongStore, "get">;
   private readonly intelligence: Intelligence;
   private readonly now: () => number;

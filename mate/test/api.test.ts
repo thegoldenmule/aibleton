@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { StateResponseSchema, HealthResponseSchema, AdapterStatusSchema } from "@aibleton/protocol";
+import { StateResponseSchema, HealthResponseSchema, AdapterStatusSchema, type MateEvent } from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
 import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
@@ -37,7 +37,7 @@ function fakeIntelligence() {
 }
 
 function build() {
-  const events = new EventBus();
+  const events = new EventBus<MateEvent>();
   const store = new StateStore(events);
   const fake = fakeIntelligence();
   const templates = new TemplateStore({ dir: mkdtempSync(join(tmpdir(), "mate-api-")) });

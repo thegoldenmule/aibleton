@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Activity } from "@aibleton/protocol";
+import type { Activity, MateEvent } from "@aibleton/protocol";
 import { ManualClock } from "../src/core/clock.ts";
 import { EventBus } from "../src/core/events.ts";
 import { Mailbox } from "../src/core/mailbox.ts";
@@ -15,7 +15,7 @@ import { seedLibrary, songServiceHarness } from "./helpers/song-service.ts";
 /** `restore` runs before `loop.start()`, exactly as boot orders it. */
 function harness(script: Decision[] | ScriptedBrain = [], tickMs = 0, restore?: (store: StateStore) => void) {
   const clock = new ManualClock(1_000);
-  const events = new EventBus();
+  const events = new EventBus<MateEvent>();
   const store = new StateStore(events);
   const mailbox = new Mailbox();
   const ableton = new FakeAbleton();
@@ -234,7 +234,7 @@ describe("AgentLoop song digest", () => {
 
   test("a song activated before start() is still the active one", async () => {
     const clock = new ManualClock(1_000);
-    const events = new EventBus();
+    const events = new EventBus<MateEvent>();
     const store = new StateStore(events);
     const song = await fixtureSong();
     store.setSong(song); // nobody is listening yet

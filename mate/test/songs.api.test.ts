@@ -14,7 +14,7 @@ import {
   dawStatus,
   pendingDownloadUuids,
 } from "@aibleton/protocol";
-import type { Activity, Song } from "@aibleton/protocol";
+import type { Activity, MateEvent, Song } from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
 import { BandStore } from "../src/core/bands.ts";
 import { ManualClock } from "../src/core/clock.ts";
@@ -59,7 +59,7 @@ async function build(
   opts: { seedLibrary?: boolean; briefer?: ScriptedBriefer; writer?: ScriptedRecipeWriter; now?: number; splice?: FixtureSpliceAdapter | FakeSplice; ableton?: InMemoryAbletonAdapter } = {},
 ) {
   const clock = new ManualClock(opts.now ?? 1_000);
-  const events = new EventBus();
+  const events = new EventBus<MateEvent>();
   const store = new StateStore(events);
   const templates = new TemplateStore({ dir: join(dir, "templates") });
   const bands = new BandStore({ dir: join(dir, "bands") });
@@ -325,7 +325,7 @@ describe("song library and active song", () => {
 
 describe("StateStore transcript", () => {
   test("user requests from the api and mate messages land in the transcript; loop follow-ups do not", () => {
-    const events = new EventBus();
+    const events = new EventBus<MateEvent>();
     const store = new StateStore(events);
     store.recordCommand({ id: "c1", at: 5, source: "api", type: "userRequest", text: "hi" });
     store.recordCommand({ id: "c2", at: 6, source: "loop", type: "userRequest", text: "check in" });
@@ -341,7 +341,7 @@ describe("StateStore transcript", () => {
   });
 
   test("the transcript is capped, oldest first out", () => {
-    const store = new StateStore(new EventBus(), 50, 3);
+    const store = new StateStore(new EventBus<MateEvent>(), 50, 3);
     for (let i = 0; i < 5; i++) store.appendTranscript({ role: "user", kind: "request", text: `m${i}`, at: i });
     expect(store.getTranscript().map((t) => t.text)).toEqual(["m2", "m3", "m4"]);
   });
@@ -349,7 +349,7 @@ describe("StateStore transcript", () => {
 
 describe("StateStore.setSong", () => {
   test("emits song.changed and shows in the snapshot", async () => {
-    const events = new EventBus();
+    const events = new EventBus<MateEvent>();
     const store = new StateStore(events);
     expect(store.snapshot().song).toBeNull();
     const { fixtureSong } = await import("./helpers/song.ts");

@@ -7,6 +7,7 @@ import {
   ResumeSessionResponseSchema,
   SessionListResponseSchema,
   SessionResponseSchema,
+  type MateEvent,
   type Phase,
 } from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
@@ -52,7 +53,7 @@ function fakeIntelligence() {
 async function build() {
   const clock = new ManualClock(1_000);
   const now = () => (clock as ManualClock).now();
-  const events = new EventBus();
+  const events = new EventBus<MateEvent>();
   const store = new StateStore(events);
   const songs = new SongStore({ dir: join(dir, "songs") });
   const sessionStore = new SessionStore({ dir: join(dir, "sessions"), now, log: silentLogger });

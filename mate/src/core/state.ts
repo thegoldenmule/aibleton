@@ -15,7 +15,7 @@ export class StateStore {
   private readonly fold: FoldOptions;
 
   constructor(
-    readonly events: EventBus,
+    readonly events: EventBus<MateEvent>,
     keepCommands = 50,
     keepTranscript = 200,
   ) {

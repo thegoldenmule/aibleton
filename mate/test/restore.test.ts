@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Song } from "@aibleton/protocol";
+import type { MateEvent, Song } from "@aibleton/protocol";
 import { EventBus } from "../src/core/events.ts";
 import { attachJournal } from "../src/core/journal.ts";
 import { restoreStore } from "../src/core/restore.ts";
@@ -31,7 +31,7 @@ afterEach(async () => {
 
 /** A store with the session's journal attached, exactly as boot wires it. */
 function live(session: OpenSession) {
-  const events = new EventBus();
+  const events = new EventBus<MateEvent>();
   const store = new StateStore(events);
   const detach = attachJournal(events, session.journal, () => (time += 1));
   return { events, store, detach };
@@ -122,7 +122,7 @@ describe("restoreStore", () => {
       const session = await sessions.open(before.id);
       // Attached the way boot attaches it: *after* the replay. Nothing else
       // stops the replay re-journaling itself — there is no flag to forget.
-      const events = new EventBus();
+      const events = new EventBus<MateEvent>();
       const store = new StateStore(events);
       await restoreStore({ store, entries: session.entries, songs, log: silentLogger });
       const detach = attachJournal(events, session.journal, () => (time += 1));

@@ -1,4 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
+import type { MateEvent } from "@aibleton/protocol";
 import { loadConfig } from "./config.ts";
 import { createLogger } from "./log.ts";
 import { SystemClock } from "./core/clock.ts";
@@ -30,7 +31,7 @@ async function main(): Promise<void> {
   const log = createLogger("mate");
 
   const clock = new SystemClock();
-  const events = new EventBus();
+  const events = new EventBus<MateEvent>();
   const store = new StateStore(events);
   const mailbox = new Mailbox();
   const templates = new TemplateStore({ dir: config.templatesDir });
