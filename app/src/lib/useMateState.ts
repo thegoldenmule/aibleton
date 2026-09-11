@@ -4,12 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   applyBandEvent,
   applyMateEvent,
+  applyRecipeEvent,
   applyTemplateEvent,
   BAND_EVENT_TYPES,
   BandEventSchema,
   BandLibrarySchema,
   MATE_EVENT_TYPES,
   MateEventSchema,
+  RECIPE_EVENT_TYPES,
+  RecipeEventSchema,
+  RecipeLibrarySchema,
   StateResponseSchema,
   TEMPLATE_EVENT_TYPES,
   TemplateEventSchema,
@@ -17,9 +21,11 @@ import {
   type Activity,
   type Band,
   type BandEvent,
+  type BandRecipe,
   type CommandSummary,
   type DownloadProgress,
   type ExternalCommand,
+  type RecipeEvent,
   type Song,
   type StateResponse,
   type Template,
@@ -31,7 +37,7 @@ import { arrangeSong, clearActiveSong, deleteTrack, downloadSong, pickSlot, reso
 export type Connection = "connecting" | "open" | "error";
 
 /**
- * The two library folds, re-typed mutable in and out. Neither ever mutates its input and
+ * The three library folds, re-typed mutable in and out. Neither ever mutates its input and
  * neither hands back anything but a plain array — the `readonly` in the protocol signature
  * is a promise to callers, and the pages below this hook are typed `Band[]`/`Template[]`.
  * Going through the real fold is the point: it returns the *same reference* when an event
@@ -40,6 +46,7 @@ export type Connection = "connecting" | "open" | "error";
 const foldBands = (bands: Band[], event: BandEvent): Band[] => applyBandEvent(bands, event) as Band[];
 const foldTemplates = (templates: Template[], event: TemplateEvent): Template[] =>
   applyTemplateEvent(templates, event) as Template[];
+const foldRecipes = (recipes: BandRecipe[], event: RecipeEvent): BandRecipe[] => applyRecipeEvent(recipes, event) as BandRecipe[];
 
 export interface MateView {
   state: StateResponse | null;
@@ -65,6 +72,14 @@ export interface MateView {
   bands: Band[] | null;
   /** The template library, on the same terms as {@link MateView.bands}. */
   templates: Template[] | null;
+  /**
+   * The recipe library, on the same terms again. It moves without anyone on
+   * this page asking: a recipe is written whenever *anything* staffs a band for
+   * a genre mate has none for — the bandmate's `generate_band`, a compose that
+   * needs a new genre, or another tab. That is why it rides the stream instead
+   * of being fetched when this browser happens to press something.
+   */
+  recipes: BandRecipe[] | null;
   /** Folds a band write the page just made; the SSE event normally lands first, this covers a dropped stream. */
   patchBands: (event: BandEvent) => void;
   /** Folds a template write the page just made, on the same terms as {@link MateView.patchBands}. */
@@ -73,6 +88,10 @@ export interface MateView {
   replaceBands: (bands: Band[]) => void;
   /** Replaces the template library wholesale, the way the snapshot frame does. */
   replaceTemplates: (templates: Template[]) => void;
+  /** Folds a recipe removal the page just made, on the same terms as {@link MateView.patchBands}. */
+  patchRecipes: (event: RecipeEvent) => void;
+  /** Replaces the recipe library wholesale, the way the snapshot frame does. */
+  replaceRecipes: (recipes: BandRecipe[]) => void;
   send: (command: ExternalCommand) => Promise<void>;
   /** Clears the active song so the next request composes a new one. */
   clearSong: () => Promise<void>;
@@ -101,6 +120,7 @@ export function useMateState(): MateView {
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
   const [bands, setBands] = useState<Band[] | null>(null);
   const [templates, setTemplates] = useState<Template[] | null>(null);
+  const [recipes, setRecipes] = useState<BandRecipe[] | null>(null);
   const retryRef = useRef(0);
 
   useEffect(() => {
@@ -165,7 +185,7 @@ export function useMateState(): MateView {
         });
       }
 
-      // The two libraries are their own aggregates on this same stream — one EventSource, three
+      // The three libraries are their own aggregates on this same stream — one EventSource, four
       // pictures. Every reconnect re-snapshots, so events missed while the stream was down are
       // simply not needed. Routing is by *which* listener was registered, so nothing unwraps an
       // envelope or dispatches on a tag at runtime.
@@ -190,6 +210,18 @@ export function useMateState(): MateView {
           const parsed = TemplateEventSchema.safeParse(JSON.parse(e.data));
           if (!parsed.success) return;
           setTemplates((prev) => (prev ? foldTemplates(prev, parsed.data) : prev));
+        });
+      }
+
+      source.addEventListener("recipes.snapshot", (e: MessageEvent<string>) => {
+        const parsed = RecipeLibrarySchema.safeParse(JSON.parse(e.data));
+        if (parsed.success) setRecipes(parsed.data.recipes);
+      });
+      for (const type of RECIPE_EVENT_TYPES) {
+        source.addEventListener(type, (e: MessageEvent<string>) => {
+          const parsed = RecipeEventSchema.safeParse(JSON.parse(e.data));
+          if (!parsed.success) return;
+          setRecipes((prev) => (prev ? foldRecipes(prev, parsed.data) : prev));
         });
       }
     };
@@ -237,6 +269,14 @@ export function useMateState(): MateView {
 
   const replaceTemplates = useCallback((next: Template[]) => {
     setTemplates(next);
+  }, []);
+
+  const patchRecipes = useCallback((event: RecipeEvent) => {
+    setRecipes((prev) => (prev ? foldRecipes(prev, event) : prev));
+  }, []);
+
+  const replaceRecipes = useCallback((next: BandRecipe[]) => {
+    setRecipes(next);
   }, []);
 
   const resolveSounds = useCallback(
@@ -343,10 +383,13 @@ export function useMateState(): MateView {
     downloadProgress,
     bands,
     templates,
+    recipes,
     patchBands,
     patchTemplates,
+    patchRecipes,
     replaceBands,
     replaceTemplates,
+    replaceRecipes,
     send,
     clearSong,
     resolveSounds,

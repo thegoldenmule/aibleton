@@ -6,7 +6,9 @@ import { join } from "node:path";
 import {
   BandListResponseSchema,
   BandResponseSchema,
+  DeleteRecipeResponseSchema,
   RecipeListResponseSchema,
+  RecipeResponseSchema,
   type Band,
   type BandLogEntry,
   type MateEvent,
@@ -284,6 +286,47 @@ describe("bands api", () => {
     const list = RecipeListResponseSchema.parse(await (await app.request("/recipes")).json());
     expect(list.recipes.map((r) => r.id)).toEqual(["gospel"]);
     expect(list.recipes[0]).toMatchObject({ id: "gospel", genre: "gospel" });
+  });
+
+  test("GET /recipes/:id answers with the whole recipe, and 404s a genre nothing has written", async () => {
+    const { app } = build();
+    await post(app, "/bands/generate", { genre: "gospel" });
+    const res = await app.request("/recipes/gospel");
+    expect(res.status).toBe(200);
+    const { recipe } = RecipeResponseSchema.parse(await res.json());
+    expect(recipe.id).toBe("gospel");
+    expect(recipe.core.length).toBeGreaterThan(0);
+    // The briefs are the reason this is a separate read: the list carries them
+    // too, but this is the one a genre page asks for by name.
+    expect(recipe.briefs[recipe.core[0]!]!.length).toBeGreaterThan(0);
+
+    expect((await app.request("/recipes/polka")).status).toBe(404);
+    expect((await app.request("/recipes/..%2Fetc")).status).toBe(400);
+  });
+
+  test("DELETE /recipes/:id removes it, and the next band for that genre is written again", async () => {
+    const { app, writer } = build();
+    await post(app, "/bands/generate", { genre: "gospel" });
+    expect(writer.calls).toHaveLength(1);
+
+    const gone = await app.request("/recipes/gospel", { method: "DELETE" });
+    expect(gone.status).toBe(200);
+    expect(DeleteRecipeResponseSchema.parse(await gone.json())).toEqual({ deleted: true });
+    expect(RecipeListResponseSchema.parse(await (await app.request("/recipes")).json()).recipes).toEqual([]);
+
+    // That is what a delete is for: re-rolling the genre costs another write.
+    await post(app, "/bands/generate", { genre: "gospel" });
+    expect(writer.calls).toHaveLength(2);
+
+    // A second delete found nothing, so it appended nothing.
+    expect(DeleteRecipeResponseSchema.parse(await (await app.request("/recipes/polka", { method: "DELETE" })).json())).toEqual({
+      deleted: false,
+    });
+  });
+
+  test("there is no way to write a recipe by hand", async () => {
+    const { app } = build();
+    expect((await post(app, "/recipes", { recipe: {} })).status).toBe(404);
   });
 
   test("a generated band can be saved straight back", async () => {

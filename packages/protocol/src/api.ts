@@ -3,7 +3,8 @@ import { ActivitySchema, AdapterStatusSchema, PhaseSchema, DawStateSchema, Trans
 import { CommandSummarySchema, ExternalCommandSchema } from "./commands.ts";
 import { TemplateSchema } from "./templates.ts";
 import { TemplateLibrarySchema } from "./template-log.ts";
-import { BandRecipeSchema, BandSchema, RecipeSummarySchema } from "./bands.ts";
+import { BandRecipeSchema, BandSchema } from "./bands.ts";
+import { RecipeLibrarySchema } from "./recipe-log.ts";
 import { BandLibrarySchema } from "./band-log.ts";
 import { SongSchema } from "./songs.ts";
 import { SessionSummarySchema } from "./sessions.ts";
@@ -101,8 +102,8 @@ export type GenerateBandRequest = z.infer<typeof GenerateBandRequestSchema>;
 export const DeleteBandResponseSchema = z.object({ deleted: z.boolean() });
 export type DeleteBandResponse = z.infer<typeof DeleteBandResponseSchema>;
 
-/** Response of `GET /recipes`: every genre the generator can staff, built-in first. */
-export const RecipeListResponseSchema = z.object({ recipes: z.array(RecipeSummarySchema) });
+/** Body of `GET /recipes`: the same shape the SSE `recipes.snapshot` frame carries, by construction. */
+export const RecipeListResponseSchema = RecipeLibrarySchema;
 export type RecipeListResponse = z.infer<typeof RecipeListResponseSchema>;
 
 export const RecipeResponseSchema = z.object({ recipe: BandRecipeSchema });

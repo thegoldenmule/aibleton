@@ -4,6 +4,7 @@ import {
   applyRecipeEvent,
   fromJournaledRecipe,
   genreKey,
+  recipeRoles,
   toJournaledRecipe,
   type BandRecipe,
   type JournaledRecipeEvent,
@@ -110,6 +111,15 @@ export class RecipeBook implements RecipeLookup {
 
   constructor(private readonly opts: RecipeBookOptions) {}
 
+  /**
+   * The library underneath. The routes that read or remove a whole recipe go
+   * straight to it, the way the band routes take a `BandLibrary`; the book is
+   * only in the way when a missing recipe has to be written.
+   */
+  get library(): RecipeLibrary {
+    return this.opts.library;
+  }
+
   /** Synchronous lookup, off the library's fold. */
   get(genre: string): BandRecipe | undefined {
     const key = genreKey(genre);
@@ -154,10 +164,6 @@ export class RecipeBook implements RecipeLookup {
   /** Every recipe as a summary, newest first. */
   async list(): Promise<RecipeSummary[]> {
     const written = await this.opts.library.list();
-    return written.map((r) => ({
-      id: r.id,
-      genre: r.genre,
-      roles: [...new Set([...r.core, ...r.optional.map((o) => o.role)])],
-    }));
+    return written.map((r) => ({ id: r.id, genre: r.genre, roles: recipeRoles(r) }));
   }
 }

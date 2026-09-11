@@ -105,6 +105,11 @@ export function createApp(deps: AppDeps): Hono {
           state: async () => ({ templates: await deps.templates.list() }),
           subscribe: (send) => deps.templates.events.subscribe(send),
         },
+        {
+          snapshot: "recipes.snapshot",
+          state: async () => ({ recipes: await deps.recipes.library.list() }),
+          subscribe: (send) => deps.recipes.library.events.subscribe(send),
+        },
       ],
       deps.log,
     ),

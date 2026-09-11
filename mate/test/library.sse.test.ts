@@ -6,6 +6,7 @@ import { Hono } from "hono";
 import {
   BandLibrarySchema,
   BandSchema,
+  RecipeLibrarySchema,
   TemplateLibrarySchema,
   type Band,
   type BandEvent,
@@ -122,10 +123,38 @@ describe("library sse", () => {
     expect(bands.bands).toEqual([fixtureBand()]);
     const templates = TemplateLibrarySchema.parse(await stream.until("templates.snapshot"));
     expect(templates.templates).toEqual([fixtureTemplate()]);
+    // Mate ships no recipes, so a fresh library opens empty and says so.
+    expect(RecipeLibrarySchema.parse(await stream.until("recipes.snapshot")).recipes).toEqual([]);
 
     // The session snapshot still comes first: it is the stream every client
     // has read since there was only one aggregate.
     expect(stream.names()[0]).toBe("snapshot");
+
+    controller.abort();
+    await stream.close();
+  });
+
+  test("a recipe written on the way to a band reaches the stream, and so does removing it", async () => {
+    const { app } = await build();
+    const controller = new AbortController();
+    const stream = sse(await app.request("/events", { signal: controller.signal }));
+    await stream.until("recipes.snapshot");
+
+    // Nobody asked for a recipe — this is a band request, and the recipe is
+    // written on the way. That is the update the app's genre picker used to
+    // miss, because only the browser that clicked knew to refetch.
+    const staffed = await app.request("/bands/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ seed: 1, genre: "Polka" }),
+    });
+    expect(staffed.status).toBe(200);
+    const written = (await stream.until("recipe.saved")) as { type: string; recipe: { id: string; genre: string } };
+    expect(written.recipe).toMatchObject({ id: "polka", genre: "Polka" });
+
+    const deleted = await app.request("/recipes/polka", { method: "DELETE" });
+    expect(deleted.status).toBe(200);
+    expect(await stream.until("recipe.deleted")).toEqual({ type: "recipe.deleted", id: "polka" });
 
     controller.abort();
     await stream.close();

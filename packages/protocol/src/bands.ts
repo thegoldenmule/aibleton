@@ -141,7 +141,21 @@ export type BandRecipe = z.infer<typeof BandRecipeSchema>;
 /** Input shape: `anchors` may be omitted. */
 export type BandRecipeDraft = z.input<typeof BandRecipeSchema>;
 
-/** What `GET /recipes` lists per recipe: enough for a genre picker. */
+/**
+ * Every role a recipe can staff, core first in track order, then the optionals
+ * it may draw. Deduplicated: a role that repeats is one entry, because this
+ * answers "who plays in this genre", not "how many of them".
+ */
+export function recipeRoles(recipe: Pick<BandRecipe, "core" | "optional">): string[] {
+  return [...new Set([...recipe.core, ...recipe.optional.map((o) => o.role)])];
+}
+
+/**
+ * A recipe boiled down to what the `get_genres` tool needs: the genres on hand
+ * and who plays in each. `GET /recipes` and the SSE snapshot carry whole
+ * recipes — this exists so the brain does not read a few KB of briefs per
+ * genre just to answer "what can you staff?".
+ */
 export const RecipeSummarySchema = z.object({
   id: GenreKeySchema,
   genre: z.string().min(1),

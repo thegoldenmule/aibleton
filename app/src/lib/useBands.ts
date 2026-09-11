@@ -1,15 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import type { Band, GenerateBandRequest, RecipeSummary } from "@aibleton/protocol";
-import { deleteBand, generateBand, listBands, listRecipes, saveBand } from "./bands";
+import { useCallback, useState } from "react";
+import type { Band, BandRecipe, GenerateBandRequest } from "@aibleton/protocol";
+import { deleteBand, generateBand, listBands, saveBand } from "./bands";
 import { errorMessage } from "./errors";
 import { useMate } from "./useMate";
 
 export interface BandsView {
   bands: Band[];
-  /** Genres the generator can staff; grows when a new genre is generated. */
-  recipes: RecipeSummary[];
+  /**
+   * Genres that can be staffed right now. Off the stream, so it grows the
+   * moment *anything* writes a recipe — this browser, another tab, or the
+   * bandmate staffing a band on its own.
+   */
+  recipes: BandRecipe[];
   /** True until the first list load settles. */
   loading: boolean;
   /** True while a generate/save/delete request is in flight. */
@@ -23,18 +27,18 @@ export interface BandsView {
 
 /** One empty list, so a library that has not arrived yet does not re-render the page every time. */
 const NO_BANDS: Band[] = [];
+const NO_RECIPES: BandRecipe[] = [];
 
 /**
  * Holds the saved-band list plus the generate/save/delete actions.
  *
- * The list itself is not this hook's state: bands are an event-sourced aggregate riding the one
- * `/events` stream, so `useMate()` holds the fold and every open tab sees a save the moment it
- * happens. What is left here is the mutators, each of which patches its own result in through the
- * same reducer for the case where the stream is down.
+ * Neither list is this hook's state: bands and recipes are both event-sourced aggregates riding
+ * the one `/events` stream, so `useMate()` holds the folds and every open tab sees a write the
+ * moment it happens. What is left here is the mutators, each of which patches its own result in
+ * through the same reducer for the case where the stream is down.
  */
 export function useBands(): BandsView {
-  const { bands, patchBands, replaceBands } = useMate();
-  const [recipes, setRecipes] = useState<RecipeSummary[]>([]);
+  const { bands, recipes, patchBands, replaceBands } = useMate();
   const [busy, setBusy] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
 
@@ -48,27 +52,14 @@ export function useBands(): BandsView {
     }
   }, [replaceBands]);
 
-  // Recipes are not an aggregate yet — no events, so still a plain fetch. They only feed a
-  // datalist, so a failure is not worth an error line.
-  useEffect(() => {
-    listRecipes().then(setRecipes, () => {
-      /* the list is a convenience; a failed load is not an error */
-    });
-  }, []);
-
   const generate = useCallback(async (opts: GenerateBandRequest) => {
     setBusy(true);
     try {
       const band = await generateBand(opts);
       setLastError(null);
-      // Nothing to fold: generating does not save, so the library is untouched until the
-      // drummer posts this band back.
-      // A new genre means a new recipe; refresh the datalist so it shows up.
-      if (opts.genre) {
-        listRecipes().then(setRecipes, () => {
-          /* the list is a convenience; a failed refresh is not an error */
-        });
-      }
+      // Nothing to fold: generating does not save, so the band library is untouched until the
+      // drummer posts this band back. A recipe written on the way *is* a write, and it arrives
+      // on the stream by itself — there is nothing to refetch.
       return band;
     } catch (err) {
       setLastError(errorMessage(err));
@@ -117,5 +108,5 @@ export function useBands(): BandsView {
     [patchBands],
   );
 
-  return { bands: bands ?? NO_BANDS, recipes, loading: bands === null, busy, lastError, refresh, generate, save, remove };
+  return { bands: bands ?? NO_BANDS, recipes: recipes ?? NO_RECIPES, loading: bands === null, busy, lastError, refresh, generate, save, remove };
 }

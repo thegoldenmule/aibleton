@@ -6,6 +6,7 @@ import {
   ROLES,
   bandGenre,
   genreKey,
+  recipeRoles,
   type Band,
   type BandPart,
   type GenerateBandRequest,
@@ -270,7 +271,7 @@ export default function BandsPage() {
             <datalist id="gen-genre-options">
               {recipes.map((recipe) => (
                 <option key={recipe.id} value={recipe.genre}>
-                  {recipe.roles.join(" · ")}
+                  {recipeRoles(recipe).join(" · ")}
                 </option>
               ))}
             </datalist>

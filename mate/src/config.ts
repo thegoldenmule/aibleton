@@ -28,10 +28,11 @@ const ConfigSchema = z.object({
   /** Where saved sessions live: one subdirectory per session, plus `current.json`. */
   sessionsDir: z.string().min(1).default(".mate/sessions"),
   /**
-   * Where the library logs live: `bands.jsonl` and `templates.jsonl`. These are
-   * the **truth** for those aggregates; `bandsDir`/`templatesDir` hold the
-   * rebuildable projection. Deliberately outside both, so reading a record
-   * directory means reading records and nothing else.
+   * Where the library logs live: `bands.jsonl`, `templates.jsonl` and
+   * `recipes.jsonl`. These are the **truth** for those three aggregates;
+   * `bandsDir`/`templatesDir`/`recipesDir` hold the rebuildable projection.
+   * Deliberately outside all three, so reading a record directory means reading
+   * records and nothing else.
    */
   libraryDir: z.string().min(1).default(".mate/library"),
   /**
