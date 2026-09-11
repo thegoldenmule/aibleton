@@ -262,9 +262,14 @@ export class SongService {
 
   /**
    * The first band in an empty library. The genre comes off the seed rather
-   * than the request: a genre the request names but no built-in recipe covers
-   * would put the model in the way of the very first song, and `composeSong`'s
-   * new-genre detour already rolls the right bands once the brief names them.
+   * than the request, because `composeSong`'s new-genre detour already rolls
+   * the right bands once the brief names them — this one only has to give the
+   * pickers something to choose.
+   *
+   * Unlike `seedTemplate` it is not free. Mate ships no recipes, so on a fresh
+   * install this writes `DEFAULT_GENRE`'s recipe before it can staff anything;
+   * after that the seed draws from what the library holds and no model is in
+   * the loop.
    */
   private async seedBand(seed: number, signal: AbortSignal, narrate: (stage: ComposeStage, message: string, fields?: TranscriptField[]) => void): Promise<Band> {
     const [band] = await this.deps.bands.saveAll([await staffBand({ seed }, { recipes: this.deps.recipes, now: this.deps.now, signal })]);

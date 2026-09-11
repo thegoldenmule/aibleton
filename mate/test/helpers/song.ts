@@ -50,7 +50,6 @@ export function fixtureRecipe(over: Partial<BandRecipe> = {}): BandRecipe {
     names: { drums: ["breakbeat kit"], bass: ["p bass"], guitar: ["strat"] },
     briefs: { drums: ["dry breakbeat"], bass: ["round fingerstyle bass"], guitar: ["clean ninth chords"] },
     anchors: {},
-    source: "generated",
     createdAt: 1,
     ...over,
   };

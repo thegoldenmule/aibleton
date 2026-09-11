@@ -13,9 +13,9 @@ import {
 } from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
 import { ModelRefusedError } from "../src/core/anthropic.ts";
+import { DEFAULT_GENRE } from "../src/songwriting/library.ts";
 import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
-import { BUILTIN_GENRES } from "../src/core/band-generator.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { ManualClock } from "../src/core/clock.ts";
 import { loadConfig } from "../src/config.ts";
@@ -207,13 +207,30 @@ describe("bands api", () => {
     expect(one.band.parts).toEqual(two.band.parts);
   });
 
-  test("POST /bands/generate accepts an empty body and picks a genre from the seed", async () => {
-    const { app } = build(555);
+  /**
+   * A fresh install holds no recipes, so an empty body has nothing for the seed
+   * to draw from. `staffBand` writes `DEFAULT_GENRE` rather than refusing, and
+   * the draw then lands on the library of one it just made.
+   */
+  test("POST /bands/generate accepts an empty body on an empty library by writing the default genre", async () => {
+    const { app, writer } = build(555);
     const res = await post(app, "/bands/generate", {});
     expect(res.status).toBe(200);
     const { band: made } = BandResponseSchema.parse(await res.json());
-    expect(BUILTIN_GENRES as readonly string[]).toContain(made.metadata.genre!);
+    expect(made.metadata.genre!).toBe(DEFAULT_GENRE);
     expect(made.name).toContain("555");
+    expect(writer.calls).toEqual([{ genre: DEFAULT_GENRE }]);
+  });
+
+  test("POST /bands/generate with an empty body draws from the recipes already held", async () => {
+    const { app, writer } = build(555);
+    await post(app, "/bands/generate", { genre: "polka" });
+    expect(writer.calls).toHaveLength(1);
+    const { band: made } = BandResponseSchema.parse(await (await post(app, "/bands/generate", {})).json());
+    // polka is the only recipe there, so the draw can only land on it — and no
+    // second write was needed to get there.
+    expect(made.metadata.genre!).toBe("polka");
+    expect(writer.calls).toHaveLength(1);
   });
 
   test("POST /bands/generate writes a recipe for an unknown genre, once, and staffs from it", async () => {
@@ -225,7 +242,7 @@ describe("bands api", () => {
     expect(made.parts.length).toBeGreaterThanOrEqual(3);
     expect(made.parts[0]!.name).toContain("polka");
     expect(writer.calls).toEqual([{ genre: "Polka" }]);
-    expect(recipes.get("polka")?.source).toBe("generated");
+    expect(recipes.get("polka")?.genre).toBe("Polka");
 
     const again = BandResponseSchema.parse(await (await post(app, "/bands/generate", { seed: 9, genre: "polka" })).json());
     expect(again.band.parts).toEqual(made.parts);
@@ -260,12 +277,13 @@ describe("bands api", () => {
     expect(((await res.json()) as { error: string }).error).toBe("invalid JSON body");
   });
 
-  test("GET /recipes lists built-ins then generated recipes", async () => {
+  test("GET /recipes is empty until a genre is asked for, then lists what was written", async () => {
     const { app } = build();
+    expect(RecipeListResponseSchema.parse(await (await app.request("/recipes")).json()).recipes).toEqual([]);
     await post(app, "/bands/generate", { genre: "gospel" });
     const list = RecipeListResponseSchema.parse(await (await app.request("/recipes")).json());
-    expect(list.recipes.slice(0, BUILTIN_GENRES.length).map((r) => r.id)).toEqual([...BUILTIN_GENRES]);
-    expect(list.recipes.at(-1)).toMatchObject({ id: "gospel", genre: "gospel", source: "generated" });
+    expect(list.recipes.map((r) => r.id)).toEqual(["gospel"]);
+    expect(list.recipes[0]).toMatchObject({ id: "gospel", genre: "gospel" });
   });
 
   test("a generated band can be saved straight back", async () => {

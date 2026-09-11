@@ -49,8 +49,8 @@ const TEMPLATES = [
 ];
 
 const GENRES: RecipeSummary[] = [
-  { id: "funk", genre: "funk", source: "builtin", roles: ["drums", "bass", "keys"] },
-  { id: "shoegaze", genre: "Shoegaze", source: "generated", roles: ["drums", "bass", "guitar"] },
+  { id: "funk", genre: "funk", roles: ["drums", "bass", "keys"] },
+  { id: "shoegaze", genre: "Shoegaze", roles: ["drums", "bass", "guitar"] },
 ];
 
 const deps: LibraryToolDeps = { bands: reader(BANDS), templates: reader(TEMPLATES), recipes: { list: async () => GENRES } };
@@ -155,10 +155,11 @@ describe("templates", () => {
 });
 
 describe("get_genres", () => {
-  test("lists what can be staffed and says which ones mate shipped with", async () => {
+  test("lists every genre that can be staffed right now, and who plays in each", async () => {
     const genres = await json("get_genres");
     expect(genres).toEqual(GENRES);
-    expect(genres.map((g: RecipeSummary) => g.source)).toEqual(["builtin", "generated"]);
+    expect(genres.map((g: RecipeSummary) => g.id)).toEqual(["funk", "shoegaze"]);
+    expect(genres[0].roles).toContain("drums");
   });
 });
 

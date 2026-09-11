@@ -1,14 +1,118 @@
 import { describe, expect, test } from "bun:test";
-import { BandPartSchema, BandSchema, ROLES, bandGenre, bandRoles } from "@aibleton/protocol";
-import type { Role } from "@aibleton/protocol";
-import { BUILTIN_GENRES, BUILTIN_RECIPES, generateBand } from "../src/core/band-generator.ts";
+import { BandPartSchema, BandRecipeSchema, BandSchema, ROLES, bandGenre, bandRoles } from "@aibleton/protocol";
+import type { BandRecipe, Role } from "@aibleton/protocol";
+import { generateBand, type RecipeLookup } from "../src/core/band-generator.ts";
+import { genericRecipe } from "../src/songwriting/recipe-writer/scripted.ts";
 
 const SEEDS = 100;
 const SLUG = /^[a-z0-9][a-z0-9-]{0,31}$/;
 
+/**
+ * Mate ships no recipes, so the generator's tests bring their own. These are
+ * fixtures, not data under test: each one is shaped to exercise one rule —
+ * `funk` a wide anchor window and a pool it can exhaust, `metal` a core role
+ * that repeats, `ambient` a core with no drums and a single-name archetype.
+ */
+const FIXTURES: BandRecipe[] = [
+  BandRecipeSchema.parse({
+    id: "funk",
+    genre: "funk",
+    core: ["drums", "bass"],
+    anchors: { drums: 3 },
+    optional: [
+      { role: "guitar", weight: 4 },
+      { role: "keys", weight: 3 },
+      { role: "percussion", weight: 2 },
+      { role: "percussion", weight: 1 },
+    ],
+    names: {
+      drums: ["breakbeat kit", "tight studio kit", "loose live kit"],
+      bass: ["p bass", "clav bass"],
+      guitar: ["clean ninth guitar", "wah guitar"],
+      keys: ["clavinet", "rhodes"],
+      percussion: ["shaker"],
+    },
+    briefs: {
+      drums: ["dry breakbeat", "tight studio groove", "loose room groove"],
+      bass: ["round fingerstyle bass", "clav-doubled bass"],
+      guitar: ["clean ninth chords", "wah rhythm figure"],
+      keys: ["percussive clav stabs", "warm rhodes comping"],
+      percussion: ["shaker sixteenths"],
+    },
+    createdAt: 1,
+  }),
+  BandRecipeSchema.parse({
+    id: "metal",
+    genre: "metal",
+    core: ["drums", "bass", "guitar", "guitar"],
+    anchors: { guitar: 2 },
+    optional: [
+      { role: "vocals", weight: 3 },
+      { role: "keys", weight: 1 },
+    ],
+    names: {
+      drums: ["double kick kit"],
+      bass: ["picked bass"],
+      guitar: ["down-tuned rhythm guitar", "doubled rhythm guitar", "lead guitar", "harmony guitar"],
+      vocals: ["screamed vocal"],
+      keys: ["orchestral pad"],
+    },
+    briefs: {
+      drums: ["double kick and blast fills"],
+      bass: ["picked and distorted"],
+      guitar: ["down-tuned palm-muted riff", "the same riff doubled", "wide lead line", "harmonised lead"],
+      vocals: ["screamed lead vocal"],
+      keys: ["orchestral pad underneath"],
+    },
+    createdAt: 2,
+  }),
+  BandRecipeSchema.parse({
+    id: "ambient",
+    genre: "ambient",
+    core: ["synth", "strings"],
+    anchors: { synth: 1 },
+    optional: [
+      { role: "fx", weight: 2 },
+      { role: "keys", weight: 1 },
+    ],
+    names: {
+      synth: ["drifting pad", "detuned lead"],
+      strings: ["bowed cello", "string swell"],
+      fx: ["tape hiss"],
+      keys: ["felt piano"],
+    },
+    briefs: {
+      synth: ["slow drifting pad", "detuned lead over the pad"],
+      strings: ["bowed cello counterline", "long string swell"],
+      fx: ["tape hiss and crackle"],
+      keys: ["felt piano, sparse"],
+    },
+    createdAt: 3,
+  }),
+];
+
+const BY_ID = new Map(FIXTURES.map((recipe) => [recipe.id, recipe]));
+const GENRES = [...BY_ID.keys()].sort();
+
+/** What `RecipeBook` is to production: a synchronous lookup with a stable genre list. */
+function lookup(recipes: readonly BandRecipe[] = FIXTURES): RecipeLookup {
+  const byId = new Map(recipes.map((recipe) => [recipe.id, recipe]));
+  return {
+    get: (genre) => byId.get(genre),
+    genres: () => [...byId.keys()].sort(),
+  };
+}
+
+const LOOKUP = lookup();
+
+/** Staff a band from the fixtures. Every test goes through this rather than the raw call. */
+function band(opts: Parameters<typeof generateBand>[0], recipes: RecipeLookup = LOOKUP) {
+  return generateBand(opts, recipes);
+}
+
 /** Every role the recipe can ever staff, with how many times it can appear. */
 function multiplicities(genre: string): Map<string, number> {
-  const recipe = BUILTIN_RECIPES.get(genre)!;
+  const recipe = BY_ID.get(genre)!;
   const counts = new Map<string, number>();
   for (const role of [...recipe.core, ...recipe.optional.map((o) => o.role)]) {
     counts.set(role, (counts.get(role) ?? 0) + 1);
@@ -17,9 +121,9 @@ function multiplicities(genre: string): Map<string, number> {
 }
 
 /** Everything the generator promises, checked on one band. */
-function assertInvariants(genre: string, band: ReturnType<typeof generateBand>): void {
-  const recipe = BUILTIN_RECIPES.get(genre)!;
-  const { parts, metadata } = band;
+function assertInvariants(genre: string, staffed: ReturnType<typeof generateBand>): void {
+  const recipe = BY_ID.get(genre)!;
+  const { parts, metadata } = staffed;
 
   expect(metadata.genre).toBe(genre);
   expect(parts.length).toBeGreaterThan(0);
@@ -61,70 +165,94 @@ function assertInvariants(genre: string, band: ReturnType<typeof generateBand>):
 
 describe("generateBand determinism", () => {
   test("same seed and options give a deep-equal band", () => {
-    for (const genre of BUILTIN_GENRES) {
+    for (const genre of GENRES) {
       for (let seed = 0; seed < 25; seed++) {
-        expect(generateBand({ seed, genre })).toEqual(generateBand({ seed, genre }));
-        expect(generateBand({ seed, genre, size: 5 })).toEqual(generateBand({ seed, genre, size: 5 }));
+        expect(band({ seed, genre })).toEqual(band({ seed, genre }));
+        expect(band({ seed, genre, size: 5 })).toEqual(band({ seed, genre, size: 5 }));
       }
     }
-    for (let seed = 0; seed < 25; seed++) expect(generateBand({ seed })).toEqual(generateBand({ seed }));
+    for (let seed = 0; seed < 25; seed++) expect(band({ seed })).toEqual(band({ seed }));
   });
 
   test("different seeds generally differ", () => {
     const bands = new Set<string>();
-    for (let seed = 0; seed < SEEDS; seed++) bands.add(JSON.stringify(generateBand({ seed, genre: "funk" })));
+    for (let seed = 0; seed < SEEDS; seed++) bands.add(JSON.stringify(band({ seed, genre: "funk" })));
     expect(bands.size).toBeGreaterThan(20);
   });
 
   test("handles negative and large seeds", () => {
     for (const seed of [-1, -987654321, 2 ** 31, 2 ** 40 + 7]) {
-      const band = generateBand({ seed, genre: "jazz" });
-      expect(generateBand({ seed, genre: "jazz" })).toEqual(band);
-      assertInvariants("jazz", band);
+      const staffed = band({ seed, genre: "metal" });
+      expect(band({ seed, genre: "metal" })).toEqual(staffed);
+      assertInvariants("metal", staffed);
     }
   });
 
   test("an explicit size matching the seeded size changes nothing", () => {
-    for (const genre of BUILTIN_GENRES) {
+    for (const genre of GENRES) {
       for (let seed = 0; seed < 25; seed++) {
-        const band = generateBand({ seed, genre });
-        expect(generateBand({ seed, genre, size: band.parts.length })).toEqual(band);
+        const staffed = band({ seed, genre });
+        expect(band({ seed, genre, size: staffed.parts.length })).toEqual(staffed);
       }
     }
   });
 
   test("an explicit genre matching the seeded genre changes nothing", () => {
     for (let seed = 0; seed < 50; seed++) {
-      const band = generateBand({ seed });
-      expect(generateBand({ seed, genre: band.metadata.genre as string })).toEqual(band);
+      const staffed = band({ seed });
+      expect(band({ seed, genre: staffed.metadata.genre as string })).toEqual(staffed);
+    }
+  });
+
+  /**
+   * The seeded draw burns one rng call whether or not a genre was given, so a
+   * library that grows re-points an omitted genre but leaves everything after
+   * the draw alone.
+   */
+  test("the genre draw costs one roll, so a named genre is unaffected by the library's size", () => {
+    const narrow = lookup([BY_ID.get("funk")!]);
+    for (let seed = 0; seed < 25; seed++) {
+      expect(band({ seed, genre: "funk" }, narrow)).toEqual(band({ seed, genre: "funk" }));
     }
   });
 });
 
 describe("generateBand invariants", () => {
-  for (const genre of BUILTIN_GENRES) {
+  for (const genre of GENRES) {
     test(`hold for ${SEEDS} seeds: ${genre}`, () => {
-      for (let seed = 0; seed < SEEDS; seed++) assertInvariants(genre, generateBand({ seed, genre }));
+      for (let seed = 0; seed < SEEDS; seed++) assertInvariants(genre, band({ seed, genre }));
     });
 
     test(`hold at every legal size: ${genre}`, () => {
-      const recipe = BUILTIN_RECIPES.get(genre)!;
+      const recipe = BY_ID.get(genre)!;
       for (let size = 1; size <= recipe.core.length + recipe.optional.length + 3; size++) {
-        for (let seed = 0; seed < 12; seed++) assertInvariants(genre, generateBand({ seed, genre, size }));
+        for (let seed = 0; seed < 12; seed++) assertInvariants(genre, band({ seed, genre, size }));
       }
     });
   }
+
+  test("hold for a recipe the scripted writer produced", () => {
+    const written = BandRecipeSchema.parse({ ...genericRecipe("Gospel"), id: "gospel", genre: "Gospel", createdAt: 4 });
+    const book = lookup([written]);
+    for (let seed = 0; seed < SEEDS; seed++) {
+      const { parts, metadata } = band({ seed, genre: "gospel" }, book);
+      expect(metadata.genre).toBe("Gospel");
+      const ids = new Set(parts.map((p) => p.id));
+      expect(ids.size).toBe(parts.length);
+      for (const part of parts) expect(part.id).toMatch(SLUG);
+    }
+  });
 });
 
 describe("generateBand core naming", () => {
   test("core slots only ever take an archetype from the head of the pool", () => {
-    for (const genre of BUILTIN_GENRES) {
-      const recipe = BUILTIN_RECIPES.get(genre)!;
+    for (const genre of GENRES) {
+      const recipe = BY_ID.get(genre)!;
       const coreCounts = new Map<string, number>();
       for (const role of recipe.core) coreCounts.set(role, (coreCounts.get(role) ?? 0) + 1);
 
       for (let seed = 0; seed < SEEDS; seed++) {
-        const { parts } = generateBand({ seed, genre });
+        const { parts } = band({ seed, genre });
         parts.slice(0, recipe.core.length).forEach((part, i) => {
           const role = recipe.core[i]!;
           const pool = recipe.names[role]!;
@@ -137,58 +265,76 @@ describe("generateBand core naming", () => {
 
   test("the archetypes hold for the bands that only have one of a thing", () => {
     for (let seed = 0; seed < SEEDS; seed++) {
-      // one rock guitar is a rhythm guitar; the lead only shows up alongside it
-      expect(generateBand({ seed, genre: "rock", size: 3 }).parts[2]!.name).toBe("rhythm guitar");
-      // reggae's core guitar plays the skank, full stop
-      expect(generateBand({ seed, genre: "reggae" }).parts[2]!.name).toBe("skank guitar");
-      // metal's two core guitars are the doubled rhythm pair, in that order, never two leads
-      const metal = generateBand({ seed, genre: "metal" }).parts.slice(2, 4).map((p) => p.name);
-      expect(metal).toEqual(["down-tuned rhythm guitar", "doubled rhythm guitar"]);
-      // the jazz bass is never a bowed one when it is the only bass
-      expect(generateBand({ seed, genre: "jazz" }).parts[1]!.name).not.toBe("arco upright");
+      // a one-deep anchor window pins the core name whatever the seed does
+      expect(band({ seed, genre: "ambient" }).parts[0]!.name).toBe("drifting pad");
+      // a repeated core role takes the head of the pool in order, never two leads
+      const guitars = band({ seed, genre: "metal" }).parts.slice(2, 4).map((p) => p.name);
+      expect(guitars).toEqual(["down-tuned rhythm guitar", "doubled rhythm guitar"]);
     }
   });
 
   test("supplementary names still reach the band as extra parts", () => {
     const guitars = new Set<string>();
     for (let seed = 0; seed < SEEDS; seed++) {
-      for (const part of generateBand({ seed, genre: "rock", size: 6 }).parts) {
+      for (const part of band({ seed, genre: "metal", size: 6 }).parts) {
         if (part.role === "guitar") guitars.add(part.name);
       }
     }
-    expect(guitars.has("lead guitar")).toBe(true);
-    expect(guitars.size).toBeGreaterThan(2);
+    // the core pair only; the optionals metal offers are not guitars
+    expect(guitars).toEqual(new Set(["down-tuned rhythm guitar", "doubled rhythm guitar"]));
+  });
+
+  test("a pool too shallow for its role cycles with a numeric suffix", () => {
+    // funk offers percussion twice but names one shaker
+    const full = band({ seed: 3, genre: "funk", size: 6 }).parts.filter((p) => p.role === "percussion");
+    expect(full.map((p) => p.name)).toEqual(["shaker", "shaker 2"]);
+    expect(new Set(full.map((p) => p.id)).size).toBe(full.length);
+  });
+
+  test("the brief always belongs to the name beside it", () => {
+    for (const genre of GENRES) {
+      const recipe = BY_ID.get(genre)!;
+      for (let seed = 0; seed < 30; seed++) {
+        for (const part of band({ seed, genre }).parts) {
+          const names = recipe.names[part.role]!;
+          const briefs = recipe.briefs[part.role]!;
+          const index = names.indexOf(part.name);
+          if (index === -1) continue; // a cycled "name 2", checked above
+          expect(part.brief).toBe(briefs[index % briefs.length]!);
+        }
+      }
+    }
   });
 });
 
 describe("generateBand size", () => {
   test("is honoured inside the recipe's range", () => {
-    for (const genre of BUILTIN_GENRES) {
-      const recipe = BUILTIN_RECIPES.get(genre)!;
+    for (const genre of GENRES) {
+      const recipe = BY_ID.get(genre)!;
       for (let size = recipe.core.length; size <= recipe.core.length + recipe.optional.length; size++) {
         for (let seed = 0; seed < 10; seed++) {
-          expect(generateBand({ seed, genre, size }).parts).toHaveLength(size);
+          expect(band({ seed, genre, size }).parts).toHaveLength(size);
         }
       }
     }
   });
 
   test("clamps below the core and above the full roster", () => {
-    for (const genre of BUILTIN_GENRES) {
-      const recipe = BUILTIN_RECIPES.get(genre)!;
+    for (const genre of GENRES) {
+      const recipe = BY_ID.get(genre)!;
       const min = recipe.core.length;
       const max = min + recipe.optional.length;
-      expect(generateBand({ seed: 7, genre, size: 1 }).parts).toHaveLength(min);
-      expect(generateBand({ seed: 7, genre, size: max + 50 }).parts).toHaveLength(max);
+      expect(band({ seed: 7, genre, size: 1 }).parts).toHaveLength(min);
+      expect(band({ seed: 7, genre, size: max + 50 }).parts).toHaveLength(max);
     }
   });
 
   test("an omitted size varies and is not always the full roster", () => {
-    for (const genre of BUILTIN_GENRES) {
-      const recipe = BUILTIN_RECIPES.get(genre)!;
+    for (const genre of GENRES) {
+      const recipe = BY_ID.get(genre)!;
       const max = recipe.core.length + recipe.optional.length;
       const sizes = new Set<number>();
-      for (let seed = 0; seed < SEEDS; seed++) sizes.add(generateBand({ seed, genre }).parts.length);
+      for (let seed = 0; seed < SEEDS; seed++) sizes.add(band({ seed, genre }).parts.length);
       expect(sizes.size).toBeGreaterThan(1);
       expect([...sizes].some((n) => n < max)).toBe(true);
     }
@@ -196,32 +342,43 @@ describe("generateBand size", () => {
 });
 
 describe("generateBand genre", () => {
-  test("an omitted genre is picked from BUILTIN_GENRES and reported in metadata", () => {
+  test("an omitted genre is drawn from what the lookup holds and reported in metadata", () => {
     const picked = new Set<string>();
     for (let seed = 0; seed < SEEDS * 2; seed++) {
-      const band = generateBand({ seed });
-      const genre = band.metadata.genre!;
-      expect(BUILTIN_GENRES as readonly string[]).toContain(genre);
+      const staffed = band({ seed });
+      const genre = staffed.metadata.genre!;
+      expect(GENRES).toContain(genre);
       picked.add(genre);
-      assertInvariants(genre as string, band);
+      assertInvariants(genre as string, staffed);
     }
     expect(picked.size).toBeGreaterThan(1);
   });
 
+  test("a one-recipe library always draws that one", () => {
+    const narrow = lookup([BY_ID.get("ambient")!]);
+    for (let seed = 0; seed < 25; seed++) expect(band({ seed }, narrow).metadata.genre!).toBe("ambient");
+  });
+
   test("metadata.genre always matches the requested genre", () => {
-    for (const genre of BUILTIN_GENRES) {
+    for (const genre of GENRES) {
       for (let seed = 0; seed < 20; seed++) {
-        expect(generateBand({ seed, genre }).metadata.genre).toBe(genre);
+        expect(band({ seed, genre }).metadata.genre!).toBe(genre);
       }
     }
+  });
+
+  /** The genre as written wins over the key it is filed under. */
+  test("metadata carries the recipe's genre, not the id it was looked up by", () => {
+    const written = BandRecipeSchema.parse({ ...genericRecipe("Hip-Hop"), id: "hiphop", genre: "Hip-Hop", createdAt: 5 });
+    expect(band({ seed: 1, genre: "hiphop" }, lookup([written])).metadata.genre!).toBe("Hip-Hop");
   });
 });
 
 describe("generateBand assembles a valid Band", () => {
   test("a band built from the output passes BandSchema", () => {
-    for (const genre of BUILTIN_GENRES) {
+    for (const genre of GENRES) {
       for (let seed = 0; seed < 20; seed++) {
-        const { parts, metadata } = generateBand({ seed, genre });
+        const { parts, metadata } = band({ seed, genre });
         const parsed = BandSchema.safeParse({
           id: `band-${genre}-${seed}`,
           name: `${genre} band`,
@@ -247,72 +404,20 @@ describe("generateBand validation", () => {
     ["a fractional size", { seed: 1, size: 2.5 }, /size/],
     ["an unknown genre", { seed: 1, genre: "polka" as string }, /genre/],
   ])("throws on %s", (_name, opts, message) => {
-    expect(() => generateBand(opts as Parameters<typeof generateBand>[0])).toThrow(message);
+    expect(() => band(opts as Parameters<typeof generateBand>[0])).toThrow(message);
   });
 
-  test("accepts every genre", () => {
-    for (const genre of BUILTIN_GENRES) expect(() => generateBand({ seed: 3, genre })).not.toThrow();
-  });
-});
-
-describe("RECIPES", () => {
-  test("covers exactly BUILTIN_GENRES", () => {
-    expect([...BUILTIN_RECIPES.keys()].sort()).toEqual([...BUILTIN_GENRES].sort());
-  });
-
-  for (const genre of BUILTIN_GENRES) {
-    test(`${genre} is well formed`, () => {
-      const recipe = BUILTIN_RECIPES.get(genre)!;
-      expect(recipe.core.length).toBeGreaterThan(0);
-      for (const role of recipe.core) expect(ROLES as readonly string[]).toContain(role);
-      for (const entry of recipe.optional) {
-        expect(ROLES as readonly string[]).toContain(entry.role);
-        expect(entry.weight).toBeGreaterThan(0);
-      }
-
-      for (const [role, count] of multiplicities(genre)) {
-        const names = recipe.names[role];
-        const briefs = recipe.briefs[role];
-        expect(names).toBeDefined();
-        expect(briefs).toBeDefined();
-        // pools are parallel, so a name never gets another instrument's brief
-        expect(names!.length).toBe(briefs!.length);
-        // deep enough that the numeric fallback never fires in normal generation
-        expect(names!.length).toBeGreaterThanOrEqual(count);
-        expect(new Set(names).size).toBe(names!.length);
-        // ids are never truncated mid-word: role + name always slugs inside 32 chars
-        for (const name of names!) {
-          const slug = `${role}-${name}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-          expect(slug.length).toBeLessThanOrEqual(32);
-        }
-        // an anchor window is wide enough for the core and no wider than the pool
-        const anchor = recipe.anchors[role];
-        if (anchor !== undefined) {
-          expect(anchor).toBeLessThanOrEqual(names!.length);
-          expect(anchor).toBeGreaterThanOrEqual(recipe.core.filter((r) => r === role).length);
-        }
-        for (const name of names!) expect(name.length).toBeGreaterThan(0);
-        for (const brief of briefs!) expect(brief.length).toBeGreaterThan(0);
-      }
-    });
-  }
-
-  test("briefs are genre-distinct: no brief is shared between two genres", () => {
-    const seen = new Map<string, string>();
-    for (const genre of BUILTIN_GENRES) {
-      for (const briefs of Object.values(BUILTIN_RECIPES.get(genre)!.briefs)) {
-        for (const brief of briefs ?? []) {
-          expect(seen.get(brief)).toBeUndefined();
-          seen.set(brief, genre);
-        }
-      }
-    }
+  /**
+   * A fresh install. `staffBand` writes `DEFAULT_GENRE` before it gets here, so
+   * this message is the last line of defence rather than something the drummer
+   * normally sees.
+   */
+  test("an empty library is refused by name rather than by a missing-genre error", () => {
+    expect(() => band({ seed: 1 }, lookup([]))).toThrow(/no recipes yet/);
+    expect(() => band({ seed: 1, genre: "funk" }, lookup([]))).toThrow(/no recipes yet/);
   });
 
-  test("metal keeps two guitars in its core and ambient needs no drums", () => {
-    expect(BUILTIN_RECIPES.get("metal")!.core.filter((role) => role === "guitar")).toHaveLength(2);
-    expect(BUILTIN_RECIPES.get("ambient")!.core).not.toContain("drums");
-    expect(BUILTIN_RECIPES.get("jazz")!.core).toEqual(["drums", "bass", "keys"]);
-    expect(BUILTIN_RECIPES.get("house")!.core).toEqual(["drums", "bass", "synth"]);
+  test("accepts every genre it holds", () => {
+    for (const genre of GENRES) expect(() => band({ seed: 3, genre })).not.toThrow();
   });
 });

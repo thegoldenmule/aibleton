@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BandRecipeSchema, genreKey } from "@aibleton/protocol";
-import { BUILTIN_GENRES, BUILTIN_RECIPES, generateBand } from "../src/core/band-generator.ts";
+import { BandRecipeSchema, genreKey, type BandRecipe } from "@aibleton/protocol";
+import { generateBand, type RecipeLookup } from "../src/core/band-generator.ts";
 import { RecipeBook, isValidRecipeId } from "../src/core/recipes.ts";
 import { recipeLibrary } from "./helpers/library.ts";
 import { normalizeRecipe } from "../src/songwriting/recipe-writer/normalize.ts";
@@ -33,19 +33,21 @@ describe("genreKey", () => {
     expect(genreKey(input)).toBe(key);
   });
 
-  test("built-in ids are their own keys", () => {
-    for (const genre of BUILTIN_GENRES) expect(BUILTIN_RECIPES.get(genre)!.id).toBe(genreKey(genre));
-  });
 });
 
+/** One recipe, wrapped the way `RecipeBook` wraps its library's fold. */
+function only(recipe: BandRecipe): RecipeLookup {
+  return { get: (genre) => (genre === recipe.id ? recipe : undefined), genres: () => [recipe.id] };
+}
+
 describe("ScriptedRecipeWriter", () => {
-  test("writes a recipe every built-in role can staff a band from", async () => {
+  test("writes a recipe a band can be staffed from", async () => {
     const writer = new ScriptedRecipeWriter();
     const draft = await writer.write({ genre: "gospel" }, signal());
-    const recipe = BandRecipeSchema.parse({ ...draft, id: "gospel", genre: "gospel", source: "generated", createdAt: 1 });
+    const recipe = BandRecipeSchema.parse({ ...draft, id: "gospel", genre: "gospel", createdAt: 1 });
     expect(recipe.core).toEqual(["drums", "bass", "keys"]);
     expect(recipe.names.keys![0]).toContain("gospel");
-    const band = generateBand({ seed: 4, genre: "gospel" }, new Map([["gospel", recipe]]));
+    const band = generateBand({ seed: 4, genre: "gospel" }, only(recipe));
     expect(band.metadata.genre).toBe("gospel");
     expect(band.parts.length).toBeGreaterThanOrEqual(3);
     expect(writer.calls).toEqual([{ genre: "gospel" }]);
@@ -75,10 +77,11 @@ describe("RecipeBook", () => {
     return { library, writer, book: new RecipeBook({ library, writer, now: () => at }) };
   }
 
-  test("built-ins resolve synchronously under any spelling and never hit the writer", async () => {
+  test("a fresh library is empty: mate ships no recipes", async () => {
     const h = book();
-    expect(h.book.get("Hip-Hop")?.id).toBe("hiphop");
-    expect(await h.book.ensure("hip hop", signal())).toBe(BUILTIN_RECIPES.get("hiphop")!);
+    await h.library.list();
+    expect(h.book.genres()).toEqual([]);
+    expect(h.book.get("funk")).toBeUndefined();
     expect(h.writer.calls).toEqual([]);
   });
 
@@ -87,7 +90,6 @@ describe("RecipeBook", () => {
     const first = await h.book.ensure("Gospel", signal());
     expect(first.id).toBe("gospel");
     expect(first.genre).toBe("Gospel");
-    expect(first.source).toBe("generated");
     expect(first.createdAt).toBe(1_000);
     expect(await h.library.get("gospel")).toEqual(first);
     expect(h.book.get("gospel")).toEqual(first);
@@ -143,17 +145,13 @@ describe("RecipeBook", () => {
     expect(genres).toContain("polka");
   });
 
-  test("list puts built-ins first, then written recipes newest first", async () => {
+  test("list is newest first, with the roles each genre staffs", async () => {
     const h = book();
     await h.book.ensure("gospel", signal());
     const later = new RecipeBook({ library: h.library, writer: h.writer, now: () => 2_000 });
     await later.ensure("polka", signal());
     const list = await later.list();
-    expect(list.slice(0, BUILTIN_GENRES.length).map((r) => r.id)).toEqual([...BUILTIN_GENRES]);
-    expect(list.slice(BUILTIN_GENRES.length).map((r) => [r.id, r.source])).toEqual([
-      ["polka", "generated"],
-      ["gospel", "generated"],
-    ]);
+    expect(list.map((r) => r.id)).toEqual(["polka", "gospel"]);
     expect(list[0]!.roles).toContain("drums");
   });
 });
@@ -192,9 +190,9 @@ describe("normalizeRecipe", () => {
     expect(draft.names.organ![0]!.length).toBeLessThanOrEqual(24);
     expect(draft.names.empty).toBeUndefined();
     expect(draft.anchors).toEqual({ bass: 2 });
-    const recipe = BandRecipeSchema.parse({ ...draft, id: "gospel", genre: "gospel", source: "generated", createdAt: 1 });
+    const recipe = BandRecipeSchema.parse({ ...draft, id: "gospel", genre: "gospel", createdAt: 1 });
     for (let seed = 0; seed < 20; seed++) {
-      const band = generateBand({ seed, genre: "gospel" }, new Map([["gospel", recipe]]));
+      const band = generateBand({ seed, genre: "gospel" }, only(recipe));
       expect(band.parts.length).toBeGreaterThanOrEqual(4);
       expect(new Set(band.parts.map((p) => p.id)).size).toBe(band.parts.length);
     }

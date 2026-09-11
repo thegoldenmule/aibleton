@@ -34,6 +34,16 @@ import type { RecipeBook } from "../core/recipes.ts";
  * module knowing what HTTP is.
  */
 
+/**
+ * The genre an empty library falls back to. Mate ships no recipes, so the very
+ * first band — `POST /bands/generate {}` on a fresh install, or the one
+ * `SongService` seeds an empty library with — has nothing for the seed to draw
+ * from. Rather than refuse, one genre's recipe is written and the seed draws
+ * from a library of one. It is a genre *name*, not a recipe: the model still
+ * decides who plays in it.
+ */
+export const DEFAULT_GENRE = "funk";
+
 /** A recipe could not be written for the genre. The route logs and maps it to a 502. */
 export class RecipeUnavailableError extends Error {
   constructor(
@@ -85,19 +95,25 @@ export interface LayTemplateDeps {
 /**
  * Staff a band from a genre's recipe. Slow when the genre is new: the model
  * writes the recipe first, once, however many bands are rolled from it after.
+ * An omitted genre is drawn from the recipes already held, so it is free —
+ * except on a fresh install, where the library is empty and `DEFAULT_GENRE` is
+ * written to give the draw something to land on.
  * @throws ModelRefusedError, RecipeUnavailableError, GenerateOptionsError, GeneratedInvalidError
  */
 export async function staffBand(opts: GenerateBandRequest, deps: StaffBandDeps): Promise<Band> {
   const at = deps.now();
   const seed = opts.seed ?? at;
 
-  if (opts.genre !== undefined) {
+  // A named genre is ensured; an omitted one is drawn from what the library
+  // already holds, and only needs writing when the library is empty.
+  const needed = opts.genre ?? (deps.recipes.genres().length === 0 ? DEFAULT_GENRE : undefined);
+  if (needed !== undefined) {
     try {
-      await deps.recipes.ensure(opts.genre, deps.signal);
+      await deps.recipes.ensure(needed, deps.signal);
     } catch (err) {
       // A refusal is the model's answer, not a failure of ours: it travels as itself.
       if (err instanceof ModelRefusedError) throw err;
-      throw new RecipeUnavailableError(opts.genre, messageOf(err));
+      throw new RecipeUnavailableError(needed, messageOf(err));
     }
   }
 

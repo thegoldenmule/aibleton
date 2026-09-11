@@ -21,6 +21,10 @@ export class EmptyLibraryError extends Error {
  * Request words that mean a genre without naming it. Genres themselves are
  * free text: a band tagged "gospel" matches the word "gospel" with no entry
  * here. Values are genre keys (see `genreKey`).
+ *
+ * The values are genre *names*, not recipes mate holds — mate ships none. A
+ * synonym resolving to "hiphop" only means the brief is asked for hip-hop; that
+ * genre's recipe is written on demand like any other.
  */
 export const GENRE_SYNONYMS: Record<string, readonly string[]> = {
   funky: ["funk"],

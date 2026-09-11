@@ -100,8 +100,9 @@ export function bandGenre(band: Pick<Band, "metadata">): string | null {
 export const GenreKeySchema = z.string().regex(/^[a-z0-9]{1,64}$/, "genre key must be lowercase alphanumerics");
 
 /**
- * How one genre staffs a band. Built-in recipes ship with mate; the rest are
- * written by the model the first time a genre is asked for, and saved.
+ * How one genre staffs a band. Mate ships none: the library starts empty and a
+ * genre's recipe is written by the model the first time a band is staffed for
+ * it, then saved to the recipe log like any other document.
  *
  * `names` and `briefs` are parallel per role: the brief at index `i` describes
  * the instrument named at index `i`. Where the arrays differ in length the
@@ -123,7 +124,6 @@ export const BandRecipeSchema = z
     briefs: z.record(z.string(), z.array(z.string().min(1)).min(1)),
     /** How many leading `names` entries a core slot may be drawn from, per role. */
     anchors: z.record(z.string(), z.number().int().positive()).default({}),
-    source: z.enum(["builtin", "generated"]),
     createdAt: z.number(),
   })
   .superRefine((recipe, ctx) => {
@@ -145,7 +145,6 @@ export type BandRecipeDraft = z.input<typeof BandRecipeSchema>;
 export const RecipeSummarySchema = z.object({
   id: GenreKeySchema,
   genre: z.string().min(1),
-  source: z.enum(["builtin", "generated"]),
   roles: z.array(z.string()),
 });
 export type RecipeSummary = z.infer<typeof RecipeSummarySchema>;

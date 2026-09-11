@@ -256,7 +256,7 @@ export default function BandsPage() {
             <label htmlFor="gen-genre" className="text-[10px] uppercase tracking-wider text-muted">
               genre
               <span className="ml-1 normal-case text-muted/60">
-                {knownGenre ? "has a recipe" : options.genre.trim() ? "new · the model writes a recipe first" : "any"}
+                {knownGenre ? "has a recipe" : options.genre.trim() || recipes.length === 0 ? "new · the model writes a recipe first" : "any"}
               </span>
             </label>
             <input
@@ -270,7 +270,7 @@ export default function BandsPage() {
             <datalist id="gen-genre-options">
               {recipes.map((recipe) => (
                 <option key={recipe.id} value={recipe.genre}>
-                  {recipe.source === "generated" ? "written by the model" : "built in"}
+                  {recipe.roles.join(" · ")}
                 </option>
               ))}
             </datalist>
@@ -292,7 +292,7 @@ export default function BandsPage() {
             onClick={() => void roll()}
             className="rounded-sm bg-accent px-4 py-1.5 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy && options.genre.trim() && !knownGenre ? "writing a recipe…" : "generate"}
+            {busy && !knownGenre && (options.genre.trim() || recipes.length === 0) ? "writing a recipe…" : "generate"}
           </button>
           <button
             type="button"

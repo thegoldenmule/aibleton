@@ -12,7 +12,7 @@ import {
 } from "@aibleton/protocol";
 import type { Logger } from "../log.ts";
 import type { RecipeWriter } from "../songwriting/recipe-writer/types.ts";
-import { BUILTIN_RECIPES, type RecipeLookup } from "./band-generator.ts";
+import type { RecipeLookup } from "./band-generator.ts";
 import { DocumentStore } from "./document-store.ts";
 import type { EventBus } from "./events.ts";
 import { isValidDocumentId } from "./ids.ts";
@@ -90,31 +90,30 @@ export interface RecipeBookOptions {
   library: RecipeLibrary;
   writer: RecipeWriter;
   now: () => number;
-  builtins?: ReadonlyMap<string, BandRecipe>;
 }
 
 /**
  * Every recipe mate can staff a band from, and the one place a missing one is
- * written. The library is the storage; this is the read-through in front of it:
- * `ensure` fills a gap by asking the writer once, even under concurrent
- * requests for the same genre, and saves what it gets.
+ * written. Mate ships none: the library starts empty and every genre is
+ * written by the model the first time a band is staffed for it. The library is
+ * the storage; this is the read-through in front of it, and `ensure` fills a
+ * gap by asking the writer once, even under concurrent requests for the same
+ * genre, then saves what it gets.
  *
  * There is no cache here. The library's fold *is* the cache — it is in memory
- * from the moment the log is replayed, so `get` and `genres` stay synchronous
- * without a preload step.
+ * from the moment the log is replayed, so `get` and `genres` stay synchronous.
+ * Both are only meaningful once that open has finished, which is why
+ * `index.ts` awaits `createRecipeLibrary` before building the book.
  */
 export class RecipeBook implements RecipeLookup {
-  private readonly builtins: ReadonlyMap<string, BandRecipe>;
   private readonly inFlight = new Map<string, Promise<BandRecipe>>();
 
-  constructor(private readonly opts: RecipeBookOptions) {
-    this.builtins = opts.builtins ?? BUILTIN_RECIPES;
-  }
+  constructor(private readonly opts: RecipeBookOptions) {}
 
   /** Synchronous lookup, off the library's fold. */
   get(genre: string): BandRecipe | undefined {
     const key = genreKey(genre);
-    return this.builtins.get(key) ?? this.opts.library.all().find((recipe) => recipe.id === key);
+    return this.opts.library.all().find((recipe) => recipe.id === key);
   }
 
   /**
@@ -123,8 +122,10 @@ export class RecipeBook implements RecipeLookup {
    * drawn from, so its order has to be stable for a given library state.
    */
   genres(): readonly string[] {
-    const keys = new Set([...this.builtins.keys(), ...this.opts.library.all().map((recipe) => recipe.id)]);
-    return [...keys].sort();
+    return this.opts.library
+      .all()
+      .map((recipe) => recipe.id)
+      .sort();
   }
 
   /** The recipe for a genre, from what is held or from the writer (saved on the way through). */
@@ -143,20 +144,19 @@ export class RecipeBook implements RecipeLookup {
 
   private async write(genre: string, key: string, signal: AbortSignal): Promise<BandRecipe> {
     const draft = await this.opts.writer.write({ genre }, signal);
-    const recipe = BandRecipeSchema.parse({ ...draft, id: key, genre, source: "generated", createdAt: this.opts.now() });
+    const recipe = BandRecipeSchema.parse({ ...draft, id: key, genre, createdAt: this.opts.now() });
     // The library append is awaited and rejects on failure: a recipe the log
     // did not take is one the next boot would not have, so it is not one the
     // caller may staff a band from.
     return this.opts.library.save(recipe);
   }
 
-  /** Built-ins first in their order, then written recipes newest first. */
+  /** Every recipe as a summary, newest first. */
   async list(): Promise<RecipeSummary[]> {
     const written = await this.opts.library.list();
-    return [...this.builtins.values(), ...written].map((r) => ({
+    return written.map((r) => ({
       id: r.id,
       genre: r.genre,
-      source: r.source,
       roles: [...new Set([...r.core, ...r.optional.map((o) => o.role)])],
     }));
   }

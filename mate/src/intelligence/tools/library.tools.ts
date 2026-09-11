@@ -75,7 +75,7 @@ export const LIBRARY_READ_TOOLS: Tool[] = [
   {
     name: "get_genres",
     description:
-      "Which genres a band can be staffed from, and which of them ship with mate versus having been written by a model already. A genre not in this list is not a refusal — composing one simply writes its recipe first — but this is how you tell the drummer what is already on hand.",
+      "Which genres a band can already be staffed from, and who plays in each. Mate ships none of these: every one was written by a model the first time a band was staffed for that genre. A genre not in this list is not a refusal — asking for one simply writes its recipe first, which takes a while — but this is how you tell the drummer what is on hand right now.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
     strict: true,
   },
@@ -94,7 +94,7 @@ export const LIBRARY_ACTION_TOOLS: Tool[] = [
   {
     name: "generate_band",
     description:
-      "Staff a new band from a genre and save it to the library: a roster of parts, each with a role, a stage name and the brief Splice is searched with. Everything is optional — with no genre one is picked for you. Check get_genres first: a genre already on that list is immediate, and any other genre has its recipe written by a model before the band is rolled, which takes a while. Adds to the library for a future song; it does not change the song on the go.",
+      "Staff a new band from a genre and save it to the library: a roster of parts, each with a role, a stage name and the brief Splice is searched with. Everything is optional — with no genre one is drawn from the genres already on hand. Check get_genres first: a genre already on that list is immediate, and any other genre has its recipe written by a model before the band is rolled, which takes a while. Adds to the library for a future song; it does not change the song on the go.",
     input_schema: {
       type: "object",
       properties: {
