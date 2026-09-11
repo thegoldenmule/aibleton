@@ -174,7 +174,7 @@ function Inspector({ recipe, seed, onRoll }: { recipe: BandRecipe; seed: number;
         </section>
 
         <section className="flex flex-col gap-1.5 px-3 py-2.5">
-          <PanelHeader title="who else it can call on" level={3} meta="coloured = in this roll" />
+          <PanelHeader title="who else it can call on" level={3} />
           <Bench recipe={recipe} roles={roles} playing={playing} />
         </section>
       </div>
