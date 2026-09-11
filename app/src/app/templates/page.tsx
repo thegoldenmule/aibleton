@@ -117,6 +117,12 @@ export default function TemplatesPage() {
   const [draft, setDraft] = useState<Template | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Derived rather than stored, so deleting the selected template falls through
+  // to the next one instead of emptying the pane — and so the first card is
+  // selected on arrival with no effect to put it there.
+  const selected = templates.find((template) => template.id === selectedId) ?? templates[0] ?? null;
 
   const set = (key: keyof Options) => (value: string) => setOptions((prev) => ({ ...prev, [key]: value }));
 
@@ -156,7 +162,11 @@ export default function TemplatesPage() {
     }
     setDraftError(null);
     try {
-      await save(parsed.data);
+      // From the response: that copy is the one mate normalised, and the fold has
+      // already landed it, so selecting it by id resolves under the rule above
+      // and answers "where did it go?" the moment the draft disappears.
+      const saved = await save(parsed.data);
+      setSelectedId(saved.id);
       setDraft(null);
     } catch {
       // surfaced through useTemplates.lastError
@@ -179,7 +189,9 @@ export default function TemplatesPage() {
     <WorkspacePanel title="templates" meta={loading ? "loading…" : `${templates.length} saved`}>
       <ErrorNote message={lastError} />
 
-      <section className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
+      {/* `shrink-0` on the three sections: the column's scroller is what gives,
+          not the generator's fields or the grid below it. */}
+      <section className="flex shrink-0 flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
         <PanelHeader title="generator" level={3} />
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           <TextField id="gen-name" label="name" value={options.name} onChange={set("name")} placeholder="auto" />
@@ -261,7 +273,7 @@ export default function TemplatesPage() {
       </section>
 
       {draft ? (
-        <section className="flex flex-col gap-3 rounded-sm border border-accent/50 bg-panel-2 p-2.5">
+        <section className="flex shrink-0 flex-col gap-3 rounded-sm border border-accent/50 bg-panel-2 p-2.5">
           <PanelHeader
             title="preview"
             level={3}
@@ -323,7 +335,7 @@ export default function TemplatesPage() {
         </section>
       ) : null}
 
-      <section className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
+      <section className="flex shrink-0 flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
         <PanelHeader title="saved templates" level={3} />
         {loading ? (
           <p className="text-xs text-muted">Loading…</p>
@@ -337,19 +349,34 @@ export default function TemplatesPage() {
           // viewport. Two columns at most, unlike bands — a form strip wants the
           // width a roster does not.
           <div className="@container">
-            <ul className="grid auto-rows-min grid-cols-1 gap-2 @min-[47rem]:grid-cols-2">
-              {templates.map((template) => (
-                <TemplateCard
-                  key={template.id}
-                  template={template}
-                  busy={busy}
-                  confirming={confirmId === template.id}
-                  onConfirm={() => setConfirmId(template.id)}
-                  onCancel={() => setConfirmId(null)}
-                  onDelete={() => void destroy(template.id)}
-                />
-              ))}
-            </ul>
+            {/* Content-height, deliberately: the generator above it (and a draft,
+                when one is open) come first in the workspace column's scroller,
+                so free space there is already negative. A `flex-1` row would
+                shrink by `1 × 0` — absorbing none of the deficit — and with
+                `min-h-0` removing the content floor it would resolve to nothing
+                and take the grid with it. So the row grows with its cards and
+                the panel's scroller, the column's only one, does the scrolling;
+                the inspector rides along pinned instead of stretched. Sticky
+                only at the row breakpoint: stacked, the cross axis flips and
+                `items-start` would collapse the aside to its text. */}
+            <div className="flex flex-col gap-2 @min-[40rem]:flex-row @min-[40rem]:items-start">
+              <ul className="grid min-w-0 flex-1 auto-rows-min grid-cols-1 gap-2 @min-[47rem]:grid-cols-2">
+                {templates.map((template) => (
+                  <TemplateCard
+                    key={template.id}
+                    template={template}
+                    selected={selected?.id === template.id}
+                    onSelect={() => setSelectedId(template.id)}
+                    busy={busy}
+                    confirming={confirmId === template.id}
+                    onConfirm={() => setConfirmId(template.id)}
+                    onCancel={() => setConfirmId(null)}
+                    onDelete={() => void destroy(template.id)}
+                  />
+                ))}
+              </ul>
+              {selected ? <TemplateInspector template={selected} /> : null}
+            </div>
           </div>
         )}
       </section>
@@ -369,6 +396,8 @@ function safeLabels(form: string): string[] {
 
 interface CardProps {
   template: Template;
+  selected: boolean;
+  onSelect: () => void;
   busy: boolean;
   confirming: boolean;
   onConfirm: () => void;
@@ -376,16 +405,37 @@ interface CardProps {
   onDelete: () => void;
 }
 
-function TemplateCard({ template, busy, confirming, onConfirm, onCancel, onDelete }: CardProps) {
+/** Full class strings only — Tailwind cannot see interpolated names. */
+const CARD_CLASS = {
+  on: "flex cursor-pointer flex-col gap-2 rounded-sm border border-accent/60 bg-accent/10 p-2.5",
+  off: "flex cursor-pointer flex-col gap-2 rounded-sm border border-line bg-panel p-2.5 hover:border-line/80 hover:bg-panel-2",
+};
+
+function TemplateCard({ template, selected, onSelect, busy, confirming, onConfirm, onCancel, onDelete }: CardProps) {
   const bars = totalBars(template.form);
   const sections = sectionStats(template.form).length;
 
   return (
-    <li className="flex flex-col gap-2 rounded-sm border border-line bg-panel p-2.5">
+    // Anywhere on the card selects it, which is the mouse affordance. The
+    // keyboard one is the name itself, a real button: nesting the delete
+    // control inside a `role="button"` card would make one interactive element
+    // swallow another, and give the li two contradictory roles at once.
+    <li onClick={onSelect} className={selected ? CARD_CLASS.on : CARD_CLASS.off}>
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h4 className="truncate text-sm font-medium" title={template.name}>
-            {template.name}
+          <h4 className="truncate text-sm font-medium">
+            <button
+              type="button"
+              aria-pressed={selected}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect();
+              }}
+              title={template.name}
+              className="block w-full truncate text-left"
+            >
+              {template.name}
+            </button>
           </h4>
           {/* Facts, each its own span, the way a band card reads them. The date
               is short with the full timestamp on hover: `toLocaleString` ran the
@@ -409,7 +459,9 @@ function TemplateCard({ template, busy, confirming, onConfirm, onCancel, onDelet
             ) : null}
           </div>
         </div>
-        <span className="flex shrink-0 items-center gap-1.5">
+        {/* The whole delete cluster, both states, stops the click from reaching
+            the card: deleting a template should never also select it on the way. */}
+        <span className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
           {confirming ? (
             <>
               <button
@@ -445,5 +497,87 @@ function TemplateCard({ template, busy, confirming, onConfirm, onCancel, onDelet
           words, and the strip alone is what a card is for. */}
       <FormStrip form={template.form} sections={template.sections} showLegend={false} />
     </li>
+  );
+}
+
+/**
+ * Everything about the selected template the card has no room for: every
+ * section brief in full, and how much of the song each letter actually is.
+ *
+ * The briefs are the point. They are Splice search prompts, a sentence or two
+ * each, and `FormStrip`'s legend can only truncate them — which is exactly when
+ * you want to read one, after a search came back with the wrong thing. So the
+ * strip is reused with its legend off and the briefs are written out below it.
+ *
+ * No re-roll button, unlike the recipes inspector. A saved template is a record,
+ * not a generator: the roll that made it is spent, and its seed is on the card
+ * for anyone who wants to lay another.
+ */
+function TemplateInspector({ template }: { template: Template }) {
+  const bars = totalBars(template.form);
+  const stats = sectionStats(template.form);
+
+  return (
+    // The frame every other panel wears, and the rhythm too: `PanelHeader` owns
+    // the rule under the title and its own padding, so the body pads nothing and
+    // each section carries the same full-bleed rule instead. No overflow-y-auto
+    // — the workspace column owns the one scroller.
+    <aside className="flex shrink-0 flex-col overflow-hidden rounded-md border border-line bg-panel @min-[40rem]:sticky @min-[40rem]:top-0 @min-[40rem]:w-72">
+      <PanelHeader title="inspector" />
+
+      <div className="flex flex-col">
+        <div className="flex flex-col gap-0.5 border-b border-line px-3 py-2.5">
+          <h3 className="truncate text-sm font-medium text-accent" title={template.name}>
+            {template.name}
+          </h3>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] text-muted/70">
+            <span>{bars ?? "?"} bars</span>
+            <span>
+              {stats.length} section{stats.length === 1 ? "" : "s"}
+            </span>
+            {template.bpm ? <span>{template.bpm} bpm</span> : null}
+            <span title={new Date(template.createdAt).toLocaleString()}>
+              {new Date(template.createdAt).toLocaleDateString()}
+            </span>
+            {template.seed !== undefined ? (
+              <span
+                className="text-muted/50"
+                title={`rolled from seed ${template.seed} — generate with it to lay this form again`}
+              >
+                #{template.seed}
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        <section className="flex flex-col gap-1.5 border-b border-line px-3 py-2.5">
+          <PanelHeader title="form" level={3} />
+          <FormStrip form={template.form} sections={template.sections} showLegend={false} />
+          {/* The form string itself, which is what the generator round-trips and
+              what anyone typing a form by hand is copying. */}
+          <span className="font-mono text-[10px] text-muted/60">{template.form}</span>
+        </section>
+
+        <section className="flex flex-col gap-1.5 px-3 py-2.5">
+          <PanelHeader title="sections" level={3} />
+          <ul className="flex flex-col gap-2">
+            {stats.map((stat) => (
+              <li key={stat.label} className="flex flex-col gap-0.5">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className={`h-2.5 w-2.5 shrink-0 rounded-sm border ${letterClass(stat.label)}`} aria-hidden="true" />
+                  <span className="font-mono text-[11px]">{stat.label}</span>
+                  <span className="font-mono text-[10px] text-muted/70">
+                    ×{stat.times} · {stat.bars} bars
+                  </span>
+                </span>
+                {/* Wrapped, not truncated. This is the one place the whole brief
+                    reads without a hover, and it is why the pane exists. */}
+                <span className="text-[11px] leading-snug text-muted">{template.sections[stat.label]?.brief ?? "—"}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+    </aside>
   );
 }
