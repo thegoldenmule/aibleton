@@ -60,7 +60,7 @@ export function SongView({ song, session, spliceStub, abletonStub, resolving, do
     : null;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+    <div className="flex flex-col gap-3">
       <div className="flex shrink-0 flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <h3 className="text-sm font-semibold">{song.name}</h3>
