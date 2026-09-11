@@ -1,10 +1,10 @@
-import { BandSchema, SongSchema, genreKey } from "@aibleton/protocol";
+import { SongSchema, genreKey } from "@aibleton/protocol";
 import type { Band, ComposeStage, Song, SongBrief, Template, TranscriptField } from "@aibleton/protocol";
-import { generateBand } from "../core/band-generator.ts";
 import { newId } from "../core/commands.ts";
 import type { RecipeBook } from "../core/recipes.ts";
 import type { Briefer } from "./briefer/types.ts";
 import { applyFeedback } from "./feedback.ts";
+import { staffBand } from "./library.ts";
 import { layoutSong } from "./layout.ts";
 import { askFields, briefFields, editFields, layoutFields, pickedFields } from "./narrate.ts";
 import { bandGenreKeys, genreKeysIn, matchesGenre, pickBand, pickTemplate, tokenize } from "./pick.ts";
@@ -44,7 +44,7 @@ export interface ComposeOptions {
  * When the request names a genre no saved band covers, the brief is the only
  * thing that can say so. On that miss the flow makes sure a recipe exists,
  * rolls a few bands from it, saves them, picks one and briefs again with it.
- * @throws EmptyLibraryError, ModelRefusedError, or whatever the briefer or writer throws.
+ * @throws EmptyLibraryError, ModelRefusedError, RecipeUnavailableError, or whatever the briefer throws.
  */
 export async function composeSong(opts: ComposeOptions): Promise<Song> {
   const progress = opts.onProgress ?? (() => {});
@@ -61,15 +61,13 @@ export async function composeSong(opts: ComposeOptions): Promise<Song> {
     progress("recipe", `no saved band plays ${genre}`, [
       { label: "doing", value: known ? "staffing one from the saved recipe" : "asking the model how a band for this genre is staffed…" },
     ]);
-    await opts.recipes.ensure(genre, opts.signal);
-    // Roll them all first — rolling is pure — then one save, then the narration
-    // the save loop used to carry. The three land as one log commit or not at
-    // all; the drummer still reads them arriving one at a time.
+    // Roll them all first — `staffBand` writes the recipe on the first call and
+    // the rest come off it — then one save, then the narration the save loop
+    // used to carry. The three land as one log commit or not at all; the
+    // drummer still reads them arriving one at a time.
     const rolled: Band[] = [];
     for (let i = 1; i <= BANDS_PER_NEW_GENRE; i++) {
-      const seed = opts.seed + i;
-      const staffed = generateBand({ seed, genre }, opts.recipes);
-      rolled.push(BandSchema.parse({ id: newId("band"), name: `${staffed.metadata.genre} band ${seed}`, parts: staffed.parts, metadata: staffed.metadata, createdAt: opts.now() }));
+      rolled.push(await staffBand({ seed: opts.seed + i, genre }, { recipes: opts.recipes, now: opts.now, signal: opts.signal }));
     }
     const saved = await opts.saveBands(rolled);
     saved.forEach((rolledBand, i) => {
