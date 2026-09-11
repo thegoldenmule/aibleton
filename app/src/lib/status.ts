@@ -23,3 +23,6 @@ export const PHASE_CLASS: Record<Phase, string> = {
   paused: "bg-panel-2 text-muted",
   error: "bg-audio/20 text-audio",
 };
+
+/** What the app assumes before /state arrives: everything stubbed, nothing live. */
+export const FALLBACK_ADAPTERS = { ableton: "stub", splice: "stub", brain: "scripted" } as const;

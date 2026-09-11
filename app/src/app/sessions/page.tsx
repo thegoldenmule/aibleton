@@ -49,7 +49,7 @@ export default function SessionsPage() {
   };
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
       <header className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-line bg-panel px-4 py-2.5">
         <span className="text-sm font-semibold tracking-tight">aibleton</span>
         <span className="text-xs text-muted">sessions</span>
@@ -131,7 +131,7 @@ export default function SessionsPage() {
           </ul>
         )}
       </section>
-    </main>
+    </div>
   );
 }
 

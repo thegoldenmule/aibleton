@@ -3,7 +3,7 @@ import type { AdapterStatus, Phase, Transport } from "@aibleton/protocol";
 import type { Connection } from "../lib/useMateState";
 import { PHASE_CLASS } from "../lib/status";
 
-interface Props {
+export interface AppHeaderProps {
   transport: Transport | null;
   phase: Phase;
   error: string | null;
@@ -18,7 +18,7 @@ const CONNECTION_CLASS: Record<Connection, string> = {
   error: "bg-audio",
 };
 
-export function TransportBar({ transport, phase, error, adapters, connection, goal }: Props) {
+export function AppHeader({ transport, phase, error, adapters, connection, goal }: AppHeaderProps) {
   return (
     <header className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-md border border-line bg-panel px-4 py-2.5">
       <div className="flex items-center gap-2">
