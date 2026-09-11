@@ -54,6 +54,13 @@ const BandShape = z.object({
   parts: z.array(BandPartSchema).min(1),
   /** Free-form tags. `genre` is a conventional key; nothing here is required. */
   metadata: z.record(z.string(), z.string()).default({}),
+  /**
+   * The seed this band was rolled from, when it was rolled rather than written
+   * by hand. It is the reproducibility record — `POST /bands/generate` with it
+   * replays the same roster — and it is deliberately *not* in `name`: a name is
+   * read on a card, a seed is typed into a field.
+   */
+  seed: z.number().int().optional(),
   createdAt: z.number(),
 });
 

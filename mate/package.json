@@ -8,7 +8,8 @@
     "start": "bun --env-file=../.env --env-file=.env src/index.ts",
     "test": "bun test",
     "splice:login": "bun --env-file=../.env --env-file=.env src/cli/splice-login.ts",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "library:rename-seeded": "bun --env-file=../.env --env-file=.env src/cli/rename-seeded.ts"
   },
   "dependencies": {
     "@aibleton/protocol": "workspace:*",

@@ -166,9 +166,9 @@ describe("EffectRunner: the library generates", () => {
     const band = saved[0]!;
     expect(band.metadata.genre).toBe("funk");
     expect(applied(h).map((e) => [e.action, e.ok])).toEqual([["generateBand", true]]);
-    // “funk band 1000”: breakbeat kit (drums), P-bass (bass), ...
+    // “Gold Cartel”: breakbeat kit (drums), P-bass (bass), ...
     expect(applied(h)[0]?.detail).toBe(`“${band.name}”: ${band.parts.map((p) => `${p.name} (${p.role})`).join(", ")}`);
-    expect(applied(h)[0]?.detail).toMatch(/^“funk band \d+”: [^(]+ \([a-z]+\)/);
+    expect(applied(h)[0]?.detail).toMatch(/^“[A-Z][a-z]+ [A-Z][a-z]+”: [^(]+ \([a-z]+\)/);
   });
 
   test("a name the model chose is the one the library holds", async () => {
@@ -190,7 +190,7 @@ describe("EffectRunner: the library generates", () => {
     const template = (await h.templates.list())[0]!;
     // Sections counted along the form, not distinct letters: five to play, forty bars of them.
     expect(applied(h)[0]?.detail).toBe(`“${template.name}”: ${template.form} (5 sections, 40 bars)`);
-    expect(applied(h)[0]?.detail).toMatch(/^“Form \d+”: (?:[a-z]\d+ ?){5}\(5 sections, 40 bars\)$/);
+    expect(applied(h)[0]?.detail).toMatch(/^“[A-Z][a-z]+ [A-Z][a-z]+”: (?:[a-z]\d+ ?){5}\(5 sections, 40 bars\)$/);
   });
 
   test("a refusal from the recipe writer fails the action; it does not crash the runner", async () => {

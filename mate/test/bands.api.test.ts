@@ -13,6 +13,7 @@ import {
   type BandLogEntry,
   type MateEvent,
 } from "@aibleton/protocol";
+import { bandName } from "../src/core/naming.ts";
 import { createApp } from "../src/api/server.ts";
 import { ModelRefusedError } from "../src/core/anthropic.ts";
 import { DEFAULT_GENRE } from "../src/songwriting/library.ts";
@@ -220,7 +221,10 @@ describe("bands api", () => {
     expect(res.status).toBe(200);
     const { band: made } = BandResponseSchema.parse(await res.json());
     expect(made.metadata.genre!).toBe(DEFAULT_GENRE);
-    expect(made.name).toContain("555");
+    // The clock is the seed, and the seed is a field — never the name.
+    expect(made.seed).toBe(555);
+    expect(made.name).toBe(bandName(555));
+    expect(made.name).not.toMatch(/\d/);
     expect(writer.calls).toEqual([{ genre: DEFAULT_GENRE }]);
   });
 

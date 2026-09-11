@@ -565,6 +565,18 @@ export default function BandsPage() {
                           >
                             {new Date(band.createdAt).toLocaleDateString()}
                           </span>
+                          {band.seed !== undefined ? (
+                            // The seed used to be the name. It is a fact about
+                            // the roll, so it reads like the other facts — and
+                            // it is here at all because it is what you type
+                            // into the generator to staff this roster again.
+                            <span
+                              className="font-mono text-[10px] text-muted/50"
+                              title={`rolled from seed ${band.seed} — generate with it to staff this roster again`}
+                            >
+                              #{band.seed}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                       {confirmId === band.id ? (

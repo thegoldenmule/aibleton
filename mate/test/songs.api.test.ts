@@ -171,9 +171,9 @@ describe("POST /songs/compose", () => {
     const templates = await h.templates.list();
     const bands = await h.bands.list();
     expect(templates.map((t) => t.id)).toEqual([song.templateId]);
-    // Named for the compose's own seed, which tells it apart from any band the
+    // Carries the compose's own seed, which tells it apart from any band the
     // new-genre detour rolled afterwards (those carry seed + 1, + 2, + 3).
-    const seeded = bands.filter((b) => b.name.endsWith(" band 7"));
+    const seeded = bands.filter((b) => b.seed === 7);
     expect(seeded).toHaveLength(1);
     expect(seeded[0]!.parts.length).toBeGreaterThan(0);
     // The song embeds what it used, so the seeded form is the one it was built on.

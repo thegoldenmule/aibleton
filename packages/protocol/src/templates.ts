@@ -20,6 +20,8 @@ const TemplateShape = z.object({
   form: FormStringSchema,
   sections: z.record(z.string(), SectionSchema),
   bpm: z.number().positive().optional(),
+  /** The seed this form was rolled from. See `BandSchema.seed` — same rule, same reason. */
+  seed: z.number().int().optional(),
   createdAt: z.number(),
 });
 

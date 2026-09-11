@@ -14,6 +14,7 @@ import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
 import { ScriptedRecipeWriter } from "../src/songwriting/recipe-writer/index.ts";
 import { ManualClock } from "../src/core/clock.ts";
+import { templateName } from "../src/core/naming.ts";
 import { loadConfig } from "../src/config.ts";
 import { silentLogger } from "../src/log.ts";
 import type { Intelligence } from "../src/intelligence/types.ts";
@@ -178,7 +179,10 @@ describe("templates api", () => {
     const res = await post(app, "/templates/generate", {});
     expect(res.status).toBe(200);
     const { template: made } = TemplateResponseSchema.parse(await res.json());
-    expect(made.name).toBe("Form 555");
+    // The clock is the seed, and the seed is a field — never the name.
+    expect(made.seed).toBe(555);
+    expect(made.name).toBe(templateName(555));
+    expect(made.name).not.toMatch(/\d/);
   });
 
   test("POST /templates/generate rejects bad options", async () => {

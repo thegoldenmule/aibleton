@@ -12,6 +12,7 @@ import type { ZodIssue } from "zod";
 import { ModelRefusedError } from "../core/anthropic.ts";
 import { generateBand } from "../core/band-generator.ts";
 import { newId } from "../core/commands.ts";
+import { bandName, templateName } from "../core/naming.ts";
 import { defaultSections, generateForm } from "../core/generator.ts";
 import type { RecipeBook } from "../core/recipes.ts";
 
@@ -19,7 +20,7 @@ import type { RecipeBook } from "../core/recipes.ts";
  * Staffing a band and laying out a form, once each. The generators beside them
  * (`core/band-generator.ts`, `core/generator.ts`) decide what the roster and
  * the form look like; this is the only place that sequence is run — ensure a
- * recipe, roll, mint an id, name it, validate it.
+ * recipe, roll, mint an id, name it, record the seed, validate it.
  *
  * Two functions rather than a class: unlike a song, a band and a template have
  * no activity, no narration and no single-flight queue, so there is nothing for
@@ -133,9 +134,10 @@ export async function staffBand(opts: GenerateBandRequest, deps: StaffBandDeps):
 
   const draft: Band = {
     id: newId("band"),
-    name: opts.name ?? `${staffed.metadata.genre ?? "mixed"} band ${seed}`,
+    name: opts.name ?? bandName(seed),
     parts: staffed.parts,
     metadata: staffed.metadata,
+    seed,
     createdAt: at,
   };
   const checked = BandSchema.safeParse(draft);
@@ -168,10 +170,11 @@ export function layTemplate(opts: GenerateTemplateRequest, deps: LayTemplateDeps
 
   const draft: Template = {
     id: newId("tpl"),
-    name: opts.name ?? `Form ${seed}`,
+    name: opts.name ?? templateName(seed),
     form,
     sections: defaultSections(formLabels(parseForm(form))),
     ...(opts.bpm !== undefined ? { bpm: opts.bpm } : {}),
+    seed,
     createdAt: at,
   };
   const checked = TemplateSchema.safeParse(draft);
