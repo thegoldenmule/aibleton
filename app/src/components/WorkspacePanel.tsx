@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { PanelHeader } from "./ui/PanelHeader";
 
 /**
  * The frame around whatever the workspace column is showing — the song, or one
@@ -12,10 +13,7 @@ import type { ReactNode } from "react";
 export function WorkspacePanel({ title, meta, children }: { title: string; meta?: ReactNode; children: ReactNode }) {
   return (
     <section className="flex min-h-0 flex-col gap-2 overflow-hidden rounded-md border border-line bg-panel p-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="shrink-0 text-[10px] uppercase tracking-wider text-muted">{title}</h2>
-        {meta ? <div className="min-w-0 font-mono text-[10px] text-muted/70">{meta}</div> : null}
-      </div>
+      <PanelHeader title={title} meta={meta} />
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">{children}</div>
     </section>
   );
