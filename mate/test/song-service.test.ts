@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import type { Song } from "@aibleton/protocol";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { BandLogEntry, Song } from "@aibleton/protocol";
+import { ScriptedBriefer } from "../src/songwriting/briefer/index.ts";
+import { defaultBrief } from "../src/songwriting/briefer/scripted.ts";
+import { BANDS_PER_NEW_GENRE } from "../src/songwriting/compose.ts";
 import { NoActiveSongError, SongAlreadyActiveError } from "../src/songwriting/service.ts";
 import { FakeSplice } from "./helpers/fakes.ts";
 import { FakeSongwriting, seedLibrary, songServiceHarness } from "./helpers/song-service.ts";
@@ -84,6 +90,44 @@ describe("SongService.compose", () => {
     expect(second.id).not.toBe(first.id);
     expect(h.store.getSong()?.id).toBe(second.id);
     expect(await h.songs.get(first.id)).not.toBeNull();
+  });
+});
+
+describe("SongService new-genre detour", () => {
+  test("the bands a new genre is rolled from reach the log as one commit", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mate-compose-burst-"));
+    const h = await ready({ dir, briefer: new ScriptedBriefer((input) => ({ ...defaultBrief(input), genres: ["gospel"] })) });
+    // One call carrying all three, not three calls: the batch is what the log
+    // commits whole, so the compose has to hand the burst over whole.
+    const batches: number[] = [];
+    const saveAll = h.bands.saveAll.bind(h.bands);
+    h.bands.saveAll = async (bands) => {
+      batches.push(bands.length);
+      return saveAll(bands);
+    };
+
+    await h.service.compose({ text: "gospel please", signal: never });
+    await h.bands.close();
+    expect(batches).toEqual([BANDS_PER_NEW_GENRE]);
+
+    const raw = await Bun.file(join(dir, "library", "bands.jsonl")).text();
+    const log = raw
+      .split("\n")
+      .filter((line) => line.trim().length > 0)
+      .map((line) => JSON.parse(line) as BandLogEntry);
+    // The seeded funk band, then the three the detour rolled — contiguous, in
+    // one run of `seq`, because they were one append. A crash between two of
+    // them would otherwise leave a genre half staffed for good.
+    const rolled = log.filter((e) => e.event.type === "band.saved" && e.event.band.metadata.genre === "gospel");
+    expect(rolled).toHaveLength(BANDS_PER_NEW_GENRE);
+    expect(rolled.map((e) => e.seq)).toEqual([2, 3, 4]);
+    expect(log.map((e) => e.seq)).toEqual([1, 2, 3, 4]);
+    // And the trail still reads one band at a time.
+    expect(h.store.getTranscript().filter((t) => t.text.startsWith("rolled gospel band")).map((t) => t.text)).toEqual([
+      "rolled gospel band 1 of 3",
+      "rolled gospel band 2 of 3",
+      "rolled gospel band 3 of 3",
+    ]);
   });
 });
 

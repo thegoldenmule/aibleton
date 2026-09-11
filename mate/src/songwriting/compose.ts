@@ -21,8 +21,12 @@ export interface ComposeOptions {
   briefer: Briefer;
   /** Fills a genre gap: a recipe is written (once) and a few bands rolled from it. */
   recipes: RecipeBook;
-  /** Persists a band the flow rolled, so the next request finds it in the library. */
-  saveBand: (band: Band) => Promise<Band>;
+  /**
+   * Persists the bands the flow rolled, so the next request finds them in the
+   * library. Plural and one call: a genre is the whole burst, and a crash
+   * between two of them would leave a half-staffed one behind forever.
+   */
+  saveBands: (bands: Band[]) => Promise<Band[]>;
   now: () => number;
   signal: AbortSignal;
   /**
@@ -58,17 +62,22 @@ export async function composeSong(opts: ComposeOptions): Promise<Song> {
       { label: "doing", value: known ? "staffing one from the saved recipe" : "asking the model how a band for this genre is staffed…" },
     ]);
     await opts.recipes.ensure(genre, opts.signal);
+    // Roll them all first — rolling is pure — then one save, then the narration
+    // the save loop used to carry. The three land as one log commit or not at
+    // all; the drummer still reads them arriving one at a time.
     const rolled: Band[] = [];
     for (let i = 1; i <= BANDS_PER_NEW_GENRE; i++) {
       const seed = opts.seed + i;
       const staffed = generateBand({ seed, genre }, opts.recipes);
-      const at = opts.now();
-      rolled.push(await opts.saveBand(BandSchema.parse({ id: newId("band"), name: `${staffed.metadata.genre} band ${seed}`, parts: staffed.parts, metadata: staffed.metadata, createdAt: at })));
-      progress("bands", `rolled ${genre} band ${i} of ${BANDS_PER_NEW_GENRE}`, [
-        { label: "parts", value: staffed.parts.map((p) => `${p.name} (${p.role})`).join(", ") },
-      ]);
+      rolled.push(BandSchema.parse({ id: newId("band"), name: `${staffed.metadata.genre} band ${seed}`, parts: staffed.parts, metadata: staffed.metadata, createdAt: opts.now() }));
     }
-    band = pickBand(rolled, opts.text, opts.seed);
+    const saved = await opts.saveBands(rolled);
+    saved.forEach((rolledBand, i) => {
+      progress("bands", `rolled ${genre} band ${i + 1} of ${BANDS_PER_NEW_GENRE}`, [
+        { label: "parts", value: rolledBand.parts.map((p) => `${p.name} (${p.role})`).join(", ") },
+      ]);
+    });
+    band = pickBand(saved, opts.text, opts.seed);
     // The first brief's part feedback keyed on the old band; brief again so nothing is lost.
     progress("rebriefing", `briefing again with “${band.name}”…`, askFields(template, band));
     brief = await opts.briefer.brief({ text: opts.text, template, band }, opts.signal);

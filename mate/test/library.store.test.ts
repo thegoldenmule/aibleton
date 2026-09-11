@@ -147,6 +147,46 @@ describe("LibraryStore reads and writes", () => {
   });
 });
 
+describe("LibraryStore batched saves", () => {
+  test("a batch is one commit: another writer cannot land a line inside it", async () => {
+    const batch = lib.saveAll([band({ id: "b1" }), band({ id: "b2" }), band({ id: "b3" })] as Band[]);
+    // Started while the batch's append is in flight. One line per save and this
+    // would sit between two of the three; one append and it cannot.
+    const solo = lib.save(band({ id: "z9" }) as Band);
+    const [saved] = await Promise.all([batch, solo]);
+
+    // The batch is parsed like any save: `metadata` defaults once, for all three.
+    expect(saved.map((b) => b.metadata)).toEqual([{}, {}, {}]);
+    const log = await entries();
+    expect(log.map((e) => e.seq)).toEqual([1, 2, 3, 4]);
+    const ids = log.map((e) => (e.event.type === "band.saved" ? e.event.band.id : null));
+    expect(ids.slice(ids.indexOf("b1"), ids.indexOf("b1") + 3)).toEqual(["b1", "b2", "b3"]);
+    expect((await lib.list()).map((b) => b.id).sort()).toEqual(["b1", "b2", "b3", "z9"]);
+    expect([...(await projection()).keys()].sort()).toEqual(["b1", "b2", "b3", "z9"]);
+  });
+
+  test("a batch with an invalid document writes nothing at all", async () => {
+    await lib.save(band({ id: "keep" }) as Band);
+    const emitted: BandEvent[] = [];
+    events.subscribe((event) => emitted.push(event));
+
+    await expect(lib.saveAll([band({ id: "b1" }), { ...band({ id: "b2" }), parts: [] }] as Band[])).rejects.toThrow();
+    await expect(lib.saveAll([band({ id: "b1" }), band({ id: "../evil" })] as Band[])).rejects.toThrow(/invalid band id/);
+
+    // Every document is parsed and id-asserted before the first fold, so a bad
+    // one anywhere in the batch costs no event, no line and no record file.
+    expect(emitted).toEqual([]);
+    expect((await lib.list()).map((b) => b.id)).toEqual(["keep"]);
+    expect(await entries()).toHaveLength(1);
+    expect(existsSync(join(dir, "b1.json"))).toBe(false);
+  });
+
+  test("an empty batch is a no-op", async () => {
+    expect(await lib.saveAll([])).toEqual([]);
+    expect(await entries()).toEqual([]);
+  });
+});
+
 describe("LibraryStore failure handling", () => {
   test("a failed append rejects out of save", async () => {
     // A directory where the log file belongs: every append fails with EISDIR,

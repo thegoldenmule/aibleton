@@ -77,11 +77,11 @@ export interface SongServiceDeps {
   templates: { list(): Promise<Template[]> };
   /**
    * The band library: the roster compose chooses from, and the one place the
-   * bands it rolls are added. Structural rather than nominal so the log-backed
-   * library and the projection store behind it both satisfy it — the service
-   * only ever reads the list and adds to it.
+   * bands it rolls are added. Structural rather than nominal so anything that
+   * lists and appends satisfies it. Plural on the way in: a genre's bands are
+   * rolled as a burst and go into the log as one commit.
    */
-  bands: { list(): Promise<Band[]>; save(band: Band): Promise<Band> };
+  bands: { list(): Promise<Band[]>; saveAll(bands: Band[]): Promise<Band[]> };
   briefer: Briefer;
   recipes: RecipeBook;
   /** Holds the active song, which is what the app's session view renders. */
@@ -205,7 +205,7 @@ export class SongService {
           bands,
           briefer: this.deps.briefer,
           recipes: this.deps.recipes,
-          saveBand: (band) => this.deps.bands.save(band),
+          saveBands: (bands) => this.deps.bands.saveAll(bands),
           now: this.deps.now,
           signal: opts.signal,
         });

@@ -60,7 +60,7 @@ export async function fixtureSong(over: Partial<Song> = {}, briefer: ScriptedBri
     bands: [fixtureBand()],
     briefer,
     recipes: new RecipeBook({ store: new RecipeStore({ dir: mkdtempSync(join(tmpdir(), "mate-fixture-recipes-")) }), writer: new ScriptedRecipeWriter(), now: () => 1_000 }),
-    saveBand: async (band) => band,
+    saveBands: async (bands) => bands,
     now: () => 1_000,
     signal: new AbortController().signal,
   });

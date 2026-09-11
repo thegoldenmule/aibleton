@@ -73,12 +73,31 @@ export class EventJournal<J> {
    * must not fail silently because an earlier one did.
    */
   async appendAwaited(event: J, at: number): Promise<void> {
-    const entry: LogEntry<J> = { seq: this.nextSeq, at, event };
-    this.nextSeq += 1;
-    const line = `${JSON.stringify(entry)}\n`;
+    await this.appendAllAwaited([event], at);
+  }
+
+  /**
+   * Append several events as **one** commit, resolving only once the lines are
+   * on disk and rejecting when the write fails.
+   *
+   * They take a consecutive run of `seq` and share one `tail` link, so no other
+   * appender — buffered or awaited — can put a line between them: a burst that
+   * only makes sense whole, like the three bands a new genre is rolled from,
+   * arrives whole or not at all. One `appendFile` is the largest indivisible
+   * write this process has; a crash inside it leaves the torn tail `readJournal`
+   * already reports.
+   */
+  async appendAllAwaited(events: readonly J[], at: number): Promise<void> {
+    if (events.length === 0) return;
+    let chunk = "";
+    for (const event of events) {
+      const entry: LogEntry<J> = { seq: this.nextSeq, at, event };
+      this.nextSeq += 1;
+      chunk += `${JSON.stringify(entry)}\n`;
+    }
     const write = this.tail.then(async () => {
-      await appendFile(this.path, line, "utf8");
-      this.bytes += Buffer.byteLength(line, "utf8");
+      await appendFile(this.path, chunk, "utf8");
+      this.bytes += Buffer.byteLength(chunk, "utf8");
     });
     this.tail = write.catch(() => undefined);
     await write;

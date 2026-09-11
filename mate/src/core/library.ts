@@ -181,6 +181,25 @@ export class LibraryStore<T, E extends { type: string }, J = E> {
   }
 
   /**
+   * Create or replace several documents as **one** commit, in the order given.
+   *
+   * Every document is parsed and id-asserted before anything is folded, so a
+   * bad one throws with nothing written at all — and the whole run then takes a
+   * single awaited append, which no other writer can land a line inside. That
+   * is what a burst which only makes sense whole needs: the three bands a new
+   * genre is rolled from are a genre, and half of one is not.
+   *
+   * Everything else is `save`'s order, repeated: fold and emit each event, then
+   * the append, then the projection files.
+   *
+   * @throws on an invalid document, a bad id, or a failed append.
+   */
+  async saveAll(docs: readonly T[], at?: number): Promise<T[]> {
+    await this.ready;
+    return this.writeAll(docs, at ?? this.opts.now());
+  }
+
+  /**
    * Remove a document; `false` when there was none.
    *
    * A no-op delete appends **nothing**. An event that folds to nothing is a
@@ -227,14 +246,41 @@ export class LibraryStore<T, E extends { type: string }, J = E> {
 
   /** `save` without the park, so the open's own adoptions cannot wait on the open. */
   private async write(doc: T, at: number): Promise<T> {
-    const parsed = this.opts.schema.parse(doc);
-    const id = this.opts.idOf(parsed);
-    assertValidDocumentId(id, this.opts.kind);
-    await this.apply(this.opts.saved(parsed), at);
-    try {
-      await this.opts.docs.save(parsed);
-    } catch (err) {
-      this.log.error(`${this.opts.kind} ${id}: written to the log but its record file could not be saved`, err);
+    const [saved] = await this.writeAll([doc], at);
+    return saved!;
+  }
+
+  /**
+   * `saveAll` without the park. One write of one document goes through here
+   * too: a batch of one is a save, and two implementations of this order would
+   * be two chances to get it wrong.
+   */
+  private async writeAll(docs: readonly T[], at: number): Promise<T[]> {
+    // Every document first, before a single event is folded: a batch that
+    // cannot be written whole must not be written at all.
+    const parsed = docs.map((doc) => {
+      const doc2 = this.opts.schema.parse(doc);
+      assertValidDocumentId(this.opts.idOf(doc2), this.opts.kind);
+      return doc2;
+    });
+    if (parsed.length === 0) return [];
+
+    const journaled: J[] = [];
+    for (const doc of parsed) {
+      const event = this.opts.saved(doc);
+      this.state = this.opts.fold(this.state, event);
+      this.opts.events.emit(event);
+      const line = this.opts.toJournaled(event);
+      if (line !== null) journaled.push(line);
+    }
+    if (journaled.length > 0) await this.append(journaled, at);
+
+    for (const doc of parsed) {
+      try {
+        await this.opts.docs.save(doc);
+      } catch (err) {
+        this.log.error(`${this.opts.kind} ${this.opts.idOf(doc)}: written to the log but its record file could not be saved`, err);
+      }
     }
     return parsed;
   }
@@ -245,8 +291,13 @@ export class LibraryStore<T, E extends { type: string }, J = E> {
     this.opts.events.emit(event);
     const journaled = this.opts.toJournaled(event);
     if (journaled === null) return;
+    await this.append([journaled], at);
+  }
+
+  /** One awaited append of a whole run of durable lines. */
+  private async append(journaled: readonly J[], at: number): Promise<void> {
     if (!this.journal) throw new Error(`no ${this.opts.kind} log is open`);
-    await this.journal.appendAwaited(journaled, at);
+    await this.journal.appendAllAwaited(journaled, at);
   }
 
   /**
