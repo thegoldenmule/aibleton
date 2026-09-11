@@ -72,8 +72,9 @@ const LENGTH_WORDS: readonly { words: readonly string[]; bars: number }[] = [
   { words: ["long", "epic", "extended", "full"], bars: 96 },
 ];
 
-const GENRE_SCORE = 10;
-const ROLE_SCORE = 3;
+/** A named genre is the strong signal; a named role is a nudge on top of it. */
+export const GENRE_SCORE = 10;
+export const ROLE_SCORE = 3;
 
 /** Lowercase word tokens, with hyphens split so "hip-hop" reads as two hits. */
 export function tokenize(text: string): string[] {
@@ -162,6 +163,41 @@ function best<T>(items: readonly T[], score: (item: T) => number, seed: number):
 }
 
 /**
+ * How well a band fits a request, on the request's own tokens: the genre tag
+ * scores once, then every named role the band actually fields. Free of the
+ * picker so the library search can rank on the same relevance compose picks
+ * with — a `find_bands` that disagreed with `compose_song` would be worse
+ * than no search at all.
+ */
+export function scoreBand(band: Band, tokens: readonly string[]): number {
+  const keys = genreKeysIn(tokens);
+  let score = matchesGenre(band, keys) ? GENRE_SCORE : 0;
+  const has = new Set(bandRoles(band));
+  for (const role of rolesIn(tokens)) if (has.has(role)) score += ROLE_SCORE;
+  return score;
+}
+
+/**
+ * How well a template fits a request: proximity to the tempo the words imply,
+ * then to the length they imply. A template with no bpm scores nothing on
+ * tempo rather than being pushed below one that is merely far off.
+ */
+export function scoreTemplate(template: Template, tokens: readonly string[]): number {
+  const bpm = bpmHint(tokens);
+  const bars = barsHint(tokens);
+  let score = 0;
+  if (bpm !== null && template.bpm !== undefined) {
+    // 10 points at an exact match, fading to 0 forty bpm away.
+    score += Math.max(0, GENRE_SCORE - Math.abs(template.bpm - bpm) / 4);
+  }
+  if (bars !== null) {
+    const total = formTotalBars(parseForm(template.form));
+    score += Math.max(0, ROLE_SCORE - Math.abs(total - bars) / 16);
+  }
+  return score;
+}
+
+/**
  * Pick the band that best fits the request: genre words score the band's
  * `metadata.genre`, role words score bands that field that role.
  * @throws EmptyLibraryError when `bands` is empty.
@@ -169,18 +205,7 @@ function best<T>(items: readonly T[], score: (item: T) => number, seed: number):
 export function pickBand(bands: readonly Band[], text: string, seed: number): Band {
   if (bands.length === 0) throw new EmptyLibraryError("bands");
   const tokens = tokenize(text);
-  const keys = genreKeysIn(tokens);
-  const roles = rolesIn(tokens);
-  return best(
-    bands,
-    (band) => {
-      let score = matchesGenre(band, keys) ? GENRE_SCORE : 0;
-      const has = new Set(bandRoles(band));
-      for (const role of roles) if (has.has(role)) score += ROLE_SCORE;
-      return score;
-    },
-    seed,
-  );
+  return best(bands, (band) => scoreBand(band, tokens), seed);
 }
 
 /**
@@ -192,22 +217,5 @@ export function pickBand(bands: readonly Band[], text: string, seed: number): Ba
 export function pickTemplate(templates: readonly Template[], text: string, seed: number): Template {
   if (templates.length === 0) throw new EmptyLibraryError("templates");
   const tokens = tokenize(text);
-  const bpm = bpmHint(tokens);
-  const bars = barsHint(tokens);
-  return best(
-    templates,
-    (template) => {
-      let score = 0;
-      if (bpm !== null && template.bpm !== undefined) {
-        // 10 points at an exact match, fading to 0 forty bpm away.
-        score += Math.max(0, GENRE_SCORE - Math.abs(template.bpm - bpm) / 4);
-      }
-      if (bars !== null) {
-        const total = formTotalBars(parseForm(template.form));
-        score += Math.max(0, ROLE_SCORE - Math.abs(total - bars) / 16);
-      }
-      return score;
-    },
-    seed,
-  );
+  return best(templates, (template) => scoreTemplate(template, tokens), seed);
 }
