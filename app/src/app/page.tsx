@@ -6,12 +6,20 @@ import { EmptyState } from "../components/EmptyState";
 import { MailboxPanel } from "../components/MailboxPanel";
 import { SongView } from "../components/SongView";
 import { TransportBar } from "../components/TransportBar";
-import { useMateState } from "../lib/useMateState";
+import { MateProvider, useMate } from "../lib/useMate";
 import { useNow } from "../lib/useNow";
 
 const FALLBACK_ADAPTERS = { ableton: "stub", splice: "stub", brain: "scripted" } as const;
 
-export default function Home() {
+export default function Page() {
+  return (
+    <MateProvider>
+      <Home />
+    </MateProvider>
+  );
+}
+
+function Home() {
   const {
     state,
     connection,
@@ -27,7 +35,7 @@ export default function Home() {
     removeTrack,
     setPlaying,
     buildInLive,
-  } = useMateState();
+  } = useMate();
   // Relative timestamps in the mailbox; ticks once a minute, not per frame.
   const now = useNow(15_000);
 
