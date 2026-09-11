@@ -1,6 +1,7 @@
 import type { AdapterStatus, Phase, Transport } from "@aibleton/protocol";
 import type { Connection } from "../lib/useMateState";
 import { PHASE_CLASS } from "../lib/status";
+import { SessionChip } from "./SessionChip";
 
 export interface AppHeaderProps {
   transport: Transport | null;
@@ -25,6 +26,8 @@ export function AppHeader({ transport, phase, error, adapters, connection, goal 
         <span className="text-sm font-semibold tracking-tight">aibleton</span>
         <span className="text-xs text-muted">bandmate</span>
       </div>
+
+      <SessionChip />
 
       <Readout label="tempo" value={transport ? `${formatTempo(transport.tempo)} bpm` : "—"} />
       <Readout
