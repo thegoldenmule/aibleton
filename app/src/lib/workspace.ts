@@ -11,6 +11,7 @@ export const WORKSPACES = [
   { href: "/", page: "song" },
   { href: "/templates", page: "templates" },
   { href: "/bands", page: "bands" },
+  { href: "/recipes", page: "recipes" },
 ] as const;
 
 /** The song is the fallback: it is the root, and an unknown route is not worth a lie. */

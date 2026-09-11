@@ -83,4 +83,13 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M18 20a6 6 0 0 0-3-5.2" />
     </svg>
   ),
+  // A list with a line ruled under its head: the staffing a genre is written down as.
+  "/recipes": (
+    <svg {...STROKE}>
+      <path d="M4 6h10" />
+      <path d="M4 10h16" />
+      <path d="M4 14h13" />
+      <path d="M4 18h7" />
+    </svg>
+  ),
 };
