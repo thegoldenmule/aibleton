@@ -86,6 +86,30 @@ function totalBars(form: string): number | null {
   }
 }
 
+/**
+ * Each distinct letter in a form, in order of first appearance, with how often
+ * it comes round and how many bars it adds up to across the whole song.
+ *
+ * Neither number is on the strip or in the legend: a block shows one occurrence
+ * and the legend shows one brief, so "the chorus is here four times and that is
+ * 32 of the 88 bars" is a fact only this computes. Unreadable forms answer with
+ * nothing rather than taking the page down, the same way `totalBars` does.
+ */
+function sectionStats(form: string): { label: string; times: number; bars: number }[] {
+  const rows = new Map<string, { label: string; times: number; bars: number }>();
+  try {
+    for (const entry of parseForm(form)) {
+      const row = rows.get(entry.label) ?? { label: entry.label, times: 0, bars: 0 };
+      row.times += 1;
+      row.bars += entry.bars;
+      rows.set(entry.label, row);
+    }
+  } catch {
+    return [];
+  }
+  return [...rows.values()];
+}
+
 export default function TemplatesPage() {
   const { templates, loading, busy, lastError, generate, save, remove } = useTemplates();
   const [options, setOptions] = useState<Options>(EMPTY_OPTIONS);
@@ -308,55 +332,25 @@ export default function TemplatesPage() {
             {lastError ? "Could not load templates — see the error above." : "Nothing saved yet. Generate a form above, then save it."}
           </p>
         ) : (
-          <ul className="flex flex-col gap-2">
-            {templates.map((template) => {
-              const bars = totalBars(template.form);
-              return (
-                <li key={template.id} className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <span className="text-sm font-medium">{template.name}</span>
-                    <span className="font-mono text-[10px] text-muted/70">
-                      {bars ?? "?"} bars{template.bpm ? ` · ${template.bpm} bpm` : ""} ·{" "}
-                      {new Date(template.createdAt).toLocaleString()}
-                    </span>
-                    <span className="ml-auto flex items-center gap-1.5">
-                      {confirmId === template.id ? (
-                        <>
-                          <span className="text-[11px] text-audio">delete?</span>
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void destroy(template.id)}
-                            className="rounded-sm border border-audio/60 px-2 py-0.5 text-[11px] font-medium text-audio disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            confirm
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmId(null)}
-                            className="rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted"
-                          >
-                            cancel
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => setConfirmId(template.id)}
-                          className="rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted hover:text-audio disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          delete
-                        </button>
-                      )}
-                    </span>
-                  </div>
-                  <FormStrip form={template.form} sections={template.sections} />
-                  <span className="font-mono text-[10px] text-muted/60">{template.form}</span>
-                </li>
-              );
-            })}
-          </ul>
+          // Three library pages, one idiom: the column is a third of the page,
+          // so the grid measures itself with a container query rather than the
+          // viewport. Two columns at most, unlike bands — a form strip wants the
+          // width a roster does not.
+          <div className="@container">
+            <ul className="grid auto-rows-min grid-cols-1 gap-2 @min-[47rem]:grid-cols-2">
+              {templates.map((template) => (
+                <TemplateCard
+                  key={template.id}
+                  template={template}
+                  busy={busy}
+                  confirming={confirmId === template.id}
+                  onConfirm={() => setConfirmId(template.id)}
+                  onCancel={() => setConfirmId(null)}
+                  onDelete={() => void destroy(template.id)}
+                />
+              ))}
+            </ul>
+          </div>
         )}
       </section>
     </WorkspacePanel>
@@ -371,3 +365,85 @@ function safeLabels(form: string): string[] {
   }
 }
 
+
+
+interface CardProps {
+  template: Template;
+  busy: boolean;
+  confirming: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+  onDelete: () => void;
+}
+
+function TemplateCard({ template, busy, confirming, onConfirm, onCancel, onDelete }: CardProps) {
+  const bars = totalBars(template.form);
+  const sections = sectionStats(template.form).length;
+
+  return (
+    <li className="flex flex-col gap-2 rounded-sm border border-line bg-panel p-2.5">
+      <div className="flex items-start gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <h4 className="truncate text-sm font-medium" title={template.name}>
+            {template.name}
+          </h4>
+          {/* Facts, each its own span, the way a band card reads them. The date
+              is short with the full timestamp on hover: `toLocaleString` ran the
+              full width of a card that is now a third of one. */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] text-muted/70">
+            <span>{bars ?? "?"} bars</span>
+            <span>
+              {sections} section{sections === 1 ? "" : "s"}
+            </span>
+            {template.bpm ? <span>{template.bpm} bpm</span> : null}
+            <span title={new Date(template.createdAt).toLocaleString()}>
+              {new Date(template.createdAt).toLocaleDateString()}
+            </span>
+            {template.seed !== undefined ? (
+              <span
+                className="text-muted/50"
+                title={`rolled from seed ${template.seed} — generate with it to lay this form again`}
+              >
+                #{template.seed}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <span className="flex shrink-0 items-center gap-1.5">
+          {confirming ? (
+            <>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={onDelete}
+                className="rounded-sm border border-audio/60 px-2 py-0.5 text-[11px] font-medium text-audio disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                delete?
+              </button>
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted"
+              >
+                cancel
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onConfirm}
+              className="rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted hover:text-audio disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              delete
+            </button>
+          )}
+        </span>
+      </div>
+
+      {/* No legend: at a third of the page it truncates every brief to a few
+          words, and the strip alone is what a card is for. */}
+      <FormStrip form={template.form} sections={template.sections} showLegend={false} />
+    </li>
+  );
+}
