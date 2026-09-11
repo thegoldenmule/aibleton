@@ -23,6 +23,10 @@ import { NavRail } from "./NavRail";
  * The document never scrolls (see `<body>` in app/layout.tsx). This owns the one
  * `<main>` and the one grid; each column is a fixed-height flex box with exactly
  * one scrollable child of its own.
+ *
+ * Below `lg` that inverts: the three columns stack, and a third of the viewport
+ * each with no page scroll would strand every one of them, so the grid itself
+ * becomes the scroller and the rows take their natural height.
  */
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -46,7 +50,7 @@ function Shell({ children }: { children: ReactNode }) {
       <div className="flex min-h-0 flex-1 gap-3">
         <NavRail />
 
-        <div className="grid min-h-0 flex-1 auto-rows-[minmax(0,1fr)] grid-cols-1 gap-3 lg:grid-cols-[1fr_360px_320px]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 max-lg:auto-rows-auto max-lg:overflow-y-auto lg:auto-rows-[minmax(0,1fr)] lg:grid-cols-[1fr_360px_320px]">
           {children}
 
           <ConversationPane
