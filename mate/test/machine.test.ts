@@ -349,6 +349,9 @@ describe("actionTrack", () => {
       [{ type: "setPlacement", partId: "bass-p", occurrence: 1, plays: false }, undefined],
       [{ type: "removeTrack", partId: "bass-p" }, undefined],
       [{ type: "arrangeSong" }, undefined],
+      // The library generates never go near the set at all, so there is no track to judge.
+      [{ type: "generateBand", genre: "funk" }, undefined],
+      [{ type: "generateTemplate", count: 4 }, undefined],
     ];
     for (const [action, expected] of cases) expect(actionTrack(action)).toBe(expected);
   });

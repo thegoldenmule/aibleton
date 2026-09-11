@@ -57,6 +57,7 @@ describe("song tool calls become actions", () => {
 });
 
 const LIBRARY = ["find_bands", "get_band", "find_templates", "get_template", "get_genres"];
+const GENERATES = ["generate_band", "generate_template"];
 
 describe("library tools", () => {
   test("the drummer's typed request gets the five reads, song or no song", () => {
@@ -84,6 +85,50 @@ describe("library tools", () => {
       expect(isReadOnlyTool(n)).toBe(true);
       expect(toolToAction(n, {})).toBeNull();
     }
+  });
+
+  test("the generates ride the same gate as the reads, song or no song", () => {
+    for (const hasSong of [true, false]) {
+      const list = names({ songTools: true, hasSong, libraryTools: true });
+      for (const n of GENERATES) expect(list).toContain(n);
+    }
+  });
+
+  test("a tick never quietly rolls a band into the library", () => {
+    for (const ctx of [{ songTools: false, hasSong: true, libraryTools: false }, { songTools: true, hasSong: false }]) {
+      const list = names(ctx);
+      for (const n of GENERATES) expect(list).not.toContain(n);
+    }
+  });
+
+  test("the generates write, so they queue as actions rather than running inline", () => {
+    for (const n of GENERATES) expect(isReadOnlyTool(n)).toBe(false);
+  });
+
+  test("each generate maps onto its action, and an option the model left out stays out", () => {
+    // Nothing supplied means "you choose": the seed, the genre and the rest all default downstream.
+    expect(toolToAction("generate_band", {})).toEqual({ type: "generateBand" });
+    expect(toolToAction("generate_template", {})).toEqual({ type: "generateTemplate" });
+    expect(toolToAction("generate_band", { genre: " funk ", size: 4, name: "The Tuesday Trio" })).toEqual({
+      type: "generateBand",
+      genre: "funk",
+      size: 4,
+      name: "The Tuesday Trio",
+    });
+    // A blank string is not an answer either, and no seed is ever accepted from the model.
+    expect(toolToAction("generate_band", { genre: "  ", seed: 7 })).toEqual({ type: "generateBand" });
+    expect(toolToAction("generate_template", { alphabet: 3, count: 5, home: "a", max_run: 2, bars: 8, bpm: 96, name: "Ballad" })).toEqual({
+      type: "generateTemplate",
+      name: "Ballad",
+      alphabet: 3,
+      count: 5,
+      home: "a",
+      maxRun: 2,
+      bars: 8,
+      bpm: 96,
+    });
+    // null is how a model spells "no opinion"; it must not arrive as bars: 0.
+    expect(toolToAction("generate_template", { bars: null, count: "4" })).toEqual({ type: "generateTemplate", count: 4 });
   });
 
   test("deleting from a library is in no list at all: mate adds, the drummer removes", () => {
