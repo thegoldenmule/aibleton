@@ -12,6 +12,7 @@ import {
   type MateEvent,
 } from "@aibleton/protocol";
 import { createApp } from "../src/api/server.ts";
+import { ModelRefusedError } from "../src/core/anthropic.ts";
 import { EventBus } from "../src/core/events.ts";
 import { StateStore } from "../src/core/state.ts";
 import { BUILTIN_GENRES } from "../src/core/band-generator.ts";
@@ -239,6 +240,25 @@ describe("bands api", () => {
     expect(res.status).toBe(502);
     expect(((await res.json()) as { error: string }).error).toContain("model down");
     expect((await post(app, "/bands/generate", { genre: "   " })).status).toBe(400);
+  });
+
+  test("POST /bands/generate reports a refusal as a 422 that carries the category", async () => {
+    const { app, writer } = build();
+    writer.rejectNext(new ModelRefusedError("write a band recipe", "policy", "not this one"));
+    const res = await post(app, "/bands/generate", { genre: "polka" });
+    expect(res.status).toBe(422);
+    expect((await res.json()) as { category: string }).toMatchObject({ category: "policy" });
+  });
+
+  test("POST /bands/generate rejects a body that is not JSON", async () => {
+    const { app } = build();
+    const res = await app.request("/bands/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{nope",
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe("invalid JSON body");
   });
 
   test("GET /recipes lists built-ins then generated recipes", async () => {

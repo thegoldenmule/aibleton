@@ -187,6 +187,17 @@ describe("templates api", () => {
     expect((await post(app, "/templates/generate", { alphabet: 99 })).status).toBe(400);
   });
 
+  test("POST /templates/generate rejects a body that is not JSON", async () => {
+    const { app } = build();
+    const res = await app.request("/templates/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{nope",
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe("invalid JSON body");
+  });
+
   test("a generated template can be saved straight back", async () => {
     const { app } = build();
     const { template: made } = TemplateResponseSchema.parse(
