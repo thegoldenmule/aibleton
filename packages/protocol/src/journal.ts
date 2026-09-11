@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { CommandSummarySchema } from "./commands.ts";
 import type { MateEvent } from "./events.ts";
+import { logEntrySchema, type LogEntry } from "./log.ts";
 import type { Song } from "./songs.ts";
 import { TranscriptEntrySchema } from "./state.ts";
 
@@ -77,12 +78,8 @@ export const JournaledEventSchema = z.discriminatedUnion("type", [
 export type JournaledEvent = z.infer<typeof JournaledEventSchema>;
 
 /** One line of `journal.jsonl`. `seq` is dense per session and only ever grows. */
-export const JournalEntrySchema = z.object({
-  seq: z.number().int().nonnegative(),
-  at: z.number(),
-  event: JournaledEventSchema,
-});
-export type JournalEntry = z.infer<typeof JournalEntrySchema>;
+export const JournalEntrySchema = logEntrySchema(JournaledEventSchema);
+export type JournalEntry = LogEntry<JournaledEvent>;
 
 /**
  * The durable projection of an event, or `null` when it is volatile. Both

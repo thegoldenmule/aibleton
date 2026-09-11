@@ -3,6 +3,7 @@ import { ActivitySchema, AdapterStatusSchema, PhaseSchema, DawStateSchema, Trans
 import { CommandSummarySchema } from "./commands.ts";
 import { SongSchema } from "./songs.ts";
 import { StateResponseSchema } from "./api.ts";
+import { eventTypesOf } from "./log.ts";
 
 /**
  * Where a song's download stands, sent before and after every asset so the
@@ -67,4 +68,4 @@ export type MateEvent = z.infer<typeof MateEventSchema>;
  * Every `MateEvent` type, derived from the union so it cannot fall behind it.
  * The app subscribes one SSE listener per name.
  */
-export const MATE_EVENT_TYPES: readonly MateEvent["type"][] = MateEventSchema.options.map((o) => o.shape.type.value);
+export const MATE_EVENT_TYPES: readonly MateEvent["type"][] = eventTypesOf(MateEventSchema);
