@@ -2,6 +2,7 @@
 
 import { ComposingState } from "../components/ComposingState";
 import { EmptyState } from "../components/EmptyState";
+import { SongTransport } from "../components/SongTransport";
 import { SongView } from "../components/SongView";
 import { WorkspacePanel } from "../components/WorkspacePanel";
 import { FALLBACK_ADAPTERS } from "../lib/status";
@@ -34,7 +35,12 @@ export default function SongPage() {
   return (
     <WorkspacePanel
       title="song"
-      meta={song ? `${song.plan.tracks.length} tracks · composed ${new Date(song.createdAt).toLocaleTimeString()}` : undefined}
+      meta={
+        <div className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">
+          {song ? <span>{song.plan.tracks.length} tracks · composed {new Date(song.createdAt).toLocaleTimeString()}</span> : null}
+          <SongTransport plan={song?.plan ?? null} transport={daw?.transport ?? null} />
+        </div>
+      }
     >
       {!state ? (
         <EmptyState error={lastError} />

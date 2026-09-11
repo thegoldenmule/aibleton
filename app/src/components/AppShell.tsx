@@ -37,16 +37,11 @@ function Shell({ children }: { children: ReactNode }) {
   // Relative timestamps in the mailbox; ticks once a minute, not per frame.
   const now = useNow(15_000);
 
-  const daw = state?.daw ?? null;
   const song = state?.song ?? null;
 
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-3 p-4">
-      <AppHeader
-        transport={daw?.transport ?? null}
-        adapters={state?.adapters ?? FALLBACK_ADAPTERS}
-        connection={connection}
-      />
+      <AppHeader adapters={state?.adapters ?? FALLBACK_ADAPTERS} connection={connection} />
 
       <div className="flex min-h-0 flex-1 gap-3">
         <NavRail />

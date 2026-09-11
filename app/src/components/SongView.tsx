@@ -162,11 +162,7 @@ export function SongView({ song, session, spliceStub, abletonStub, resolving, do
           </div>
         ) : null}
         <div className="flex flex-wrap items-center gap-1.5">
-          <Chip tone="accent">{plan.bpm} bpm</Chip>
           <Chip tone="accent-2">{keyName(plan.key)}</Chip>
-          <Chip>
-            {plan.timeSignature.numerator}/{plan.timeSignature.denominator}
-          </Chip>
           <Chip>{totalBars} bars</Chip>
           {brief.genres.map((genre) => (
             <Chip key={`g-${genre}`} tone="midi">

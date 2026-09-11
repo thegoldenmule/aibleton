@@ -1,9 +1,8 @@
-import type { AdapterStatus, Transport } from "@aibleton/protocol";
+import type { AdapterStatus } from "@aibleton/protocol";
 import type { Connection } from "../lib/useMateState";
 import { SessionChip } from "./SessionChip";
 
 export interface AppHeaderProps {
-  transport: Transport | null;
   adapters: AdapterStatus;
   connection: Connection;
 }
@@ -14,7 +13,7 @@ const CONNECTION_CLASS: Record<Connection, string> = {
   error: "bg-audio",
 };
 
-export function AppHeader({ transport, adapters, connection }: AppHeaderProps) {
+export function AppHeader({ adapters, connection }: AppHeaderProps) {
   return (
     <header className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-md border border-line bg-panel px-4 py-2.5">
       <div className="flex items-center gap-2">
@@ -25,33 +24,12 @@ export function AppHeader({ transport, adapters, connection }: AppHeaderProps) {
 
       <SessionChip />
 
-      <Readout label="tempo" value={transport ? `${formatTempo(transport.tempo)} bpm` : "—"} />
-      <Readout
-        label="sig"
-        value={transport ? `${transport.signatureNumerator}/${transport.signatureDenominator}` : "—"}
-      />
-      <Readout
-        label="transport"
-        value={transport ? (transport.isPlaying ? "▶ playing" : "■ stopped") : "—"}
-        emphasis={transport?.isPlaying ?? false}
-      />
-      <Readout label="pos" value={transport ? `${transport.currentSongTime.toFixed(1)} b` : "—"} />
-
       <div className="ml-auto flex items-center gap-1.5">
         <Badge label="ableton" value={adapters.ableton} live={adapters.ableton === "mcp"} />
         <Badge label="splice" value={adapters.splice} live={adapters.splice === "mcp"} />
         <Badge label="brain" value={adapters.brain} live={adapters.brain === "anthropic"} />
       </div>
     </header>
-  );
-}
-
-function Readout({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
-  return (
-    <div className="flex items-baseline gap-1.5">
-      <span className="text-[10px] uppercase tracking-wider text-muted">{label}</span>
-      <span className={`font-mono text-sm ${emphasis ? "text-accent" : ""}`}>{value}</span>
-    </div>
   );
 }
 
@@ -66,8 +44,4 @@ function Badge({ label, value, live }: { label: string; value: string; live: boo
       {label}:{value}
     </span>
   );
-}
-
-function formatTempo(t: number): string {
-  return Number.isInteger(t) ? String(t) : t.toFixed(1);
 }
