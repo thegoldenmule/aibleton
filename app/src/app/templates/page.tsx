@@ -16,6 +16,7 @@ import { ErrorNote } from "../../components/ui/ErrorNote";
 import { PanelHeader } from "../../components/ui/PanelHeader";
 import { WorkspacePanel } from "../../components/WorkspacePanel";
 import { TextField } from "../../components/ui/TextField";
+import { usePublishSelection } from "../../lib/workspace";
 
 /** Letters the generator can use, in order; `home` must be one of the ones in play. */
 const ALPHABET = ["a", "b", "c", "d", "e", "f"] as const;
@@ -123,6 +124,14 @@ export default function TemplatesPage() {
   // to the next one instead of emptying the pane — and so the first card is
   // selected on arrival with no effect to put it there.
   const selected = templates.find((template) => template.id === selectedId) ?? templates[0] ?? null;
+
+  // The bandmate is told which form you are reading, so "compose over this one"
+  // and "make the bridge longer" have a referent. The name as it reads on the
+  // card, not the id: it is going into a sentence, and `find_templates` matches
+  // names. The draft is deliberately not published — rolling a new form while
+  // reading a saved one is a normal move, and only one of the two is a record
+  // mate holds.
+  usePublishSelection(selected ? { template: selected.name } : {});
 
   const set = (key: keyof Options) => (value: string) => setOptions((prev) => ({ ...prev, [key]: value }));
 
