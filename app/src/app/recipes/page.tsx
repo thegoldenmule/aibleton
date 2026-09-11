@@ -4,23 +4,22 @@ import { useMemo, useState } from "react";
 import { generateBand, oneRecipe, recipeRoles, type BandPart, type BandRecipe } from "@aibleton/protocol";
 import { BandRoster, roleClass } from "../../components/BandRoster";
 import { ErrorNote } from "../../components/ui/ErrorNote";
-import { PanelHeader } from "../../components/ui/PanelHeader";
 import { WorkspacePanel } from "../../components/WorkspacePanel";
 import { useRecipes } from "../../lib/useRecipes";
 
 /**
- * How each genre staffs a band, one card per genre.
+ * How each genre staffs a band: a card per genre, and one of them selected.
  *
- * A recipe is a *generator*, not a document, so the card shows only what it
- * produces: how likely each part is, and a band actually rolled from it —
- * rendered with the same `BandRoster` a saved band wears, because that is what
- * this recipe turns into. Roll again for another.
+ * A recipe is a *generator*, not a document, so a card shows only what it
+ * produces — how likely each part is to turn up — and the panel beside it rolls
+ * the selected recipe into an actual band, rendered with the same `BandRoster`
+ * a saved band wears, because that is what this recipe turns into.
  *
- * The names and briefs behind those parts are not laid out here. They are
- * Splice search prompts: ~1,500 words across four recipes, wanted when a search
- * came back wrong rather than while you are looking at a genre. Each sampled
- * part carries its own on hover, and rolling again is what shows you the rest
- * of the bench.
+ * The names and briefs behind those parts are not laid out anywhere here. They
+ * are Splice search prompts: ~1,500 words across four recipes, wanted when a
+ * search came back wrong rather than while you are looking at a genre. Each
+ * rolled part carries its own on hover, and rolling again is what walks you
+ * through the rest of the bench.
  *
  * Read-only but for the forget. Nothing here writes a recipe — they arrive on
  * the stream when something asks for a band in a genre mate has none for, which
@@ -28,7 +27,14 @@ import { useRecipes } from "../../lib/useRecipes";
  */
 export default function RecipesPage() {
   const { recipes, loading, busy, lastError, remove } = useRecipes();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [seed, setSeed] = useState(0);
+
+  // Derived rather than stored, so forgetting the selected recipe falls back to
+  // the next one instead of emptying the panel — and so the first card is
+  // selected on arrival without an effect to put it there.
+  const selected = recipes.find((recipe) => recipe.id === selectedId) ?? recipes[0] ?? null;
 
   async function destroy(id: string) {
     setConfirmId(null);
@@ -46,25 +52,27 @@ export default function RecipesPage() {
     >
       <ErrorNote message={lastError} />
 
-      <section className="flex flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
-        <PanelHeader title="written recipes" level={3} count={recipes.length > 0 ? recipes.length : undefined} />
-        {loading ? (
-          <p className="text-xs text-muted">Loading…</p>
-        ) : recipes.length === 0 ? (
-          <p className="text-xs text-muted">
-            {lastError
-              ? "Could not load recipes — see the error above."
-              : "Nothing written yet. Mate ships no recipes: ask for a band in a genre on the bands page, or ask the bandmate for one, and its recipe is written here first."}
-          </p>
-        ) : (
-          // The column is a third of the page, so the grid measures itself, not
-          // the viewport — the same container query the band cards use.
-          <div className="@container">
-            <ul className="grid grid-cols-1 gap-2 @min-[34rem]:grid-cols-2 @min-[54rem]:grid-cols-3">
+      {loading ? (
+        <p className="text-xs text-muted">Loading…</p>
+      ) : recipes.length === 0 ? (
+        <p className="text-xs text-muted">
+          {lastError
+            ? "Could not load recipes — see the error above."
+            : "Nothing written yet. Mate ships no recipes: ask for a band in a genre on the bands page, or ask the bandmate for one, and its recipe is written here first."}
+        </p>
+      ) : (
+        // The column is a third of the page, so everything here measures itself
+        // rather than the viewport — the same container query the band cards
+        // use. Narrow, the sample sits under the grid; wide, it sits beside it.
+        <div className="@container">
+          <div className="flex flex-col gap-2 @min-[40rem]:flex-row">
+            <ul className="grid min-w-0 flex-1 grid-cols-1 gap-2 @min-[34rem]:grid-cols-2 @min-[62rem]:grid-cols-3">
               {recipes.map((recipe) => (
                 <RecipeCard
                   key={recipe.id}
                   recipe={recipe}
+                  selected={selected?.id === recipe.id}
+                  onSelect={() => setSelectedId(recipe.id)}
                   busy={busy}
                   confirming={confirmId === recipe.id}
                   onConfirm={() => setConfirmId(recipe.id)}
@@ -73,9 +81,18 @@ export default function RecipesPage() {
                 />
               ))}
             </ul>
+            {selected ? (
+              // Sticky against the workspace column's own scroller, so the band
+              // stays put while you run down the genres.
+              <SamplePanel
+                recipe={selected}
+                seed={seed}
+                onRoll={() => setSeed(freshSeed)}
+              />
+            ) : null}
           </div>
-        )}
-      </section>
+        </div>
+      )}
     </WorkspacePanel>
   );
 }
@@ -85,29 +102,15 @@ function freshSeed(): number {
   return Math.floor(Math.random() * 2_147_483_647);
 }
 
-interface CardProps {
-  recipe: BandRecipe;
-  busy: boolean;
-  confirming: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-  onDelete: () => void;
-}
-
-function RecipeCard({ recipe, busy, confirming, onConfirm, onCancel, onDelete }: CardProps) {
-  const [seed, setSeed] = useState(0);
-  const roles = recipeRoles(recipe);
-  const min = recipe.core.length;
-  const max = min + recipe.optional.length;
-
-  /**
-   * One band actually rolled from this recipe. Free — `generateBand` is pure —
-   * and it says in four names what a page of briefs cannot: what you get.
-   *
-   * The seed is held rather than fixed so it can be rolled again, and it is
-   * shown because it is the handle: the same seed and genre on the bands page
-   * staff this exact roster, since that route runs this same function.
-   */
+/**
+ * The selected recipe, rolled. Free — `generateBand` is pure — and it says in
+ * four names what a page of briefs cannot: what you get.
+ *
+ * The seed is shown because it is the handle, not decoration: `POST
+ * /bands/generate` runs this very function, so the same seed and genre staff
+ * this exact roster for real. Nothing on this page saves anything.
+ */
+function SamplePanel({ recipe, seed, onRoll }: { recipe: BandRecipe; seed: number; onRoll: () => void }) {
   const sample = useMemo<BandPart[]>(() => {
     try {
       return generateBand({ seed, genre: recipe.id }, oneRecipe(recipe)).parts;
@@ -116,14 +119,85 @@ function RecipeCard({ recipe, busy, confirming, onConfirm, onCancel, onDelete }:
     }
   }, [recipe, seed]);
 
+  return (
+    <aside className="flex shrink-0 flex-col gap-2 self-start rounded-sm border border-accent/40 bg-panel-2 p-2.5 @min-[40rem]:sticky @min-[40rem]:top-0 @min-[40rem]:w-60">
+      <div className="flex flex-col gap-1">
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted/50">a band from</span>
+        <h3 className="truncate text-sm font-medium text-accent" title={recipe.genre}>
+          {recipe.genre}
+        </h3>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <button
+          type="button"
+          onClick={onRoll}
+          title="Roll another band from this recipe. Nothing is saved — the bands page is where one is kept."
+          className="rounded-sm border border-accent-2/60 px-2 py-0.5 font-mono text-[11px] text-accent-2"
+        >
+          ↻ roll again
+        </button>
+        <span
+          className="font-mono text-[10px] text-muted/50"
+          title={`rolled from seed ${seed} — generate with it on the bands page to staff this roster for real`}
+        >
+          #{seed}
+        </span>
+      </div>
+
+      {sample.length > 0 ? (
+        <BandRoster parts={sample} compact />
+      ) : (
+        <p className="text-xs text-muted">This recipe could not be rolled.</p>
+      )}
+    </aside>
+  );
+}
+
+interface CardProps {
+  recipe: BandRecipe;
+  selected: boolean;
+  onSelect: () => void;
+  busy: boolean;
+  confirming: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+  onDelete: () => void;
+}
+
+/** Full class strings only — Tailwind cannot see interpolated names. */
+const CARD_CLASS = {
+  on: "flex cursor-pointer flex-col gap-2 rounded-sm border border-accent/60 bg-accent/10 p-2.5",
+  off: "flex cursor-pointer flex-col gap-2 rounded-sm border border-line bg-panel p-2.5 hover:border-line/80 hover:bg-panel-2",
+};
+
+function RecipeCard({ recipe, selected, onSelect, busy, confirming, onConfirm, onCancel, onDelete }: CardProps) {
+  const roles = recipeRoles(recipe);
   const odds = useMemo(() => partOdds(recipe), [recipe]);
+  const min = recipe.core.length;
+  const max = min + recipe.optional.length;
 
   return (
-    <li className="flex flex-col gap-2 rounded-sm border border-line bg-panel p-2.5">
+    // Anywhere on the card selects it, which is the mouse affordance. The
+    // keyboard one is the genre itself, a real button: nesting the forget
+    // control inside a `role="button"` card would make one interactive element
+    // swallow another, and give the li two contradictory roles at once.
+    <li onClick={onSelect} className={selected ? CARD_CLASS.on : CARD_CLASS.off}>
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h4 className="truncate text-sm font-medium" title={recipe.genre}>
-            {recipe.genre}
+          <h4 className="truncate text-sm font-medium">
+            <button
+              type="button"
+              aria-pressed={selected}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect();
+              }}
+              title={recipe.genre}
+              className="block w-full truncate text-left"
+            >
+              {recipe.genre}
+            </button>
           </h4>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="font-mono text-[10px] text-muted/70">
@@ -137,63 +211,40 @@ function RecipeCard({ recipe, busy, confirming, onConfirm, onCancel, onDelete }:
             </span>
           </div>
         </div>
-        {confirming ? (
-          <span className="flex shrink-0 items-center gap-1.5">
+        <span className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          {confirming ? (
+            <>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={onDelete}
+                title="the next band in this genre has a new recipe written, which costs a model call"
+                className="rounded-sm border border-audio/60 px-2 py-0.5 text-[11px] font-medium text-audio disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                forget?
+              </button>
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted"
+              >
+                cancel
+              </button>
+            </>
+          ) : (
             <button
               type="button"
               disabled={busy}
-              onClick={onDelete}
-              title="the next band in this genre has a new recipe written, which costs a model call"
-              className="rounded-sm border border-audio/60 px-2 py-0.5 text-[11px] font-medium text-audio disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={onConfirm}
+              className="rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted hover:text-audio disabled:cursor-not-allowed disabled:opacity-40"
             >
-              forget?
+              forget
             </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted"
-            >
-              cancel
-            </button>
-          </span>
-        ) : (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onConfirm}
-            className="shrink-0 rounded-sm border border-line px-2 py-0.5 text-[11px] text-muted hover:text-audio disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            forget
-          </button>
-        )}
+          )}
+        </span>
       </div>
 
       <PartOdds odds={odds} />
-
-      {sample.length > 0 ? (
-        <div className="flex flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted/50">a band from this recipe</span>
-            <span className="ml-auto flex items-center gap-1.5">
-              <span
-                className="font-mono text-[10px] text-muted/50"
-                title={`rolled from seed ${seed} — generate with it on the bands page to staff this roster for real`}
-              >
-                #{seed}
-              </span>
-              <button
-                type="button"
-                onClick={() => setSeed(freshSeed)}
-                title="Roll another band from this recipe. Nothing is saved — the bands page is where one is kept."
-                className="rounded-sm border border-accent-2/60 px-1.5 py-0.5 font-mono text-[10px] text-accent-2"
-              >
-                ↻ roll again
-              </button>
-            </span>
-          </div>
-          <BandRoster parts={sample} compact />
-        </div>
-      ) : null}
     </li>
   );
 }
