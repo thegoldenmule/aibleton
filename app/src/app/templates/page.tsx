@@ -198,8 +198,19 @@ export default function TemplatesPage() {
     <WorkspacePanel title="templates" meta={loading ? "loading…" : `${templates.length} saved`}>
       <ErrorNote message={lastError} />
 
-      {/* `shrink-0` on the three sections: the column's scroller is what gives,
-          not the generator's fields or the grid below it. */}
+      {/* Two panes, and the **left** one owns the scroller rather than the panel.
+          That is what makes the inspector the height of the column instead of
+          the height of its own contents: the row is the only thing in the panel
+          body taking flex space, so it resolves to the visible height and the
+          aside stretches to it. Everything that scrolls — the generator, a
+          draft, the cards — is inside the left pane, so the inspector stays put
+          while you move through them.
+
+          `shrink-0` on the three sections: the left pane's scroller is what
+          gives, not the generator's fields or the grid below it. */}
+      <div className="@container flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 @min-[40rem]:flex-row">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
       <section className="flex shrink-0 flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
         <PanelHeader title="generator" level={3} />
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
@@ -353,42 +364,31 @@ export default function TemplatesPage() {
             {lastError ? "Could not load templates — see the error above." : "Nothing saved yet. Generate a form above, then save it."}
           </p>
         ) : (
-          // Three library pages, one idiom: the column is a third of the page,
-          // so the grid measures itself with a container query rather than the
-          // viewport. Two columns at most, unlike bands — a form strip wants the
-          // width a roster does not.
-          <div className="@container">
-            {/* Content-height, deliberately: the generator above it (and a draft,
-                when one is open) come first in the workspace column's scroller,
-                so free space there is already negative. A `flex-1` row would
-                shrink by `1 × 0` — absorbing none of the deficit — and with
-                `min-h-0` removing the content floor it would resolve to nothing
-                and take the grid with it. So the row grows with its cards and
-                the panel's scroller, the column's only one, does the scrolling;
-                the inspector rides along pinned instead of stretched. Sticky
-                only at the row breakpoint: stacked, the cross axis flips and
-                `items-start` would collapse the aside to its text. */}
-            <div className="flex flex-col gap-2 @min-[40rem]:flex-row @min-[40rem]:items-start">
-              <ul className="grid min-w-0 flex-1 auto-rows-min grid-cols-1 gap-2 @min-[47rem]:grid-cols-2">
-                {templates.map((template) => (
-                  <TemplateCard
-                    key={template.id}
-                    template={template}
-                    selected={selected?.id === template.id}
-                    onSelect={() => setSelectedId(template.id)}
-                    busy={busy}
-                    confirming={confirmId === template.id}
-                    onConfirm={() => setConfirmId(template.id)}
-                    onCancel={() => setConfirmId(null)}
-                    onDelete={() => void destroy(template.id)}
-                  />
-                ))}
-              </ul>
-              {selected ? <TemplateInspector template={selected} /> : null}
-            </div>
-          </div>
+          // Three library pages, one idiom: a container query sizes the grid
+          // against the panel — which the inspector takes 18rem out of — rather
+          // than the viewport. Two columns at most, unlike bands: a form strip
+          // wants the width a roster does not.
+          <ul className="grid auto-rows-min grid-cols-1 gap-2 @min-[47rem]:grid-cols-2">
+            {templates.map((template) => (
+              <TemplateCard
+                key={template.id}
+                template={template}
+                selected={selected?.id === template.id}
+                onSelect={() => setSelectedId(template.id)}
+                busy={busy}
+                confirming={confirmId === template.id}
+                onConfirm={() => setConfirmId(template.id)}
+                onCancel={() => setConfirmId(null)}
+                onDelete={() => void destroy(template.id)}
+              />
+            ))}
+          </ul>
         )}
       </section>
+          </div>
+          {selected ? <TemplateInspector template={selected} /> : null}
+        </div>
+      </div>
     </WorkspacePanel>
   );
 }
@@ -529,12 +529,13 @@ function TemplateInspector({ template }: { template: Template }) {
   return (
     // The frame every other panel wears, and the rhythm too: `PanelHeader` owns
     // the rule under the title and its own padding, so the body pads nothing and
-    // each section carries the same full-bleed rule instead. No overflow-y-auto
-    // — the workspace column owns the one scroller.
-    <aside className="flex shrink-0 flex-col overflow-hidden rounded-md border border-line bg-panel @min-[40rem]:sticky @min-[40rem]:top-0 @min-[40rem]:w-72">
+    // each section carries the same full-bleed rule instead.
+    <aside className="flex shrink-0 flex-col overflow-hidden rounded-md border border-line bg-panel @min-[40rem]:w-72">
       <PanelHeader title="inspector" />
 
-      <div className="flex flex-col">
+      {/* The pane's own scroller under a header that stays put. It engages only
+          once the row has a definite height, so the stacked layout still flows. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="flex flex-col gap-0.5 border-b border-line px-3 py-2.5">
           <h3 className="truncate text-sm font-medium text-accent" title={template.name}>
             {template.name}

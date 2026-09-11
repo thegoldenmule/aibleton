@@ -261,8 +261,19 @@ export default function BandsPage() {
     <WorkspacePanel title="bands" meta={loading ? "loading…" : `${bands.length} saved`}>
       <ErrorNote message={lastError} />
 
-      {/* `shrink-0` on the three sections: the column's scroller is what gives,
-          not the generator's fields or the grid below it. */}
+      {/* Two panes, and the **left** one owns the scroller rather than the panel.
+          That is what makes the inspector the height of the column instead of
+          the height of its own contents: the row is the only thing in the panel
+          body taking flex space, so it resolves to the visible height and the
+          aside stretches to it. Everything that scrolls — the generator, a
+          draft, the cards — is inside the left pane, so the inspector stays put
+          while you move through them.
+
+          `shrink-0` on the three sections: the left pane's scroller is what
+          gives, not the generator's fields or the grid below it. */}
+      <div className="@container flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 @min-[40rem]:flex-row">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
       <section className="flex shrink-0 flex-col gap-2 rounded-sm border border-line bg-panel-2 p-2.5">
         <PanelHeader title="generator" level={3} />
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -553,41 +564,30 @@ export default function BandsPage() {
             {lastError ? "Could not load bands — see the error above." : "Nothing saved yet. Generate a band above, then save it."}
           </p>
         ) : (
-          // The column is a third of the page, so the row measures itself, not
-          // the viewport: a container query keeps one card per row beside a wide
-          // conversation pane and three across on a full-width window.
-          <div className="@container">
-            {/* Content-height, deliberately: the generator above it (and a draft,
-                when one is open) come first in the workspace column's scroller,
-                so free space there is already negative. A `flex-1` row would
-                shrink by `1 × 0` — absorbing none of the deficit — and with
-                `min-h-0` removing the content floor it would resolve to nothing
-                and take the grid with it. So the row grows with its cards and
-                the panel's scroller, the column's only one, does the scrolling;
-                the inspector rides along pinned instead of stretched. Sticky
-                only at the row breakpoint: stacked, the cross axis flips and
-                `items-start` would collapse the aside to its text. */}
-            <div className="flex flex-col gap-2 @min-[40rem]:flex-row @min-[40rem]:items-start">
-              <ul className="grid min-w-0 flex-1 auto-rows-min grid-cols-1 gap-2 @min-[47rem]:grid-cols-2 @min-[62rem]:grid-cols-3">
-                {visible.map((band) => (
-                  <BandCard
-                    key={band.id}
-                    band={band}
-                    selected={selected?.id === band.id}
-                    onSelect={() => setSelectedId(band.id)}
-                    busy={busy}
-                    confirming={confirmId === band.id}
-                    onConfirm={() => setConfirmId(band.id)}
-                    onCancel={() => setConfirmId(null)}
-                    onDelete={() => void destroy(band.id)}
-                  />
-                ))}
-              </ul>
-              {selected ? <BandInspector band={selected} /> : null}
-            </div>
-          </div>
+          // A container query keeps one card per row beside a wide conversation
+          // pane and three across on a full-width window. It measures the panel,
+          // which the inspector takes 18rem out of.
+          <ul className="grid auto-rows-min grid-cols-1 gap-2 @min-[47rem]:grid-cols-2 @min-[62rem]:grid-cols-3">
+            {visible.map((band) => (
+              <BandCard
+                key={band.id}
+                band={band}
+                selected={selected?.id === band.id}
+                onSelect={() => setSelectedId(band.id)}
+                busy={busy}
+                confirming={confirmId === band.id}
+                onConfirm={() => setConfirmId(band.id)}
+                onCancel={() => setConfirmId(null)}
+                onDelete={() => void destroy(band.id)}
+              />
+            ))}
+          </ul>
         )}
       </section>
+          </div>
+          {selected ? <BandInspector band={selected} /> : null}
+        </div>
+      </div>
     </WorkspacePanel>
   );
 }
@@ -747,12 +747,13 @@ function BandInspector({ band }: { band: Band }) {
   return (
     // The frame every other panel wears, and the rhythm too: `PanelHeader` owns
     // the rule under the title and its own padding, so the body pads nothing and
-    // each section carries the same full-bleed rule instead. No overflow-y-auto
-    // — the workspace column owns the one scroller.
-    <aside className="flex shrink-0 flex-col overflow-hidden rounded-md border border-line bg-panel @min-[40rem]:sticky @min-[40rem]:top-0 @min-[40rem]:w-72">
+    // each section carries the same full-bleed rule instead.
+    <aside className="flex shrink-0 flex-col overflow-hidden rounded-md border border-line bg-panel @min-[40rem]:w-72">
       <PanelHeader title="inspector" />
 
-      <div className="flex flex-col">
+      {/* The pane's own scroller under a header that stays put. It engages only
+          once the row has a definite height, so the stacked layout still flows. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="flex flex-col gap-0.5 border-b border-line px-3 py-2.5">
           <h3 className="truncate text-sm font-medium text-accent" title={band.name}>
             {band.name}
